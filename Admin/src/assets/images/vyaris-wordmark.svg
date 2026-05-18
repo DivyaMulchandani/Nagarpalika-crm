@@ -1,0 +1,14 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 480 120" fill="none">
+  <g transform="translate(20,10)">
+    <g stroke="currentColor" stroke-width="7" stroke-linecap="round" stroke-linejoin="round" fill="none">
+      <path d="M50 50 C 30 45, 18 30, 23 20 C 30 10, 45 20, 50 50 Z"></path>
+      <path d="M50 50 C 70 45, 82 30, 77 20 C 70 10, 55 20, 50 50 Z"></path>
+      <path d="M50 50 C 30 55, 18 70, 23 80 C 30 90, 45 80, 50 50 Z"></path>
+      <path d="M50 50 C 70 55, 82 70, 77 80 C 70 90, 55 80, 50 50 Z"></path>
+      <path d="M20 15 L 80 85"></path>
+      <path d="M80 15 L 20 85"></path>
+    </g>
+  </g>
+  <text x="120" y="72" font-family="Barlow, &#39;Barlow Condensed&#39;, Impact, sans-serif" font-weight="800" font-size="64" letter-spacing="-0.02em" fill="currentColor">VYARIS</text>
+</svg>

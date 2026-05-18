@@ -1,0 +1,29 @@
+.icon-picker-wrapper {
+    position: relative;
+}
+
+.icon-picker-toggle {
+    text-align: left !important;
+}
+
+.icon-picker-toggle:hover {
+    background-color: #f8f9fa !important;
+    border-color: #009069 !important;
+}
+
+.icon-picker-toggle:focus {
+    box-shadow: 0 0 0 0.2rem rgba(0, 144, 105, 0.25) !important;
+}
+
+.icon-picker-menu {
+    min-width: 100%;
+}
+
+.icon-item:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+}
+
+.icon-item.active {
+    font-weight: 600;
+}

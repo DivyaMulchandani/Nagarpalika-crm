@@ -1,0 +1,151 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Careers — Government of Gujarat</title>
+<link rel="icon" href="assets/favicon.svg">
+<link rel="stylesheet" href="site.css">
+
+<script src="https://unpkg.com/react@18.3.1/umd/react.development.js" integrity="sha384-hD6/rw4ppMLGNu3tX5cjIb+uRZ7UkRJ6BPkLpg4hAu/6onKUg4lLsHAs9EBPT82L" crossorigin="anonymous"></script>
+<script src="https://unpkg.com/react-dom@18.3.1/umd/react-dom.development.js" integrity="sha384-u6aeetuaXnQ38mYT8rp6sbXaQe3NL9t+IBXmnYxwkUI2Hw4bsp2Wvmx4yRQF1uAm" crossorigin="anonymous"></script>
+<script src="https://unpkg.com/@babel/standalone@7.29.0/babel.min.js" integrity="sha384-m08KidiNqLdpJqLq95G/LEi8Qvjl/xUYll3QILypMoQ65QorJ9Lvtp2RXYGBFj1y" crossorigin="anonymous"></script>
+</head>
+<body data-page="careers">
+
+<div data-include="header"></div>
+
+<main id="main" class="container">
+
+  <div class="page-heading">
+    <h1 data-i18n="car.h">List of Advertisements which are accepting Online Application</h1>
+    <span class="guj" data-i18n="car.guj">ઓનલાઇન અરજી સ્વીકારતી જાહેરાતોની યાદી</span>
+  </div>
+
+  <div class="advt-banner">
+    <div>
+      <div class="meta" style="text-transform:uppercase;letter-spacing:.1em;">Advertisement No.</div>
+      <div class="num">UD / 2026 / 04</div>
+    </div>
+    <div class="meta" style="text-align:right;">
+      Issued <strong>28/04/2026</strong><br>
+      Last Date: <strong style="color:#fff;">22/05/2026 — 23:59 IST</strong>
+    </div>
+  </div>
+
+  <div class="notice info">
+    <div class="title" data-i18n="car.notice.title">NOTE · નોંધ</div>
+    <span data-i18n="car.notice.body">Candidates are advised to read the advertisement carefully before applying online. Applications must be submitted through the Online Job Application System (OJAS). Government service rules and reservation policies of the State of Gujarat apply.</span>
+  </div>
+
+  <div id="careers-mount"></div>
+
+</main>
+
+<div data-include="footer"></div>
+
+<script src="site.js"></script>
+<script type="text/babel">
+const { useState } = React;
+
+const JOBS = [
+  { id:'UD/26/04-1', cls:'I',   title:'Town Planner', dept:'Town Planning & Valuation Department', posts:8,  scale:'₹56,100 – 1,77,500 (Level 10)', last:'22/05/2026', status:'active', fee:'Rs. 400/-' },
+  { id:'UD/26/04-2', cls:'I',   title:'Assistant Executive Engineer (Civil)', dept:'Roads & Buildings — Urban Wing', posts:14, scale:'₹56,100 – 1,77,500 (Level 10)', last:'22/05/2026', status:'active', fee:'Rs. 400/-' },
+  { id:'UD/26/04-3', cls:'I',   title:'Municipal Commissioner — Class A', dept:'Directorate of Municipalities', posts:3,  scale:'₹78,800 – 2,09,200 (Level 12)', last:'15/05/2026', status:'urgent', fee:'Rs. 400/-' },
+  { id:'UD/26/04-4', cls:'II',  title:'Junior Engineer (Civil)', dept:'Municipal Corporations & UDAs', posts:42, scale:'₹35,400 – 1,12,400 (Level 6)', last:'22/05/2026', status:'active', fee:'Rs. 200/-' },
+  { id:'UD/26/04-5', cls:'II',  title:'Town Planning Assistant', dept:'AUDA / SUDA / VUDA / GUDA', posts:16, scale:'₹35,400 – 1,12,400 (Level 6)', last:'22/05/2026', status:'active', fee:'Rs. 200/-' },
+  { id:'UD/26/04-6', cls:'II',  title:'Assistant Inspector — Building Permissions', dept:'Town Planning Office, Urban Wing', posts:11, scale:'₹35,400 – 1,12,400 (Level 6)', last:'20/05/2026', status:'urgent', fee:'Rs. 200/-' },
+  { id:'UD/26/04-7', cls:'II',  title:'Accounts Officer', dept:'Directorate of Urban Development', posts:6,  scale:'₹44,900 – 1,42,400 (Level 7)', last:'22/05/2026', status:'active', fee:'Rs. 200/-' },
+  { id:'UD/26/04-8', cls:'III', title:'Clerk-cum-Typist', dept:'Municipal Corporations & Sachivalaya', posts:28, scale:'₹19,900 – 63,200 (Level 2)', last:'22/05/2026', status:'new', fee:'Rs. 100/-' },
+  { id:'UD/26/04-9', cls:'III', title:'Surveyor / Draftsman', dept:'Town Planning Sub-Divisions', posts:9, scale:'₹25,500 – 81,100 (Level 4)', last:'20/05/2026', status:'active', fee:'Rs. 100/-' },
+  { id:'UD/26/04-10', cls:'III', title:'Data Entry Operator', dept:'e-Nagar Cell, Urban Development', posts:5, scale:'Contractual · ₹28,000 fixed', last:'18/05/2026', status:'urgent', fee:'Rs. 100/-' },
+];
+
+function Careers() {
+  const [filter, setFilter] = useState('all');
+  const visible = filter === 'all' ? JOBS : JOBS.filter(j => j.cls === filter);
+  const counts = {
+    all: JOBS.length,
+    I: JOBS.filter(j=>j.cls==='I').length,
+    II: JOBS.filter(j=>j.cls==='II').length,
+    III: JOBS.filter(j=>j.cls==='III').length,
+  };
+  const filters = [
+    { k:'all', l:'All', i:'car.filter.all' },
+    { k:'I',   l:'Class I', i:'car.filter.1' },
+    { k:'II',  l:'Class II', i:'car.filter.2' },
+    { k:'III', l:'Class III', i:'car.filter.3' },
+  ];
+
+  const statusLabel = s => s==='urgent' ? 'Closing Soon' : s==='new' ? 'New' : s==='closed' ? 'Closed' : 'Active';
+
+  return (
+    <div data-screen-label="01 Listings">
+      <div className="filter-row">
+        <span className="label" data-i18n="car.filter.label">Filter by Class</span>
+        {filters.map(f => (
+          <button key={f.k} className={'chip'+(filter===f.k?' active':'')} onClick={()=>setFilter(f.k)}>
+            <span data-i18n={f.i}>{f.l}</span>
+            <span className="count">({counts[f.k]})</span>
+          </button>
+        ))}
+      </div>
+
+      <div className="box">
+        <div className="box-title">
+          <span>Open Positions — Department of Urban Development</span>
+          <span className="guj">શહેરી વિકાસ વિભાગ — ખાલી જગ્યાઓ</span>
+        </div>
+        <table className="ojas">
+          <thead>
+            <tr>
+              <th style={{width:36}}>Sr.</th>
+              <th style={{width:110}}>Advt. No.</th>
+              <th>Name of Post</th>
+              <th style={{width:90}}>Class</th>
+              <th style={{width:60}}>Posts</th>
+              <th style={{width:70}}>Fee</th>
+              <th style={{width:90}}>Last Date</th>
+              <th style={{width:110}}>Status</th>
+              <th style={{width:90}}>Action</th>
+            </tr>
+          </thead>
+          <tbody>
+            {visible.map((j,i)=>(
+              <tr key={j.id}>
+                <td>{i+1}</td>
+                <td style={{fontFamily:'var(--font-mono)',fontSize:11.5}}>{j.id}</td>
+                <td>
+                  <a href="#">{j.title}</a>
+                  <div style={{fontSize:11,color:'var(--ojas-ink-3)',marginTop:2}}>{j.dept}</div>
+                  <div style={{fontSize:11,color:'var(--ojas-ink-2)',marginTop:2}}>Pay: {j.scale}</div>
+                </td>
+                <td style={{fontWeight:700}}>{j.cls}</td>
+                <td style={{textAlign:'center',fontWeight:700,color:'var(--ojas-navy)'}}>{j.posts}</td>
+                <td>{j.fee}</td>
+                <td style={{color:j.status==='urgent'?'var(--ojas-red)':'inherit',fontWeight:j.status==='urgent'?700:400}}>{j.last}</td>
+                <td><span className={'badge '+j.status}>{statusLabel(j.status)}</span></td>
+                <td>
+                  <a href="#" style={{color:'var(--ojas-saffron-deep)',fontWeight:700}} data-i18n="car.apply">Apply ▶</a>
+                </td>
+              </tr>
+            ))}
+            {visible.length===0 && (
+              <tr><td colSpan={9} style={{textAlign:'center',padding:'24px',color:'var(--ojas-ink-3)',fontStyle:'italic'}}>No positions match this filter.</td></tr>
+            )}
+          </tbody>
+        </table>
+      </div>
+
+      <div style={{marginTop:12, fontSize:11.5, color:'var(--ojas-ink-3)', textAlign:'center'}}>
+        OTR (One Time Registration) does <strong style={{color:'var(--ojas-red)'}}>NOT</strong> mean your application is accepted. <span style={{fontFamily:'var(--font-guj)'}}>OTR નો અર્થ એ નથી કે તમારી અરજી સ્વીકારાઈ ગઈ છે.</span>
+      </div>
+    </div>
+  );
+}
+
+ReactDOM.createRoot(document.getElementById('careers-mount')).render(<Careers/>);
+</script>
+
+</body>
+</html>

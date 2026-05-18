@@ -1,0 +1,32 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 120 160" role="img" aria-label="Government of Gujarat emblem (placeholder)">
+
+  <g fill="#000080">
+
+    <path d="M30 38 q-6 -10 0 -20 q6 -8 18 -8 h24 q12 0 18 8 q6 10 0 20 q-4 6 -12 8 v6 h-36 v-6 q-8 -2 -12 -8 z"></path>
+
+    <circle cx="38" cy="22" r="3"></circle><circle cx="46" cy="18" r="3"></circle>
+    <circle cx="74" cy="18" r="3"></circle><circle cx="82" cy="22" r="3"></circle>
+    <circle cx="60" cy="14" r="3"></circle>
+
+    <circle cx="44" cy="28" r="1.2" fill="#fff"></circle>
+    <circle cx="76" cy="28" r="1.2" fill="#fff"></circle>
+
+    <rect x="20" y="58" width="80" height="6"></rect>
+
+    <circle cx="60" cy="80" r="14" fill="none" stroke="#000080" stroke-width="2"></circle>
+    <g stroke="#000080" stroke-width="1.4">
+      <line x1="60" y1="66" x2="60" y2="94"></line>
+      <line x1="46" y1="80" x2="74" y2="80"></line>
+      <line x1="50" y1="70" x2="70" y2="90"></line>
+      <line x1="70" y1="70" x2="50" y2="90"></line>
+    </g>
+
+    <path d="M14 64 q4 -4 10 -4 q4 0 6 4 v6 h-16 z"></path>
+    <path d="M106 64 q-4 -4 -10 -4 q-4 0 -6 4 v6 h16 z"></path>
+
+    <path d="M30 100 q12 -8 30 -8 q18 0 30 8 q-6 10 -30 10 q-24 0 -30 -10 z"></path>
+  </g>
+
+  <text x="60" y="128" font-family="Noto Sans, Verdana, Arial, sans-serif" font-size="10" font-weight="700" fill="#000080" text-anchor="middle">सत्यमेव जयते</text>
+  <text x="60" y="144" font-family="Noto Sans, Verdana, Arial, sans-serif" font-size="7" fill="#3A3A3A" text-anchor="middle">GOVERNMENT OF GUJARAT</text>
+</svg>

@@ -1,0 +1,52 @@
+# ============ Dependencies ============
+node_modules/
+
+# ============ Environment Files (CRITICAL - Never commit!) ============
+.env
+.env.*
+!.env.example
+*.env.local
+
+# ============ Logs ============
+log/
+logs/
+*.log
+npm-debug.log*
+
+# ============ Security Sensitive Files ============
+*.pem
+*.key
+*.crt
+*.p12
+*.pfx
+secrets/
+.secrets/
+credentials/
+config/secrets.js
+config/keys.js
+
+# ============ IDE & Editor Files ============
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# ============ OS Files ============
+.DS_Store
+Thumbs.db
+
+# ============ Build & Cache ============
+dist/
+build/
+.cache/
+coverage/
+
+# ============ Uploads (if sensitive) ============
+# Uncomment if uploads contain sensitive data
+# uploads/
+
+# ============ Temp Files ============
+*.tmp
+*.temp
+.temp/

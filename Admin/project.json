@@ -1,0 +1,47 @@
+{
+  "name": "hms-admin",
+  "$schema": "../node_modules/nx/schemas/project-schema.json",
+  "sourceRoot": "hms-admin/src",
+  "projectType": "application",
+  "targets": {
+    "dev": {
+      "executor": "nx:run-commands",
+      "options": {
+        "cwd": "hms-admin",
+        "command": "bun run dev"
+      }
+    },
+    "start": {
+      "executor": "nx:run-commands",
+      "options": {
+        "cwd": "hms-admin",
+        "command": "bun run start"
+      }
+    },
+    "build": {
+      "executor": "nx:run-commands",
+      "options": {
+        "cwd": "hms-admin",
+        "command": "bun run build"
+      },
+      "outputs": [
+        "{projectRoot}/build"
+      ]
+    },
+    "lint": {
+      "executor": "nx:run-commands",
+      "options": {
+        "cwd": "hms-admin",
+        "command": "bun run lint"
+      }
+    },
+    "test": {
+      "executor": "nx:run-commands",
+      "options": {
+        "cwd": "hms-admin",
+        "command": "bun run test"
+      }
+    }
+  },
+  "tags": []
+}
