@@ -124,14 +124,7 @@ app.use(session({
 console.log("✅ Express session middleware configured (MongoDB storage)");
 
 // ============ STATIC FILE SERVING ============
-// SECURITY: Patient documents contain PHI; require authenticated session before serving.
-// Other uploads (companyMaster logo/favicon, employee photos) remain public for branding.
-app.use("/uploads/patients", (req, res, next) => {
-  if (!req.session?.user?.id) {
-    return res.status(401).json({ isOk: false, status: 401, message: "Unauthorized" });
-  }
-  next();
-}, express.static("uploads/patients"));
+// Candidate documents (photo, signature) served via authenticated API endpoint — not static.
 app.use("/uploads", express.static("uploads"));
 // NOTE: Removed /log static serving for security - logs should not be publicly accessible
 
@@ -179,7 +172,6 @@ setupSwagger(app);
 // ============ V1 ROUTES ============
 // Import v1 routes
 import companiesRoutes from "./routes/v1/companies.routes.js";
-import currenciesRoutes from "./routes/v1/currencies.routes.js";
 import departmentsRoutes from "./routes/v1/departments.routes.js";
 import emailsRoutes from "./routes/v1/emails.routes.js";
 import employeeRolesRoutes from "./routes/v1/employeeRoles.routes.js";
@@ -189,17 +181,10 @@ import menusRoutes from "./routes/v1/menus.routes.js";
 import rolesRoutes from "./routes/v1/roles.routes.js";
 import otpRoutes from "./routes/v1/otp.routes.js";
 import masterDataRoutes from "./routes/v1/masterData.routes.js";
-import doctorsRoutes from "./routes/v1/doctors.routes.js";
-import patientsRoutes from "./routes/v1/patients.routes.js";
-import appointmentsRoutes from "./routes/v1/appointments.routes.js";
-import treatmentPlansRoutes from "./routes/v1/treatmentPlans.routes.js";
-import invoicesRoutes from "./routes/v1/invoices.routes.js";
 import analyticsRoutes from "./routes/v1/analytics.routes.js";
-import prescriptionsRoutes from "./routes/v1/prescriptions.routes.js";
 import whatsappRoutes from "./routes/v1/whatsapp.routes.js";
 
 app.use("/api/v1", companiesRoutes);
-app.use("/api/v1", currenciesRoutes);
 app.use("/api/v1", departmentsRoutes);
 app.use("/api/v1", emailsRoutes);
 app.use("/api/v1", employeeRolesRoutes);
@@ -207,13 +192,7 @@ app.use("/api/v1", employeesRoutes);
 app.use("/api/v1", locationsRoutes);
 app.use("/api/v1", menusRoutes);
 app.use("/api/v1", rolesRoutes);
-app.use("/api/v1", doctorsRoutes);
-app.use("/api/v1", patientsRoutes);
-app.use("/api/v1", appointmentsRoutes);
-app.use("/api/v1", treatmentPlansRoutes);
-app.use("/api/v1", invoicesRoutes);
 app.use("/api/v1", analyticsRoutes);
-app.use("/api/v1", prescriptionsRoutes);
 app.use("/api/v1", whatsappRoutes);
 app.use("/api/v1/otp", otpRoutes);
 app.use("/api/v1/master-data", masterDataRoutes);

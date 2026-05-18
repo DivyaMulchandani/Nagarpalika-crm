@@ -1,7 +1,7 @@
 export const ROLES = Object.freeze({
   ADMIN: "ADMIN",
   EMPLOYEE: "EMPLOYEE",
-  DOCTOR: "DOCTOR",
+  DEPT_ADMIN: "DEPT_ADMIN",
 });
 
 export default ROLES;

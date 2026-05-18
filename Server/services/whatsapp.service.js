@@ -239,154 +239,28 @@ export const processStatusWebhook = async (metaMessageId, status, timestamp) => 
 // Pre-built trigger functions
 // ============================================================
 
-/**
- * Send appointment reminder
- */
-export const sendAppointmentReminder = async (appointment, patient, doctor) => {
-  if (!patient?.mobileNumber) return null;
-  if (!(await isTriggerEnabled("appointmentReminder"))) return null;
-
-  const config = await getWhatsAppConfig();
-  const templateName = config?.templates?.appointmentReminder || "appointment_reminder";
-
-  const dateStr = new Date(appointment.appointmentDate).toLocaleDateString("en-IN", {
-    day: "2-digit",
-    month: "short",
-    year: "numeric",
-  });
-
-  return sendWhatsAppMessage({
-    patientId: patient._id,
-    appointmentId: appointment._id,
-    recipientPhone: patient.mobileNumber,
-    recipientName: `${patient.firstName} ${patient.lastName}`.trim(),
-    triggerType: "appointment_reminder",
-    templateName,
-    templateParams: [
-      patient.firstName,
-      doctor?.doctorName || "Doctor",
-      dateStr,
-      appointment.startTime,
-    ],
-    messageBody: `Reminder: You have an appointment with ${doctor?.doctorName || "Doctor"} on ${dateStr} at ${appointment.startTime}.`,
-  });
-};
-
-/**
- * Send payment confirmation
- */
-export const sendPaymentConfirmation = async (payment, invoice, patient) => {
-  if (!patient?.mobileNumber) return null;
-  if (!(await isTriggerEnabled("paymentConfirmation"))) return null;
-
-  const config = await getWhatsAppConfig();
-  const templateName = config?.templates?.paymentConfirmation || "payment_confirmation";
-
-  return sendWhatsAppMessage({
-    patientId: patient._id,
-    invoiceId: invoice?._id,
-    paymentId: payment._id,
-    recipientPhone: patient.mobileNumber,
-    recipientName: `${patient.firstName} ${patient.lastName}`.trim(),
-    triggerType: "payment_confirmation",
-    templateName,
-    templateParams: [
-      patient.firstName,
-      payment.amount.toString(),
-      (invoice?.balanceAmount || 0).toString(),
-    ],
-    messageBody: `Payment of ₹${payment.amount} received. Remaining balance: ₹${invoice?.balanceAmount || 0}. Thank you!`,
-  });
-};
-
-/**
- * Send follow-up reminder
- */
-export const sendFollowUpReminder = async (appointment, patient, doctor) => {
-  if (!patient?.mobileNumber) return null;
-  if (!(await isTriggerEnabled("followUpReminder"))) return null;
-
-  const config = await getWhatsAppConfig();
-  const templateName = config?.templates?.followUpReminder || "follow_up_reminder";
-
-  const dateStr = appointment.nextAppointmentDate
-    ? new Date(appointment.nextAppointmentDate).toLocaleDateString("en-IN", {
-        day: "2-digit", month: "short", year: "numeric",
-      })
-    : "soon";
-
-  return sendWhatsAppMessage({
-    patientId: patient._id,
-    appointmentId: appointment._id,
-    recipientPhone: patient.mobileNumber,
-    recipientName: `${patient.firstName} ${patient.lastName}`.trim(),
-    triggerType: "follow_up_reminder",
-    templateName,
-    templateParams: [
-      patient.firstName,
-      doctor?.doctorName || "Doctor",
-      dateStr,
-      appointment.nextAppointmentReason || "follow-up",
-    ],
-    messageBody: `Hi ${patient.firstName}, your follow-up visit with ${doctor?.doctorName || "Doctor"} is scheduled for ${dateStr}. Reason: ${appointment.nextAppointmentReason || "follow-up"}.`,
-  });
-};
-
-/**
- * Send birthday wish
- */
-export const sendBirthdayWish = async (patient, clinicName) => {
-  if (!patient?.mobileNumber) return null;
-  if (!(await isTriggerEnabled("birthdayWish"))) return null;
-
-  const config = await getWhatsAppConfig();
-  const templateName = config?.templates?.birthdayWish || "birthday_wish";
-
-  return sendWhatsAppMessage({
-    patientId: patient._id,
-    recipientPhone: patient.mobileNumber,
-    recipientName: `${patient.firstName} ${patient.lastName}`.trim(),
-    triggerType: "birthday_wish",
-    templateName,
-    templateParams: [patient.firstName, clinicName || "Our Clinic"],
-    messageBody: `Happy Birthday, ${patient.firstName}! Wishing you good health and happiness. — ${clinicName || "Our Clinic"}`,
-  });
-};
-
-/**
- * Send no-show follow-up
- */
-export const sendNoShowFollowUp = async (appointment, patient) => {
-  if (!patient?.mobileNumber) return null;
-  if (!(await isTriggerEnabled("noShowFollowUp"))) return null;
-
-  const config = await getWhatsAppConfig();
-  const templateName = config?.templates?.noShowFollowUp || "no_show_follow_up";
-
-  return sendWhatsAppMessage({
-    patientId: patient._id,
-    appointmentId: appointment._id,
-    recipientPhone: patient.mobileNumber,
-    recipientName: `${patient.firstName} ${patient.lastName}`.trim(),
-    triggerType: "no_show_follow_up",
-    templateName,
-    templateParams: [patient.firstName],
-    messageBody: `Hi ${patient.firstName}, we missed you at your appointment today. Would you like to reschedule? Please contact us.`,
-  });
-};
+// ── Recruitment Portal Trigger Functions (Phase 1) ───────────────────────────
+// TODO Phase 1: Add these trigger functions when Candidate/Application models exist:
+//   sendOtpMessage(recipientPhone, otp)
+//   sendRegistrationIdIssued(candidate, registrationId)
+//   sendApplicationSubmitted(candidate, applicationRefNo, postTitle)
+//   sendFeePaymentReceipt(candidate, payment, advtNo)
+//   sendCallLetterPublished(candidate, advtNo)
+//   sendBulkExportReady(adminEmail, downloadLink)
 
 /**
  * Send bulk broadcast message
+ * recipients: [{ recipientPhone, recipientName, recipientId? }]
  */
-export const sendBulkBroadcast = async (patients, templateName, templateParams, messageBody, createdBy) => {
+export const sendBulkBroadcast = async (recipients, templateName, templateParams, messageBody, createdBy) => {
   const results = [];
-  for (const patient of patients) {
-    if (!patient.mobileNumber) continue;
+  for (const recipient of recipients) {
+    if (!recipient.recipientPhone) continue;
     try {
       const result = await sendWhatsAppMessage({
-        patientId: patient._id,
-        recipientPhone: patient.mobileNumber,
-        recipientName: `${patient.firstName} ${patient.lastName}`.trim(),
+        recipientId: recipient.recipientId || null,
+        recipientPhone: recipient.recipientPhone,
+        recipientName: recipient.recipientName || "",
         triggerType: "bulk_broadcast",
         templateName,
         templateParams,
@@ -394,10 +268,9 @@ export const sendBulkBroadcast = async (patients, templateName, templateParams, 
         createdBy,
       });
       results.push(result);
-      // Rate limiting: small delay between messages
-      await new Promise((r) => setTimeout(r, 100));
+      await new Promise((r) => setTimeout(r, 100)); // rate limiting
     } catch {
-      // continue with next
+      // continue with next recipient
     }
   }
   return results;

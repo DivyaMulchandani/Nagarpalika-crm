@@ -20,6 +20,14 @@ Format: [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 - Static SVG assets moved to `public/assets/` for Vite static serving
 - `CHANGELOG.md` — this file
 
+### Removed
+- All HMS (Hospital Management System) code from Admin and Server: Patient, Doctor, Appointment, Invoice, TreatmentPlan, Prescription, CurrencyMaster models, routes, and controllers (60+ files deleted)
+- HMS-specific WhatsApp trigger functions (appointment reminder, follow-up, birthday wish, no-show); replaced with recruitment notification stubs
+- DOCTOR role replaced with DEPT_ADMIN across roles constant, seed script, and analytics route guards
+- Demo/template auth pages (`AuthenticationInner/`) removed from Admin panel
+- `doctorScope` middleware deleted; replaced with `roleScope` (department-scoped queries for DEPT_ADMIN)
+- Stale root-level source files removed (previously moved to `Web/` subfolder)
+
 ### Changed
 - Moved public portal source from repo root into `Web/` subfolder
 - `Admin/src/config.jsx` reads API base URL from `VITE_API_URL` env var (was hardcoded to `hms.vyaris.com`)

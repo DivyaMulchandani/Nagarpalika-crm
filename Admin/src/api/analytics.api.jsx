@@ -5,26 +5,7 @@ export const getDashboardStats = async (params) => {
     return await api.get(ENDPOINTS.ANALYTICS.DASHBOARD, { params });
 };
 
-export const getDoctorDashboardStats = async () => {
-    return await api.get(ENDPOINTS.ANALYTICS.DOCTOR_DASHBOARD);
-};
-
-export const getAppointmentSummaryReport = async (params) => {
-    return await api.get(ENDPOINTS.ANALYTICS.REPORT_APPOINTMENTS, { params });
-};
-
-export const getRevenueReport = async (params) => {
-    return await api.get(ENDPOINTS.ANALYTICS.REPORT_REVENUE, { params });
-};
-
-export const getPatientReport = async (params) => {
-    return await api.get(ENDPOINTS.ANALYTICS.REPORT_PATIENTS, { params });
-};
-
-export const getFollowUpReport = async (params) => {
-    return await api.get(ENDPOINTS.ANALYTICS.REPORT_FOLLOW_UPS, { params });
-};
-
-export const getDoctorUtilizationReport = async (params) => {
-    return await api.get(ENDPOINTS.ANALYTICS.REPORT_DOCTOR_UTILIZATION, { params });
-};
+// TODO Phase 1: Add recruitment-specific report functions:
+// export const getApplicationsReport  = async (params) => api.get(ENDPOINTS.ANALYTICS.REPORT_APPLICATIONS, { params });
+// export const getCandidatesReport    = async (params) => api.get(ENDPOINTS.ANALYTICS.REPORT_CANDIDATES,   { params });
+// export const getFeeCollectionReport = async (params) => api.get(ENDPOINTS.ANALYTICS.REPORT_FEE,          { params });

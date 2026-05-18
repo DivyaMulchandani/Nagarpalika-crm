@@ -2,10 +2,8 @@ import mongoose from "mongoose";
 
 const WhatsAppMessageSchema = new mongoose.Schema(
   {
-    // References
-    patientId: { type: mongoose.Schema.Types.ObjectId, ref: "Patient" },
-    appointmentId: { type: mongoose.Schema.Types.ObjectId, ref: "Appointment" },
-    invoiceId: { type: mongoose.Schema.Types.ObjectId, ref: "Invoice" },
+    // Generic recipient reference (Phase 1: will ref Candidate model)
+    recipientId: { type: mongoose.Schema.Types.ObjectId, default: null },
     paymentId: { type: mongoose.Schema.Types.ObjectId, ref: "Payment" },
 
     // Recipient
@@ -17,12 +15,14 @@ const WhatsAppMessageSchema = new mongoose.Schema(
       type: String,
       required: true,
       enum: [
-        "appointment_reminder",
-        "payment_confirmation",
-        "follow_up_reminder",
-        "birthday_wish",
-        "anniversary_wish",
-        "no_show_follow_up",
+        "otp_aadhaar",
+        "otp_phone",
+        "otp_email",
+        "registration_id_issued",
+        "application_submitted",
+        "fee_payment_receipt",
+        "call_letter_published",
+        "bulk_export_ready",
         "custom",
         "bulk_broadcast",
       ],
@@ -66,7 +66,7 @@ const WhatsAppMessageSchema = new mongoose.Schema(
   }
 );
 
-WhatsAppMessageSchema.index({ patientId: 1, createdAt: -1 });
+WhatsAppMessageSchema.index({ recipientId: 1, createdAt: -1 });
 WhatsAppMessageSchema.index({ deliveryStatus: 1 });
 WhatsAppMessageSchema.index({ triggerType: 1, createdAt: -1 });
 WhatsAppMessageSchema.index({ metaMessageId: 1 });

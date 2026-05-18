@@ -1,6 +1,5 @@
 import EmployeeModels from "../../models/Employee.js";
 import CompanyMaster from "../../models/CompanyMaster.js";
-import DoctorModels from "../../models/Doctor.js";
 import mongoose from "mongoose";
 import bcrypt from "bcrypt";
 
@@ -445,12 +444,7 @@ export const getCurrentUser = async (req, res) => {
       }
     }
 
-    if (!user) {
-      user = await DoctorModels.findById(userId);
-      if (user) {
-        role = "DOCTOR";
-      }
-    }
+    // DOCTOR role removed — recruitment portal uses ADMIN / EMPLOYEE / DEPT_ADMIN only
 
     if (!user) {
       return res.status(404).json({

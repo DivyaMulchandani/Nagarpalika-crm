@@ -1,6 +1,5 @@
 import CompanyMasterModels from "../../models/CompanyMaster.js";
 import EmployeeModels from "../../models/Employee.js";
-import DoctorModels from "../../models/Doctor.js";
 import bcrypt from "bcrypt";
 import fs from "fs";
 import path from "path";
@@ -187,13 +186,6 @@ export const loginCompany = async (req, res) => {
       .populate("cityId")
       .exec();
 
-    const doctor = await DoctorModels.findOne({
-      email,
-      isActive: true,
-    })
-      .populate("specializationId")
-      .exec();
-
     if (companyMaster) {
       user = companyMaster;
       userId = companyMaster._id;
@@ -202,10 +194,6 @@ export const loginCompany = async (req, res) => {
       user = employee;
       userId = employee._id;
       role = "EMPLOYEE";
-    } else if (doctor) {
-      user = doctor;
-      userId = doctor._id;
-      role = "DOCTOR";
     }
 
     if (!user) {
@@ -286,21 +274,12 @@ export const getCurrentUserDetails = async (req, res) => {
       .populate("cityId")
       .exec();
 
-    const doctor = await DoctorModels.findById(userId)
-      .populate("specializationId")
-      .populate("slotDurationId")
-      .populate("roleId")
-      .exec();
-
     if (companyMaster) {
       user = companyMaster;
       role = "ADMIN";
     } else if (employee) {
       user = employee;
       role = "EMPLOYEE";
-    } else if (doctor) {
-      user = doctor;
-      role = "DOCTOR";
     }
 
     if (!user) {

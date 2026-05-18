@@ -1,6 +1,5 @@
 import WhatsAppMessage from "../../models/WhatsAppMessage.js";
 import WhatsAppConfig from "../../models/WhatsAppConfig.js";
-import Patient from "../../models/Patient.js";
 import {
   sendWhatsAppMessage,
   sendBulkBroadcast,
@@ -22,7 +21,7 @@ export const listMessages = async (req, res) => {
       per_page = 50,
       triggerType,
       deliveryStatus,
-      patientId,
+      recipientId,
       dateFrom,
       dateTo,
       match,
@@ -31,35 +30,21 @@ export const listMessages = async (req, res) => {
     const matchCondition = { isActive: { $ne: false } };
     if (triggerType) matchCondition.triggerType = triggerType;
     if (deliveryStatus) matchCondition.deliveryStatus = deliveryStatus;
-    if (patientId) matchCondition.patientId = new ObjectId(patientId);
+    if (recipientId) matchCondition.recipientId = new ObjectId(recipientId);
     if (dateFrom || dateTo) {
       matchCondition.createdAt = {};
       if (dateFrom) matchCondition.createdAt.$gte = new Date(dateFrom + "T00:00:00.000Z");
       if (dateTo) matchCondition.createdAt.$lte = new Date(dateTo + "T23:59:59.999Z");
     }
 
-    const pipeline = [
-      { $match: matchCondition },
-      {
-        $lookup: {
-          from: "patients",
-          localField: "patientId",
-          foreignField: "_id",
-          as: "patient",
-        },
-      },
-      { $unwind: { path: "$patient", preserveNullAndEmptyArrays: true } },
-    ];
+    const pipeline = [{ $match: matchCondition }];
 
-    // Text search on recipient name/phone
     if (match) {
       pipeline.push({
         $match: {
           $or: [
             { recipientName: { $regex: match, $options: "i" } },
             { recipientPhone: { $regex: match, $options: "i" } },
-            { "patient.firstName": { $regex: match, $options: "i" } },
-            { "patient.lastName": { $regex: match, $options: "i" } },
           ],
         },
       });
@@ -140,24 +125,15 @@ export const getMessageStats = async (req, res) => {
 // ============================================================
 export const sendCustomMessage = async (req, res) => {
   try {
-    const { patientId, templateName, templateParams, messageBody } = req.body;
+    const { recipientPhone, recipientName, templateName, templateParams, messageBody } = req.body;
 
-    if (!patientId) {
-      return res.status(400).json({ isOk: false, message: "patientId is required", status: 400 });
-    }
-
-    const patient = await Patient.findOne({ _id: patientId, isDeleted: { $ne: true } });
-    if (!patient) {
-      return res.status(404).json({ isOk: false, message: "Patient not found", status: 404 });
-    }
-    if (!patient.mobileNumber) {
-      return res.status(400).json({ isOk: false, message: "Patient has no mobile number", status: 400 });
+    if (!recipientPhone) {
+      return res.status(400).json({ isOk: false, message: "recipientPhone is required", status: 400 });
     }
 
     const result = await sendWhatsAppMessage({
-      patientId: patient._id,
-      recipientPhone: patient.mobileNumber,
-      recipientName: `${patient.firstName} ${patient.lastName}`.trim(),
+      recipientPhone,
+      recipientName: recipientName || "",
       triggerType: "custom",
       templateName: templateName || "custom_message",
       templateParams: templateParams || [],
@@ -181,23 +157,18 @@ export const sendCustomMessage = async (req, res) => {
 // ============================================================
 export const sendBroadcast = async (req, res) => {
   try {
-    const { patientIds, templateName, templateParams, messageBody } = req.body;
+    // recipients: [{ recipientPhone, recipientName, recipientId? }]
+    const { recipients, templateName, templateParams, messageBody } = req.body;
 
-    if (!patientIds || !Array.isArray(patientIds) || patientIds.length === 0) {
-      return res.status(400).json({ isOk: false, message: "patientIds array is required", status: 400 });
+    if (!recipients || !Array.isArray(recipients) || recipients.length === 0) {
+      return res.status(400).json({ isOk: false, message: "recipients array is required", status: 400 });
     }
     if (!templateName) {
       return res.status(400).json({ isOk: false, message: "templateName is required", status: 400 });
     }
 
-    const patients = await Patient.find({
-      _id: { $in: patientIds.map((id) => new ObjectId(id)) },
-      isActive: { $ne: false },
-      isDeleted: { $ne: true },
-    }).select("_id firstName lastName mobileNumber");
-
     const results = await sendBulkBroadcast(
-      patients,
+      recipients,
       templateName,
       templateParams || [],
       messageBody,
@@ -206,7 +177,7 @@ export const sendBroadcast = async (req, res) => {
 
     return res.status(200).json({
       isOk: true,
-      data: { sent: results.length, total: patientIds.length },
+      data: { sent: results.length, total: recipients.length },
       message: `${results.length} messages queued`,
       status: 200,
     });
@@ -276,9 +247,7 @@ export const retryFailedMessages = async (req, res) => {
       msg.retryCount += 1;
       // Re-send
       const result = await sendWhatsAppMessage({
-        patientId: msg.patientId,
-        appointmentId: msg.appointmentId,
-        invoiceId: msg.invoiceId,
+        recipientId: msg.recipientId,
         paymentId: msg.paymentId,
         recipientPhone: msg.recipientPhone,
         recipientName: msg.recipientName,
