@@ -1,7 +1,8 @@
 # Tech Stack — Actual Codebase State
 
-> Last updated: 2026-05-18
+> Last updated: 2026-05-18 (post HMS cleanup — commit 8128381)
 > Source: Full codebase scan of Web/, Admin/, Server/
+> **Current state:** HMS code removed. Recruitment-specific models/routes/pages not yet built. This is the clean starting point.
 
 ---
 

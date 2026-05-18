@@ -3,109 +3,146 @@
 | Field | Value |
 |-------|-------|
 | **Phase** | 2 of 9 |
-| **Status** | Not Started |
-| **Depends On** | Phase 1 (API skeleton, DB, multi-tenant middleware) |
+| **Status** | 🔴 Not Started — static site exists, zero API integration |
+| **Depends On** | Phase 1 (Advertisement, Notice, Candidate models + routes must exist) |
 | **Blocks** | Phase 3 (nav restructure needed before OTR flow) |
 | **PRD Sections** | §5 M1 Home Page · §10 Existing Frontend Carry-Over |
 
 ---
 
-## Goal
+## Current State
 
-Convert the existing static React/Vite site into an API-driven public portal. No citizen auth required in this phase — all pages are guest-accessible. Replace hardcoded `jobs.js`, `marqueeItems.js`, and static arrays with live API calls. Restructure nav to match SRS §3.1.2.
+React 18 + Vite SPA at `Web/`. All 7 routes exist. All data is hardcoded in `src/data/*.js`. Zero API calls. Forms are UI-only (not functional).
 
----
+| Route | File | Status |
+|-------|------|--------|
+| `/` | `Home.jsx` | Static — hardcoded facts/services/news |
+| `/about` | `About.jsx` | Static — keep as-is |
+| `/careers` | `Careers.jsx` | Static — data from `src/data/jobs.js` |
+| `/notices` | `Notices.jsx` | Static — hardcoded list |
+| `/results` | `Results.jsx` | Static — UI only, not functional |
+| `/callletter` | `CallLetter.jsx` | Static — UI only, not functional |
+| `/contact` | `Contact.jsx` | Static — form not functional |
 
-## Existing Frontend State
-
-Current site: React 18 + Vite SPA, 7 routes, all data hardcoded in JS files. No auth, no API.
-
-| File | Current | Action |
-|------|---------|--------|
-| `src/data/jobs.js` | 10 hardcoded job posts | Replace with API call to `/api/v1/advertisements` |
-| `src/data/marqueeItems.js` | 5 hardcoded items | Replace with API call to `/api/v1/notices?marquee=true` |
-| `src/pages/Notices.jsx` | 12 hardcoded notices | Replace with API call to `/api/v1/notices` |
-| `src/pages/Results.jsx` | Hardcoded results | Replace with API call to `/api/v1/results` |
-| `src/pages/Home.jsx` | Hardcoded facts/news | Notice board from API; quick links static |
-| `src/components/Header.jsx` | Flat 7-item nav | Restructure: add dropdowns per SRS §3.1.2 |
+**Needs:** `/registration`, `/application`, `/fee`, `/help` routes don't exist yet.
 
 ---
 
 ## Deliverables
 
-### Navigation Restructure (`Header.jsx`)
-- [ ] Replace flat nav with dropdown-capable nav
-- [ ] Menu items per SRS §3.1.2:
-  - Home
-  - Registration → [Apply, Edit, Find]
-  - Online Application → [Apply, Edit, Print]
-  - Fee
-  - Call Letter
-  - Help
-  - Login / Register (modal trigger)
-- [ ] Branding bar (topmost): municipality logo, name in Gujarati + English, GoG emblem — loaded per tenant from config API
-- [ ] Ticker bar 1: toll-free helpline number (from config API)
-- [ ] Ticker bar 2: OTR status message (from config API, admin-editable)
-- [ ] Language toggle: EN / GU retained (HI optional); all new i18n keys added to `i18n.js`
+### 1. Nav Restructure (`Web/src/components/Header.jsx`)
 
-### Home Page (`/`)
-- [ ] Notice board section: fetch from `/api/v1/notices` — title, date, PDF link
-- [ ] Quick links grid: static (6 links per SRS §3.1.6)
-- [ ] Important Instructions section: fetch from `/api/v1/config/instructions`
-- [ ] Remove hardcoded FACTS, NEWS, VM_ITEMS arrays — replace with API data or remove
+Current: flat 7-item nav bar.
+Required per SRS §3.1.2: dropdowns on Registration and Online Application.
 
-### Careers / Job Listings (`/careers`)
-- [ ] Fetch active advertisements from `/api/v1/advertisements?status=published`
-- [ ] Display: Advt No, Post Title, Department, Last Date, Fee, Class
-- [ ] Filter by Class (I / II / III / IV) — client-side filter
-- [ ] "Details" button → open advertisement PDF in new tab (served from `/api/v1/advertisements/:id/pdf`)
-- [ ] "Apply" button → redirect to `/application` (requires login — handled in Phase 4)
+| Menu Item | Type | Sub-items |
+|-----------|------|-----------|
+| Home | Link | — |
+| Registration | Dropdown | Apply (new OTR) · Edit · Find |
+| Online Application | Dropdown | Apply · Edit · Print |
+| Fee | Link | — |
+| Call Letter | Link | — |
+| Help | Link | — |
+| Login / Register | Modal trigger | — |
 
-### Notices (`/notices`)
-- [ ] Fetch from `/api/v1/notices?type=all`
-- [ ] Display: title, date, ref no, type badge, PDF link
-- [ ] Filter by type: All / Notice / Circular / Press / Recruitment / Tender
+Also add:
+- Branding bar (topmost): municipality logo, name in GU + EN, GoG emblem — fetched from `/api/v1/companies/getCompanyDetails` per tenant
+- Ticker bar 1: toll-free helpline (from config API)
+- Ticker bar 2: OTR status message (from config API — admin-editable)
 
-### Results (`/results`)
-- [ ] Fetch from `/api/v1/results` (admin-uploaded result notifications)
-- [ ] Display: advt no, post title, result date, PDF link
-- [ ] Answer keys linked where available
+### 2. Home Page (`/`) — `Web/src/pages/Home.jsx`
 
-### About & Contact
-- [ ] Keep static; update with municipality-specific placeholders
-- [ ] Contact info loaded from tenant config API (phone, email, address)
+- Notice board section: `GET /api/v1/notices?status=published&limit=10` → title, date, PDF link
+- Quick links grid: static (6 links per SRS §3.1.6) — no API needed
+- Important Instructions section: `GET /api/v1/notices?type=important_instruction`
+- Remove hardcoded FACTS, NEWS, VM_ITEMS arrays; replace with API data or remove
 
-### API Endpoints Required (Backend — this phase)
+### 3. Careers (`/careers`) — `Web/src/pages/Careers.jsx`
+
+- Replace `src/data/jobs.js` with `GET /api/v1/advertisements?status=published`
+- Display: Advt No, Post Title, Dept, Last Date, Fee, Class, Status badge
+- Filter chips by Class (I/II/III/IV) — client-side filter on fetched data
+- "Details" → open advertisement PDF via `/api/v1/advertisements/:id/pdf`
+- "Apply" → redirect to `/application` (requires auth — handled in Phase 4)
+
+### 4. Notices (`/notices`) — `Web/src/pages/Notices.jsx`
+
+- Replace hardcoded list with `GET /api/v1/notices?status=published`
+- Filter by type: All / Notice / Circular / Press / Recruitment / Tender
+- Each row: title, date, ref no, type badge, PDF link
+
+### 5. Results (`/results`) — `Web/src/pages/Results.jsx`
+
+- Wire to `GET /api/v1/notices?type=recruitment&subtype=result`
+- Result lookup form: implement `POST /api/v1/results/check` (registration_id + dob) in Phase 1 if needed; else keep UI static until data model defined
+
+### 6. Call Letter (`/callletter`) — replace with functional M5
+
+This page is completely replaced in Phase 6. For now: keep existing static UI. Phase 6 wires it to the real eligibility-check + download flow.
+
+### 7. New Routes to Add
+
+| Route | Component | Notes |
+|-------|-----------|-------|
+| `/registration/*` | Multi-step OTR flow | Phase 3 |
+| `/application/*` | Application module | Phase 4 |
+| `/fee` | Fee payment page | Phase 5 |
+| `/help` | Help/Query page | This phase (static content + form POST) |
+
+#### `/help` — `Web/src/pages/Help.jsx` (build in this phase)
+- Toll-free number + email contact (from config API)
+- FAQ (collapsible accordions — static content)
+- Step-by-step guides (static — How to Register, How to Apply)
+- Query form: name, Reg ID, category dropdown, description → `POST /api/v1/help/query`
+
+### 8. API Client Setup (`Web/src/api/`)
+
+Create Axios instance reading `VITE_API_URL` from `Web/.env`:
+```javascript
+// Web/src/api/index.js
+import axios from 'axios';
+const api = axios.create({ baseURL: import.meta.env.VITE_API_URL });
+export default api;
+```
+
+Add `axios` to `Web/package.json` dependencies.
+
+### 9. Language Support
+
+All new API-driven content must support the existing `useLang()` hook pattern. Add new i18n keys to `Web/src/data/i18n.js` for any new UI strings.
+
+---
+
+## Backend Endpoints Required (Phase 1 must build these)
 
 | Endpoint | Method | Auth | Purpose |
 |----------|--------|------|---------|
 | `/api/v1/advertisements` | GET | None | List published advertisements |
 | `/api/v1/advertisements/:id/pdf` | GET | None | Serve advertisement PDF |
-| `/api/v1/notices` | GET | None | List notices (filterable by type) |
-| `/api/v1/results` | GET | None | List result notifications |
-| `/api/v1/config/branding` | GET | None | Tenant logo, name, helpline |
-| `/api/v1/config/instructions` | GET | None | Important Instructions text |
+| `/api/v1/notices` | GET | None | List notices (filterable) |
+| `/api/v1/companies/getCompanyDetails` | GET | None | Tenant branding + helpline |
+| `/api/v1/help/query` | POST | None | Submit help query |
 
 ---
 
 ## Acceptance Criteria
 
-- Nav matches SRS §3.1.2 exactly (dropdowns, 7 top-level items)
-- Branding bar shows correct municipality identity per subdomain
-- Job listings load from API — zero hardcoded data in component files
-- Notices and Results load from API
-- Ticker bars populated from config API
-- All pages render without JS for basic content (SSR or pre-rendered fallback)
-- WCAG 2.1 AA: no automated accessibility failures (axe-core clean)
-- Mobile-responsive: tested on 360px, 768px, 1280px viewports
+- Nav has dropdowns on Registration and Online Application
+- Branding bar shows correct municipality name per subdomain
+- `/careers` loads from API — zero hardcoded job data in component files
+- `/notices` loads from API — zero hardcoded notice data
+- `/help` form submits without errors
+- `VITE_API_URL=http://localhost:8000` in `Web/.env` — dev proxy works
+- All pages render basic content without JavaScript (SSR/pre-render or graceful fallback)
+- WCAG 2.1 AA: axe-core passes on all routes
+- Mobile-responsive: 360px, 768px, 1280px viewports tested
 
 ---
 
-## Security Checklist (Pentest Targets for This Phase)
+## Security Checklist
 
-- [ ] Advertisement PDF endpoint: no path traversal possible in `:id` parameter
-- [ ] No tenant data leakage between subdomains on public endpoints
+- [ ] Advertisement PDF endpoint: path traversal not possible via `:id` param (validate UUID format)
+- [ ] No tenant data cross-leakage on public endpoints (test both subdomains)
 - [ ] CSP header present and blocks inline script execution
 - [ ] X-Frame-Options: DENY on all pages
-- [ ] No sensitive config (DB credentials, API keys) exposed in any public endpoint response
-- [ ] Rate limiting on public GET endpoints: 100 req/min per IP
+- [ ] Rate limiting on public GET endpoints: 100 req/min per IP (already on server — verify)

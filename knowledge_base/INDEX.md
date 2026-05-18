@@ -158,19 +158,21 @@
 
 ## Phases
 
-Build order is sequential — each phase depends on the previous.
+Build order is sequential. 🟡 = infra done, recruitment features pending. 🔴 = not started.
 
-| Phase | File | Depends On | Status | Key Deliverable |
+**Starting point as of 2026-05-18:** Express + MongoDB + session auth + WhatsApp + Email + OTP + secure uploads + admin panel auth/permissions/CRUD all exist. Recruitment-specific models, routes, and frontend flows are what remains to be built.
+
+| Phase | File | Depends On | Status | Remaining Work |
 |-------|------|-----------|--------|----------------|
-| 1 | [Foundation](phases/phase-1-foundation.md) | None | Not Started | Multi-tenant server, DB schemas, API skeleton, security baseline |
-| 2 | [Public Frontend](phases/phase-2-public-frontend.md) | Phase 1 | Not Started | API-driven public site; nav restructure; job listings from DB |
-| 3 | [OTR Registration](phases/phase-3-otr-registration.md) | Phase 1, 2 | Not Started | 10-step Aadhaar registration; citizen login; session auth |
-| 4 | [Application](phases/phase-4-application.md) | Phase 3 | Not Started | Job application flow; edit; print PDF |
-| 5 | [Fee Payment](phases/phase-5-fee-payment.md) | Phase 4 | Not Started | Payment gateway; webhook HMAC; receipts |
-| 6 | [Call Letter](phases/phase-6-call-letter.md) | Phase 5, 7 | Not Started | Eligibility check; signed download token; admit card PDF |
-| 7 | [Admin Panel](phases/phase-7-admin-panel.md) | Phase 1, 3 | Not Started | All 7 admin sub-modules; bulk ZIP; role-based access |
-| 8 | [Notifications](phases/phase-8-notifications.md) | Phase 3, 7 | Not Started | WhatsApp→SMS→Email; OTP security; delivery log |
-| 9 | [Security & Pentest](phases/phase-9-security-pentest.md) | All phases | Not Started | Hardening checklist; pentest scope; remediation SLA; go-live gate |
+| 1 | [Foundation](phases/phase-1-foundation.md) | None | 🟡 Partial | Multi-tenant middleware + 6 recruitment models + routes |
+| 2 | [Public Frontend](phases/phase-2-public-frontend.md) | Phase 1 | 🔴 Not Started | Nav restructure + API wiring + /help page |
+| 3 | [OTR Registration](phases/phase-3-otr-registration.md) | Phase 1, 2 | 🔴 Not Started | 10-step form + UIDAI OTP + citizen auth |
+| 4 | [Application](phases/phase-4-application.md) | Phase 3 | 🔴 Not Started | Apply flow + edit + print PDF |
+| 5 | [Fee Payment](phases/phase-5-fee-payment.md) | Phase 4 | 🔴 Not Started | Payment gateway adapter + webhook HMAC + receipts |
+| 6 | [Call Letter](phases/phase-6-call-letter.md) | Phase 5, 7 | 🔴 Not Started | Eligibility check + signed download token |
+| 7 | [Admin Panel](phases/phase-7-admin-panel.md) | Phase 1 | 🟡 Partial | 6 recruitment pages (Advt, Candidates, Applications, Fee, CallLetter, Notices) |
+| 8 | [Notifications](phases/phase-8-notifications.md) | Phase 3, 7 | 🟡 Partial | Recruitment triggers + SMS fallback + UIDAI OTP + email service |
+| 9 | [Security & Pentest](phases/phase-9-security-pentest.md) | All phases | 🔴 Not Started | Hardening checklist + pentest + remediation SLA |
 
 ### Open Questions Blocking Phases
 

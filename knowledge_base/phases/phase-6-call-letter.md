@@ -3,73 +3,77 @@
 | Field | Value |
 |-------|-------|
 | **Phase** | 6 of 9 |
-| **Status** | Not Started |
-| **Depends On** | Phase 5 (fee = Paid required for eligibility) · Phase 7 (admin must publish call letter before download is live) |
+| **Status** | 🔴 Not Started |
+| **Depends On** | Phase 5 (fee = Paid required for eligibility) · Phase 7 (admin must publish before citizen can download) |
 | **Blocks** | Nothing (leaf module) |
 | **PRD Sections** | §5 M5 Call Letter · §9.3 Authorization · §9.13 Business Logic |
 
 ---
 
-## Goal
+## Already Built ✅
 
-Allow eligible citizens to download their call letter (admit card) PDF. Eligibility is triple-gated server-side: fee paid + application submitted + admin has enabled call letter for that advertisement. No client-side eligibility check is sufficient.
+| Item | Location |
+|------|----------|
+| secureUpload middleware (for call letter PDF template upload by admin) | `Server/middlewares/secureUpload.js` |
+| WhatsApp send (for "call letter published" notification) | `Server/services/whatsapp.service.js` |
+| Session auth | `Server/middlewares/authMiddleware.js` |
 
 ---
 
-## Deliverables
+## Remaining Work 🔴
 
-### Call Letter Page (`/callletter`)
-
-**Replaces** current static `CallLetter.jsx` (exam list + centre info).
-
-- [ ] Entry form: Registration ID + Date of Birth (no login required)
-- [ ] Server checks eligibility for every advertisement the citizen applied to:
-  1. Application exists for `(registration_id, advt_no)` — server lookup
-  2. Fee payment status = Paid for that application — DB check
-  3. Admin has set `call_letter.enabled = true` for that `advt_no` — DB check
-  4. Current timestamp ≥ `call_letter.available_from` — DB check
-- [ ] If all 4 conditions met: show download button per eligible advt
-- [ ] If any condition fails: show specific reason (e.g. "Fee not paid" / "Call letter not yet released")
-- [ ] Download: serve call letter PDF from secure endpoint (not public URL)
-
-### Call Letter PDF Contents
-- Candidate name
-- Registration ID
-- Roll number (assigned by admin via CSV upload)
-- Advertisement number
-- Post name
-- Exam date · time · venue
-- Reporting instructions
-- Municipality branding
-
-### API Endpoints (Backend)
+### Backend (`Server/routes/v1/callLetters.routes.js`)
 
 | Endpoint | Method | Auth | Purpose |
 |----------|--------|------|---------|
-| `/api/v1/callletter/check` | POST | None | Check eligibility by Reg ID + DOB |
-| `/api/v1/callletter/:advt_no/download` | POST | Signed token | Serve call letter PDF |
+| `/api/v1/call-letters/check` | POST | None | Check eligibility by Reg ID + DOB |
+| `/api/v1/call-letters/:advt_no/download` | POST | Signed token | Serve call letter PDF |
 
-**Signed token flow**: eligibility check returns a short-lived signed download token (10-minute expiry) per `(registration_id, advt_no)` — download endpoint validates token, not session.
+**Eligibility check — 4 server-side conditions (all must pass):**
+1. Application exists for `(registration_id, advt_no, tenant_id)`
+2. `fee_payment.status = paid` for that application
+3. `call_letter.enabled = true` for that `advt_no`
+4. `call_letter.available_from <= now()`
+
+**Signed token flow:**
+- Eligibility check returns short-lived HMAC-signed download token (10-minute expiry, single-use)
+- Download endpoint: validates token, not session (so unauthenticated citizens can download)
+- Token payload: `{ registration_id, advt_no, tenant_id, exp }`
+
+**Call Letter PDF contents:**
+- Candidate name · Registration ID · Roll Number · Advt No · Post Name
+- Exam date · Exam time · Venue · Reporting instructions
+- Municipality branding (logo, name)
+
+### Frontend (`Web/src/pages/CallLetter/`)
+
+Replaces current static `CallLetter.jsx`.
+
+- Entry form: Registration ID + Date of Birth (no login required)
+- Server returns eligibility per advertisement candidate applied to
+- For each advt: if eligible → download button; if not → specific reason message
+  - "Fee not paid" / "Call letter not yet released" / "Application not found"
+- Download: use signed token → GET `/api/v1/call-letters/:advt_no/download?token=...`
 
 ---
 
 ## Acceptance Criteria
 
-- Citizen with fee Paid + call letter published → PDF downloads successfully
-- Citizen with fee Pending → download button not shown; clear error displayed
-- Call letter not yet published by admin → download button not shown; clear error displayed
-- Direct API call to download endpoint without valid signed token → 401
-- Registration ID + wrong DOB → no eligibility data returned (same response as "not eligible")
-- Roll number shows correctly from admin CSV upload (Phase 7 admin module)
+- Eligible candidate (fee Paid + call letter enabled) → PDF downloads
+- Fee Pending → download not shown + clear error message
+- Call letter not published by admin → download not shown + clear error
+- Direct API call to download without valid signed token → 401
+- Reg ID + wrong DOB → same response as "not eligible" (enumeration prevention)
+- Roll number correct from admin CSV upload (Phase 7)
 
 ---
 
-## Security Checklist (Pentest Targets for This Phase)
+## Security Checklist
 
-- [ ] Eligibility check server-side on every download — not cached or client-gated
-- [ ] Signed download token: short-lived (10 min), single-use, HMAC-signed with server secret
-- [ ] Fee bypass: direct POST to download endpoint without Paid fee status → rejected
-- [ ] IDOR: citizen cannot download another citizen's call letter by guessing Registration ID
-- [ ] Registration ID + wrong DOB: identical response time and message as "not found" (enumeration prevention)
-- [ ] Call letter PDF: if HTML-to-PDF, venue/name fields sanitized to prevent PDF injection
-- [ ] Download endpoint: not a public URL — requires valid token; file not accessible via direct file path
+- [ ] All 4 eligibility conditions checked server-side on every download — not cached or client-gated
+- [ ] Signed token: 10-min expiry, single-use (invalidated after first use), HMAC with server secret
+- [ ] Fee bypass: direct POST to download without Paid status → rejected
+- [ ] IDOR: Reg ID + DOB combination validated; cannot download another candidate's letter
+- [ ] Enumeration: identical response time + message for Reg ID not found vs ineligible
+- [ ] PDF: venue/name fields sanitized to prevent PDF injection
+- [ ] Download URL: not a static file path — requires valid token

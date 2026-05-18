@@ -3,79 +3,229 @@
 | Field | Value |
 |-------|-------|
 | **Phase** | 1 of 9 |
-| **Status** | Not Started |
+| **Status** | 🟡 Partially Complete — infra built, recruitment models missing |
 | **Depends On** | None |
 | **Blocks** | All other phases |
 | **PRD Sections** | §4 Deployment Architecture · §6 Data Model · §9.14 Infrastructure Security |
 
 ---
 
-## Goal
+## Already Built ✅
 
-Establish the base architecture: multi-tenant server, isolated DB schemas per municipality, REST API skeleton, auth middleware, and CI/CD pipeline. Nothing citizen-facing ships in this phase — it is purely infrastructure and plumbing.
+The HMS-to-recruitment migration left a solid foundation. These are DONE — do not rebuild:
+
+| Item | Location |
+|------|----------|
+| Express server + security middleware stack (Helmet, CORS, mongo-sanitize, HPP, rate-limit) | `Server/server.js` + `Server/middlewares/` |
+| MongoDB connection via Mongoose | `Server/server.js` |
+| Session auth (connect-mongo, HttpOnly, Secure, SameSite=Lax, 24h TTL) | `Server/server.js` |
+| Admin User model + full CRUD + login/logout/verify-session | `Server/models/Employee.js` + `Server/routes/v1/employees.routes.js` |
+| CompanyMaster model (Nagar Palika org config) | `Server/models/CompanyMaster.js` |
+| Department model + CRUD | `Server/models/Department.js` + `Server/routes/v1/departments.routes.js` |
+| Role Master + Menu Master + Employee Roles (full permission system) | `Server/models/RoleMaster.js`, `MenuMaster.js`, `EmployeeRoles.js` |
+| Country / State / City (location master) | `Server/models/Country.js`, `State.js`, `City.js` |
+| Master Data model + CRUD (enums for gender, category, qualification, etc.) | `Server/models/MasterData.js` + `Server/routes/v1/masterData.routes.js` |
+| OTP model (TTL-indexed, 10-min auto-expire) + send/verify/reset routes | `Server/models/Otp.js` + `Server/routes/v1/otp.routes.js` |
+| WhatsApp Cloud API integration (config, send, broadcast, webhook, retry) | `Server/models/WhatsAppConfig.js`, `WhatsAppMessage.js`, `Server/services/whatsapp.service.js` |
+| Email (EmailSetup, EmailFor, EmailTemplate models + routes) | `Server/models/EmailSetup.js`, `EmailFor.js`, `EmailTemplate.js` |
+| Secure file upload (magic byte check, UUID rename, Sharp compression) | `Server/middlewares/secureUpload.js` |
+| Security headers (Helmet + custom CSP) | `Server/middlewares/securityHeaders.js` |
+| Input validation (express-validator chains) | `Server/middlewares/inputValidator.js` |
+| Role scope middleware (dept-scoped queries for DEPT_ADMIN) | `Server/middlewares/roleScope.js` |
+| Counter model (sequence/ID generation) | `Server/models/Counter.js` |
+| Seed scripts (recruitment master data + menu/role structure) | `Server/scripts/seedMasters.js`, `Server/scripts/seedMenusAndRoles.js` |
+| Swagger API docs (dev only, `/api-docs`) | `Server/config/swagger.js` |
 
 ---
 
-## Deliverables
+## Remaining Work 🔴
 
-### Server & Networking
-- [ ] Linux server provisioned (municipality IT)
-- [ ] Two subdomains configured: `patan.domain.gov.in` · `palanpur.domain.gov.in`
-- [ ] SSL certificates installed (TLS 1.2+ minimum; TLS 1.0/1.1 disabled)
-- [ ] Firewall rules: only ports 80 and 443 exposed publicly
-- [ ] SSH: key-based auth only, password SSH disabled
+### 1. Multi-Tenant Middleware
+Two subdomains → isolated DB data per municipality. **No `tenant_id` exists on any model yet.**
 
-### Multi-Tenant Architecture
-- [ ] Single codebase, tenant resolved from `Host` header at request time
-- [ ] `tenant_id` injected into every request context by middleware — never from user input
-- [ ] DB schema created for `patan_db` and `palanpur_db` (isolated, no cross-schema queries)
-- [ ] Per-tenant file storage directories (photos, signatures, PDFs) outside webroot
-- [ ] Config system: per-tenant values (subdomain, branding, DB connection, notification credentials)
+- [ ] Middleware: resolve `tenant_id` from `Host` header at request time (e.g. `patan` vs `palanpur`)
+- [ ] Inject `tenant_id` into `req` — never read from request body
+- [ ] Reject unknown `Host` values with 400
+- [ ] Add `tenant_id` field (required, indexed) to all new recruitment models (§1.3 below)
+- [ ] Existing models (Employee, Dept, Menu, Role, Location, MasterData) can stay single-tenant for now — one admin panel serves both subdomains via staff accounts
 
-### Database
-- [ ] All 7 entities created with correct schema (see PRD §6)
-- [ ] Every table includes `tenant_id` column with NOT NULL constraint
-- [ ] Indexes on: `aadhaar_hash + tenant_id` (unique), `registration_id`, `advt_no`, `application_ref_no`
-- [ ] `aadhaar_hash + tenant_id` unique constraint — prevents duplicate registration
-- [ ] `(registration_id, advt_no)` unique constraint on Application table
-- [ ] Migrations system set up (versioned, reversible)
+### 2. New Recruitment Models
 
-### REST API Skeleton
-- [ ] API base structure with versioning (`/api/v1/`)
-- [ ] `tenant_id` middleware: every request validated against known tenants; unknown `Host` rejected
-- [ ] Auth middleware: JWT or session token validation on all protected endpoints
-- [ ] Global error handler: generic messages to client, detailed errors logged server-side only
-- [ ] No stack traces, DB schema, or internal paths in API error responses
-- [ ] Request logging: timestamp, method, path, status, duration (no PII in access logs)
+Create these 6 models — none exist yet:
 
-### Security Baseline
-- [ ] All secrets (DB passwords, API keys) in environment variables — not in source code
-- [ ] `.env` in `.gitignore`; no secrets ever committed
-- [ ] Dependency lockfiles committed; no High/Critical CVE packages at launch
-- [ ] Debug mode off in production config
-- [ ] Security headers middleware installed: HSTS, X-Frame-Options, X-Content-Type-Options, Referrer-Policy, Permissions-Policy
+#### `Advertisement.js`
+```javascript
+{
+  advt_no: String (unique, auto-generated: ORGCODE/YEAR/SEQ),
+  post_title: { en: String, gu: String },
+  department: ObjectId → Department,
+  class: Enum (I/II/III/IV),
+  pay_scale: String,
+  vacancies: { total: Number, general: Number, obc: Number, sc: Number, st: Number, ews: Number },
+  age_limit: { min: Number, max: Number },
+  qualification: String,
+  ph_description: String,
+  experience_required: String,
+  application_fee: Number,
+  start_date: Date,
+  end_date: Date,
+  probation_period: String,
+  pdf_path: String,
+  other_conditions: String,
+  status: Enum (Draft/Published/Closed/Archived),
+  tenant_id: String (required, indexed),
+  createdBy: ObjectId → Employee,
+  timestamps
+}
+```
 
-### Audit Logging
-- [ ] Append-only audit log table (separate from application logs)
-- [ ] No admin can DELETE from audit log table (DB-level permission)
-- [ ] Log retention policy: 1 year minimum
+#### `Candidate.js` (OTR)
+```javascript
+{
+  registration_id: String (unique per tenant, auto-generated),
+  aadhaar_hash: String (required, no raw Aadhaar stored),
+  name: String,
+  father_husband_name: String,
+  dob: Date,
+  gender: ObjectId → MasterData,
+  category: ObjectId → MasterData,
+  nationality: String,
+  religion: String,
+  address_permanent: { line1, line2, taluka, district, state, pincode, countryId, stateId, cityId },
+  address_current: { same_as_permanent: Boolean, ...address fields },
+  mobile: String (OTP-verified),
+  alternate_mobile: String,
+  email: String (OTP-verified),
+  marital_status: ObjectId → MasterData,
+  ph_status: Boolean,
+  ph_type: ObjectId → MasterData,
+  ph_percentage: Number,
+  ex_serviceman: Boolean,
+  qualification: ObjectId → MasterData,
+  languages: [{ language: ObjectId → MasterData, read: Boolean, write: Boolean, speak: Boolean }],
+  mother_tongue: String,
+  photo_path: String,
+  signature_path: String,
+  password: String (bcrypt hashed),
+  otr_status: Enum (incomplete/complete),
+  edit_window_expires_at: Date,
+  tenant_id: String (required, indexed),
+  timestamps
+}
+Unique index: { aadhaar_hash: 1, tenant_id: 1 }
+```
+
+#### `Application.js`
+```javascript
+{
+  application_ref_no: String (UUID, unique per tenant),
+  registration_id: String,
+  advt_no: String,
+  submitted_at: Date,
+  status: Enum (submitted/under_review/shortlisted/rejected/selected),
+  edit_log: [{ field, old_value, new_value, changed_at }],
+  tenant_id: String (required, indexed),
+  timestamps
+}
+Unique index: { registration_id: 1, advt_no: 1, tenant_id: 1 }
+```
+
+#### `FeePayment.js`
+```javascript
+{
+  payment_id: String (UUID, unique),
+  application_ref_no: String,
+  registration_id: String,
+  advt_no: String,
+  amount: Number,
+  gateway_txn_id: String,
+  payment_mode: ObjectId → MasterData,
+  status: Enum (pending/paid/failed/refunded),
+  receipt_path: String,
+  webhook_payload: Mixed,
+  paid_at: Date,
+  tenant_id: String (required, indexed),
+  createdBy: String (registration_id),
+  timestamps
+}
+```
+
+#### `CallLetter.js`
+```javascript
+{
+  registration_id: String,
+  advt_no: String,
+  roll_number: String,
+  exam_date: Date,
+  exam_time: String,
+  venue: String,
+  enabled: Boolean (default: false),
+  available_from: Date,
+  downloaded_at: Date,
+  tenant_id: String (required, indexed),
+  timestamps
+}
+```
+
+#### `Notice.js`
+```javascript
+{
+  notice_id: String (UUID),
+  title: String,
+  body: String,
+  pdf_path: String,
+  type: Enum (notice/circular/press/recruitment/tender),
+  publish_date: Date,
+  expiry_date: Date,
+  status: Enum (draft/published/unpublished),
+  is_important_instruction: Boolean (default: false),
+  tenant_id: String (required, indexed),
+  createdBy: ObjectId → Employee,
+  timestamps
+}
+```
+
+### 3. New Routes + Controllers
+
+Create these route/controller pairs (parallel to existing pattern):
+```
+Server/routes/v1/advertisements.routes.js
+Server/routes/v1/candidates.routes.js
+Server/routes/v1/applications.routes.js
+Server/routes/v1/feePayments.routes.js
+Server/routes/v1/callLetters.routes.js
+Server/routes/v1/notices.routes.js
+```
+Mount all in `Server/server.js`.
+
+### 4. Update analytics.controller.js
+Replace the stub with real queries against new models (Advertisement, Candidate, Application, FeePayment).
+
+### 5. Update WhatsApp Service
+Add recruitment trigger functions to `Server/services/whatsapp.service.js`:
+- `sendOtpMessage(recipientPhone, otp)`
+- `sendRegistrationIdIssued(candidate, registrationId)`
+- `sendApplicationSubmitted(candidate, applicationRefNo, postTitle)`
+- `sendFeePaymentReceipt(candidate, payment)`
+- `sendCallLetterPublished(candidate, advtNo)`
 
 ---
 
 ## Acceptance Criteria
 
-- `patan.domain.gov.in` and `palanpur.domain.gov.in` both respond with 200 on HTTPS
-- API call with unknown `Host` header returns 400/404
-- API call with `tenant_id` from Patan cannot read Palanpur DB rows (integration test)
-- SSL Labs grade: A or above
-- No secrets found in git history
+- `node server.js` starts with no errors
+- `GET /api/v1/advertisements` returns 200
+- `GET /api/v1/candidates` (admin auth) returns 200
+- Unknown `Host` header → 400 rejected
+- Candidate registered on `patan.domain.gov.in` cannot appear in `palanpur.domain.gov.in` API response (tenant isolation test)
+- All 6 new models have `tenant_id` non-null constraint
 
 ---
 
-## Security Checklist (Pentest Targets for This Phase)
+## Security Checklist
 
-- [ ] Host header injection: unknown Host returns error, not default tenant data
-- [ ] Cross-tenant DB query: impossible via any API endpoint
-- [ ] Firewall: DB port not reachable from public internet
-- [ ] TLS: 1.0/1.1 disabled; weak ciphers disabled
-- [ ] No `.env` or config files accessible via HTTP
+- [ ] `tenant_id` injected server-side from `Host` header — never from request body
+- [ ] All new models: `tenant_id` required + indexed
+- [ ] Aadhaar: only SHA-256 hash stored; raw Aadhaar never persisted
+- [ ] Candidate passwords: bcrypt (cost ≥ 12)
+- [ ] File uploads: secureUpload middleware applied to photo/signature endpoints

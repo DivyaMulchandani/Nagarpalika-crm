@@ -3,161 +3,205 @@
 | Field | Value |
 |-------|-------|
 | **Phase** | 7 of 9 |
-| **Status** | Not Started |
-| **Depends On** | Phase 1 (DB, multi-tenant) · Phase 3 (auth pattern established) |
+| **Status** | 🟡 Partially Complete — infrastructure done, recruitment pages missing |
+| **Depends On** | Phase 1 (recruitment models must exist before pages can query them) |
 | **Blocks** | Phase 6 (call letter publish), Phase 8 (notifications use admin-managed data) |
-| **PRD Sections** | §5 M8 Administrator Panel (all 7 sub-modules) · §9.1 Auth · §9.3 Authorization · §9.12 Audit Logging |
+| **PRD Sections** | §5 M8 Administrator Panel · §9.1 Auth · §9.3 Authorization · §9.12 Audit Logging |
 | **Open Questions** | #4 (shared vs separate admin credentials), #5 (Results module), #6 (advert PDF upload vs generate) |
 
 ---
 
-## Goal
+## Already Built ✅
 
-Build the full administrator backend panel with 7 sub-modules. Admin panel lives at a separate, non-indexed URL. All admin actions are audit-logged. Role-based access: Super Admin sees everything; Department Admin sees own department only.
+| Item | Location |
+|------|----------|
+| Admin login UI (session-based, AuthContext) | `Admin/src/pages/Authentication/Login.jsx` |
+| Auth guard (AuthProtected wrapper) | `Admin/src/Routes/AuthProtected.jsx` |
+| Role-based permission system (MenuContext, per-page permissions) | `Admin/src/context/MenuContext.jsx` |
+| Admin User management (Employee CRUD: create, view, edit, reset password) | `Admin/src/pages/Setup/Employee.jsx`, `EmployeeForm.jsx` |
+| Department CRUD | `Admin/src/pages/Setup/Department.jsx`, `DepartmentForm.jsx` |
+| Admin Roles permission matrix | `Admin/src/pages/Setup/EmployeeRoles.jsx` |
+| Role Master CRUD | `Admin/src/pages/Master/RoleMaster.jsx` |
+| Menu Master + Group CRUD | `Admin/src/pages/Master/MenuMaster.jsx`, `MenuGroup.jsx` |
+| Location Master (Country/State/City CRUD) | `Admin/src/pages/Master/` |
+| Master Data CRUD (enums) | `Admin/src/pages/MasterData/` |
+| WhatsApp config + message log | `Admin/src/pages/WhatsApp/WhatsAppMessages.jsx` |
+| Email Setup / For / Template | `Admin/src/pages/CMS/` |
+| Nagar Palika Details (CompanyDetails) | `Admin/src/pages/Setup/CompanyDetails.jsx` |
+| Dashboard (stub — needs real data from Phase 1) | `Admin/src/pages/Dashboard/Dashboard.jsx` |
+| Reports (stub — needs recruitment data from Phase 1) | `Admin/src/pages/Reports/Reports.jsx` |
+| Clean recruitment menu (7 groups) | `Admin/src/Layouts/LayoutMenuData.jsx` |
+| Server auth: 2FA-ready (OTP routes exist), IP whitelist config | `Server/middlewares/authMiddleware.js` |
+| Secure file upload | `Server/middlewares/secureUpload.js` |
+
+**Backend routes already mounted:**
+`/api/v1/employees`, `/api/v1/departments`, `/api/v1/roles`, `/api/v1/menus`, `/api/v1/menu-groups`, `/api/v1/employee-roles`, `/api/v1/countries`, `/api/v1/states`, `/api/v1/cities`, `/api/v1/master-data`, `/api/v1/email-*`, `/api/v1/whatsapp`, `/api/v1/otp`
 
 ---
 
-## Deliverables
+## Remaining Work 🔴
 
-### 8.1 Admin Authentication
+All 6 recruitment-specific admin sub-modules need to be built. These require Phase 1 models to exist first.
 
-- [ ] Separate login URL: `/admin/login` (not linked from public site, not in robots.txt, not in sitemap)
-- [ ] Login: username + password + TOTP (Google Authenticator) or OTP to registered admin mobile
-- [ ] Max 3 failed login attempts → 30-minute lockout; alert sent to Super Admin
-- [ ] Admin session: separate session store, 15-minute inactivity timeout
-- [ ] IP whitelist enforcement: login rejected from non-whitelisted IPs (configurable per admin user)
-- [ ] Role enforcement middleware on every admin API endpoint
+### 8.1 Advertisement Management
 
-### 8.2 Advertisement Management
+**Backend** (`Server/routes/v1/advertisements.routes.js` + controller):
+- `POST /advertisements` — create (ADMIN, EMPLOYEE; DEPT_ADMIN for own dept only)
+- `GET /advertisements` — list with filters (dept, status, date range)
+- `GET /advertisements/:id` — get single
+- `PATCH /advertisements/:id` — edit
+- `PATCH /advertisements/:id/status` — status transition only
+- `POST /advertisements/:id/pdf` — upload advertisement PDF (`secureUpload` middleware)
+- `DELETE /advertisements/:id` — soft-delete (archive)
 
-Admin form fields (all required unless noted):
+Status transitions: `Draft → Published → Closed → Archived`
+Field validation: all 16 SRS fields required for Published status; Draft allows partial.
+DEPT_ADMIN: can only manage advts for own `departmentId`.
 
-| Field | Validation |
-|-------|-----------|
-| Advt No | Auto-generated: `ORGCODE/YEAR/SEQ`; not editable |
-| Post Title (EN + GU) | Required, bilingual |
-| Department | Dropdown from configured list |
-| Class | I / II / III / IV |
-| Pay Scale | Text |
-| Total Vacancies | Integer > 0 |
-| Category-wise vacancies | General / OBC / SC / ST / EWS — must sum ≤ Total |
-| Age Limit | Min–Max or text |
-| Educational Qualification | Text |
-| PH Description | Text or N/A |
-| Experience Required | Text or N/A |
-| Application Fee | Decimal, INR |
-| Application Start Date | Future date; before End Date |
-| Application End Date | Future date; after Start Date |
-| Probation Period | Text |
-| Detailed PDF | Upload (PDF only, validated structure, max 10 MB) |
-| Other Conditions | Text (optional) |
-| Status | Draft → Published → Closed → Archived |
+**Admin page** (`Admin/src/pages/Advertisements/`):
+- List view: table with Advt No, Post Title, Dept, Status, Last Date, Actions
+- Form: all 16 fields + PDF upload + bilingual title (EN + GU)
+- Status badge + transition buttons
 
-- [ ] Status transitions: Draft → Published (requires all required fields); Published → Closed (auto at end_date or manual); Closed → Archived (manual)
-- [ ] Dept Admin can only create/edit adverts for own department
-- [ ] Super Admin can manage all departments
+### 8.2 Candidate (OTR) Management
 
-### 8.3 Notification Management
+**Backend** (candidates.routes.js):
+- `GET /candidates` — list (admin view, searchable + filterable)
+- `GET /candidates/:id` — view full OTR profile
+- `POST /candidates/export` — export CSV/Excel (Super Admin only)
 
-- [ ] CRUD for notice board entries
-- [ ] Fields: title · body text · optional PDF attachment · publish date · expiry date · type (notice/circular/press/recruitment/tender)
-- [ ] Toggle publish/unpublish
-- [ ] Edit "Important Instructions" section (rendered on home page ticker + instructions section)
-- [ ] Edit ticker bar messages (OTR status, helpline number)
+**Admin page** (`Admin/src/pages/Candidates/`):
+- List: name, Registration ID, category, date, OTR status — searchable + filterable
+- View: full read-only OTR profile (all steps)
+- Export: CSV/Excel button (Super Admin only, logs to audit trail)
 
-### 8.4 Registration Management
+### 8.3 Application Management
 
-- [ ] List all registered candidates for tenant
-- [ ] Search: name · Registration ID · date range · category · gender
-- [ ] View full OTR profile (read-only)
-- [ ] Export: CSV / Excel (PII export — requires Super Admin role)
-- [ ] No admin can edit a citizen's OTR data (view only)
+**Backend** (applications.routes.js):
+- `GET /applications` — list (filtered by advt, dept, category, fee status)
+- `GET /applications/:ref` — view single with candidate OTR details
+- `POST /applications/export` — CSV/Excel/PDF export
 
-### 8.5 Application Management
+**Admin page** (`Admin/src/pages/Applications/`):
+- Per-advertisement view with filter chips (dept, category, fee status)
+- Individual application view: OTR details + photo + signature + fee status
+- Export buttons
 
-- [ ] List all applications per advertisement
-- [ ] Filters: department · post · category · fee status (Paid/Pending) · date range
-- [ ] View individual application with full candidate OTR details
-- [ ] Export: CSV · Excel · PDF (application list)
-- [ ] Dept Admin: only see applications for own department advertisements
+### 8.4 Fee Payment Management
 
-### 8.6 Fee Management
+**Backend** (feePayments.routes.js):
+- `GET /fee-payments` — list by advt/registration; fee status breakdown
+- `GET /fee-payments/reconciliation` — total collected per advt + date range report
+- `PATCH /fee-payments/:id/manual` — manual verification (Super Admin; feature-flagged)
 
-- [ ] View payment status per application: Paid / Pending / Failed
-- [ ] Payment reconciliation report: total collected per advt, per department, date range
-- [ ] Manual fee verification (feature-flagged; requires `enable_offline_payment = true` — open question #2)
-- [ ] Export reconciliation report as PDF/Excel
+**Admin page** (`Admin/src/pages/FeePayments/`):
+- Payment status table per advertisement
+- Reconciliation report with date-range filter + export
 
-### 8.7 Call Letter Management
+### 8.5 Call Letter Management
 
-- [ ] Per advertisement: upload roll number CSV (columns: `registration_id, roll_number`)
-- [ ] CSV validation: check all `registration_id` values exist and have paid fee; flag errors
-- [ ] Set call letter `available_from` date and time
-- [ ] Upload call letter PDF template **or** select system-generated template
-- [ ] Enable / disable download toggle per advertisement (sets `call_letter.enabled`)
-- [ ] Preview: admin can view a sample call letter before enabling
+**Backend** (callLetters.routes.js):
+- `POST /call-letters/:advt_no/roll-numbers` — upload CSV (columns: registration_id, roll_number); validates all Reg IDs have paid fee
+- `PATCH /call-letters/:advt_no` — set `available_from`, `enabled`
+- `GET /call-letters/:advt_no/preview` — admin preview of sample call letter
 
-### 8.8 Bulk Applicant PDF Export (ZIP)
+**Admin page** (`Admin/src/pages/CallLetters/`):
+- Per-advertisement: upload roll number CSV + validation error display
+- Set availability date/time
+- Enable/disable toggle
+- Preview sample
 
-- [ ] Trigger: "Download All Applications (ZIP)" button on advertisement detail page
-- [ ] Filter options before export: All / Fee Paid only / Category-wise / Department-wise
-- [ ] Sync for < 500 applicants: generate and download immediately
-- [ ] Async for 500+ applicants:
-  - Job queued; admin sees "Generating..." status
-  - WhatsApp + email notification sent when ready (link valid 7 days)
-  - Link is HMAC-signed; requires admin session to download
-- [ ] ZIP name: `AdvtNo_Applications_DDMMYYYY.zip`
-- [ ] Individual PDF name: `RegID_ApplicantName_AdvtNo.pdf`
-- [ ] Each PDF contains: Application Ref No · Advt No · Reg ID · all OTR details · photo · signature · applied posts · fee status · declaration
+### 8.6 Notice Board Management
 
-### API Endpoints (Backend)
+**Backend** (notices.routes.js):
+- `POST /notices` — create notice
+- `GET /notices` — list (all tenants — admin; published only — public)
+- `PATCH /notices/:id` — edit
+- `PATCH /notices/:id/status` — publish/unpublish
+- `DELETE /notices/:id` — soft-delete
+- `PATCH /config/instructions` — edit home page Important Instructions (Super Admin)
 
-| Endpoint | Method | Auth | Purpose |
-|----------|--------|------|---------|
-| `/admin/api/advertisements` | GET, POST | Admin | List / create advertisement |
-| `/admin/api/advertisements/:id` | PATCH, DELETE | Admin | Edit / archive advertisement |
-| `/admin/api/advertisements/:id/pdf` | POST | Admin | Upload advertisement PDF |
-| `/admin/api/notices` | GET, POST, PATCH, DELETE | Admin | Notice board CRUD |
-| `/admin/api/config/instructions` | PATCH | Super Admin | Edit home page instructions |
-| `/admin/api/registrations` | GET | Admin | Search candidates |
-| `/admin/api/registrations/:id` | GET | Admin | View single OTR profile |
-| `/admin/api/registrations/export` | POST | Super Admin | Export CSV/Excel |
-| `/admin/api/applications` | GET | Admin | List applications (filtered) |
-| `/admin/api/applications/:ref` | GET | Admin | View single application |
-| `/admin/api/applications/export` | POST | Admin | Export application list |
-| `/admin/api/fee/status` | GET | Admin | Fee payment status per application |
-| `/admin/api/fee/reconciliation` | GET | Admin | Reconciliation report |
-| `/admin/api/callletter/:advt_no/rollnumbers` | POST | Admin | Upload roll number CSV |
-| `/admin/api/callletter/:advt_no` | PATCH | Admin | Set available_from, enable/disable |
-| `/admin/api/applications/:advt_no/zip` | POST | Admin | Trigger bulk ZIP export |
-| `/admin/api/applications/:advt_no/zip/status` | GET | Admin | Check export job status |
+**Admin page** (`Admin/src/pages/Notices/`):
+- CRUD table with type badges (notice/circular/press/recruitment/tender)
+- Publish/unpublish toggle
+- Rich text editor for body
+- PDF attachment upload
+- Separate "Important Instructions" editor
+
+### 8.7 Bulk Applicant PDF Export (ZIP)
+
+**Backend** (advertisements.routes.js):
+- `POST /advertisements/:id/export-zip` — trigger ZIP generation
+- `GET /advertisements/:id/export-zip/status` — poll job status
+- `GET /advertisements/:id/export-zip/download` — serve ZIP (HMAC-signed link, 7-day expiry, admin session required)
+
+Async for 500+ applicants: job queue → notify admin via WhatsApp + email when ready.
+ZIP naming: `AdvtNo_Applications_DDMMYYYY.zip`
+Individual PDF naming: `RegID_ApplicantName_AdvtNo.pdf`
+
+**Admin page**: "Download All Applications (ZIP)" button on advertisement detail page + filter options + job status indicator.
+
+### 8.8 Dashboard & Reports (complete stubs)
+
+Wire `Dashboard.jsx` to `/api/v1/analytics/dashboard` with real recruitment stats:
+- Active advertisements · Candidates registered today · Applications submitted · Fees collected
+
+Wire `Reports.jsx` to recruitment report endpoints when built in Phase 1.
+
+---
+
+## New Menu Items to Add (after pages are built)
+
+Update `Admin/src/Layouts/LayoutMenuData.jsx` and `Server/scripts/seedMenusAndRoles.js` to add:
+
+```
+Recruitment
+  ├── Advertisements    (/advertisements)
+  ├── Candidates        (/candidates)
+  ├── Applications      (/applications)
+  ├── Fee Payments      (/fee-payments)
+  ├── Call Letters      (/call-letters)
+  └── Notice Board      (/notices)
+```
+
+---
+
+## API Endpoints Summary
+
+| Endpoint | Auth | Purpose |
+|----------|------|---------|
+| `GET/POST /api/v1/advertisements` | Admin | Advertisement CRUD |
+| `POST /api/v1/advertisements/:id/pdf` | Admin | Upload advert PDF |
+| `GET /api/v1/candidates` | Admin | Search candidates |
+| `POST /api/v1/candidates/export` | Super Admin | CSV/Excel export |
+| `GET/POST /api/v1/applications` | Admin | Application management |
+| `POST /api/v1/applications/export` | Admin | Export list |
+| `GET /api/v1/fee-payments` | Admin | Fee status + reconciliation |
+| `PATCH /api/v1/fee-payments/:id/manual` | Super Admin | Manual verification |
+| `POST /api/v1/call-letters/:advt/roll-numbers` | Admin | Upload roll number CSV |
+| `PATCH /api/v1/call-letters/:advt` | Admin | Enable/disable + set date |
+| `GET/POST /api/v1/notices` | Admin/Public | Notice board CRUD |
+| `POST /api/v1/advertisements/:id/export-zip` | Admin | Trigger bulk ZIP |
 
 ---
 
 ## Acceptance Criteria
 
-- Dept Admin cannot access another department's advertisements, applications, or call letters (403)
-- Super Admin can access all departments
-- Admin login from non-whitelisted IP → rejected
-- 3 failed admin logins → 30-min lockout + Super Admin alert
-- Every admin action appears in audit log (action, user, timestamp, affected record)
-- Roll number CSV with invalid Registration IDs → upload rejected with error list
-- Bulk ZIP for 500+ applications: async job completes; admin notified via WhatsApp + email
-- Admin cannot delete or modify audit log entries (DB-level permission)
-- Advertisement PDF upload: non-PDF file → rejected; PDF with embedded JS → rejected
+- Admin can publish an advertisement (all 16 fields validated, PDF uploaded)
+- DEPT_ADMIN cannot access other department's advertisements (403)
+- Roll number CSV upload: Reg IDs without paid fee flagged with error
+- Call letter disabled → citizen download attempt returns 403
+- Bulk ZIP for 500+ applications: async, admin notified via WhatsApp
+- Notice published → appears on public `/api/v1/notices` immediately
+- Dashboard shows real recruitment stats (not stub message)
 
 ---
 
-## Security Checklist (Pentest Targets for This Phase)
+## Security Checklist
 
-- [ ] Admin URL not in robots.txt, sitemap, or any public page
-- [ ] Dept Admin IDOR: cannot access other dept data via direct API call with known advertisement ID
-- [ ] Privilege escalation: Dept Admin cannot change own role via API
-- [ ] PII export (CSV): restricted to Super Admin only; Dept Admin gets 403
-- [ ] Advertisement PDF upload: MIME check + embedded content scan; stored outside webroot
-- [ ] Roll number CSV: only Registration IDs that belong to current tenant accepted
-- [ ] Bulk ZIP download link: HMAC-signed, 7-day expiry, requires admin session
-- [ ] Admin session: 15-min inactivity timeout; invalidated on logout
-- [ ] CSRF tokens on all admin state-changing operations
-- [ ] Audit log: append-only verified (attempt DELETE on audit table → permission denied)
-- [ ] Manual fee verification (if enabled): requires Super Admin; every manual verification audit-logged with reason
+- [ ] DEPT_ADMIN scope enforced server-side on advertisement + application endpoints
+- [ ] Bulk ZIP download link: HMAC-signed, 7-day expiry, admin session required
+- [ ] Advertisement PDF upload: MIME check + structure validation via `secureUpload`
+- [ ] Roll number CSV: only Reg IDs belonging to current tenant accepted
+- [ ] PII export (candidates CSV): restricted to Super Admin; audit-logged
+- [ ] All admin actions logged to audit trail (append-only)
