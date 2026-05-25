@@ -5,6 +5,12 @@ Format: [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 ## [Unreleased]
 
+### Changed
+- Resolved open questions Q2/Q3/Q4/Q7 in knowledge base: fee payment online-only via Razorpay, Aadhaar + UIDAI phone OTP, two separate deployments replacing multi-tenant architecture
+- Removed multi-tenant middleware task and `tenant_id` from all 6 recruitment model schemas in phase-1 plan
+- Updated phase-3 to reflect Aadhaar + phone OTP (UIDAI) and single-deployment unique constraint
+- Updated phase-5 to lock payment gateway to Razorpay, remove DD/challan scope, and concrete env var names
+
 ### Added
 - Three-tier project structure: `Web/` (public portal), `Admin/` (admin panel), `Server/` (REST API backend)
 - `Admin/` — full admin panel frontend repurposed from hms-admin (React 18, Reactstrap, Formik, Recharts, role-based permission system)

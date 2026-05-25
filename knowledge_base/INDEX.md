@@ -80,17 +80,17 @@
 
 #### Open Questions (blocking items)
 
-| # | Question | Blocks |
-|---|----------|--------|
-| 1 | Edit window — 48h or longer? | Registration edit logic |
-| 2 | Online fee only, or offline DD/challan too? | Fee module scope |
-| 3 | Aadhaar — OTP-based or offline XML? | Registration flow |
-| 4 | Shared or separate admin credentials per subdomain? | Admin architecture |
-| 5 | Separate Results module? | Scope |
-| 6 | Advertisement PDFs — admin upload or system-generated? | Advt management |
-| 7 | Payment gateway — Razorpay / PayGov / Paytm / state portal? | Fee integration |
-| 8 | Application form fields beyond OTR? (exam centre, quals, experience) | Apply module |
-| 9 | WhatsApp Business API account — municipality to register? | OTP + notification cost |
+| # | Question | Blocks | Status |
+|---|----------|--------|--------|
+| 1 | Edit window — 48h or longer? | Registration edit logic | ❓ Open |
+| 2 | Online fee only, or offline DD/challan too? | Fee module scope | ✅ **Online only** |
+| 3 | Aadhaar — OTP-based or offline XML? | Registration flow | ✅ **Aadhaar + phone OTP (UIDAI)** |
+| 4 | Shared or separate admin credentials per subdomain? | Admin architecture | ✅ **Separate deployments — no multi-tenant** |
+| 5 | Separate Results module? | Scope | ❓ Open |
+| 6 | Advertisement PDFs — admin upload or system-generated? | Advt management | ❓ Open |
+| 7 | Payment gateway — Razorpay / PayGov / Paytm / state portal? | Fee integration | ✅ **Razorpay** |
+| 8 | Application form fields beyond OTR? (exam centre, quals, experience) | Apply module | ❓ Open |
+| 9 | WhatsApp Business API account — municipality to register? | OTP + notification cost | ❓ Open |
 
 #### Non-Functional Targets (quick ref)
 - Page load: < 3s | Submit response: < 5s | Concurrent: 500 sessions/subdomain
@@ -113,8 +113,8 @@
 - Full-stack portal replacing manual recruitment process for 2 municipalities
 - 8 citizen modules: Home · OTR Registration · Application · Fee Payment · Call Letter · Help · Auth · (Results)
 - Admin panel with 7 sub-modules including async bulk ZIP export
-- Multi-tenant: shared codebase, isolated DB schemas per municipality subdomain
-- 9 open questions blocking key modules (esp. #8 blocks application form, #9 blocks WhatsApp OTP)
+- **Two separate deployments** (one per municipality) — no multi-tenant middleware, no `tenant_id` on models
+- 5 open questions remain; #8 blocks application form, #9 blocks WhatsApp OTP; Q2/Q3/Q4/Q7 resolved
 
 #### Sections Index
 
@@ -164,7 +164,7 @@ Build order is sequential. 🟡 = infra done, recruitment features pending. 🔴
 
 | Phase | File | Depends On | Status | Remaining Work |
 |-------|------|-----------|--------|----------------|
-| 1 | [Foundation](phases/phase-1-foundation.md) | None | 🟡 Partial | Multi-tenant middleware + 6 recruitment models + routes |
+| 1 | [Foundation](phases/phase-1-foundation.md) | None | 🟡 Partial | 6 recruitment models + routes (no multi-tenant) |
 | 2 | [Public Frontend](phases/phase-2-public-frontend.md) | Phase 1 | 🔴 Not Started | Nav restructure + API wiring + /help page |
 | 3 | [OTR Registration](phases/phase-3-otr-registration.md) | Phase 1, 2 | 🔴 Not Started | 10-step form + UIDAI OTP + citizen auth |
 | 4 | [Application](phases/phase-4-application.md) | Phase 3 | 🔴 Not Started | Apply flow + edit + print PDF |
@@ -176,15 +176,15 @@ Build order is sequential. 🟡 = infra done, recruitment features pending. 🔴
 
 ### Open Questions Blocking Phases
 
-| Q# | Question | Blocks Phase |
-|----|----------|-------------|
-| 1 | Edit window duration (48h?) | Phase 3 |
-| 2 | Online only or DD/challan too? | Phase 5 |
-| 3 | Aadhaar OTP-based or offline XML? | Phase 3 |
-| 4 | Shared or separate admin credentials? | Phase 7 |
-| 7 | Payment gateway choice? | Phase 5 |
-| **8** | **Application form fields?** | **Phase 4 (HARD BLOCK)** |
-| **9** | **WhatsApp BSP registered?** | **Phase 8 (HARD BLOCK)** |
+| Q# | Question | Blocks Phase | Status |
+|----|----------|-------------|--------|
+| 1 | Edit window duration (48h?) | Phase 3 | ❓ Open |
+| 2 | ~~Online only or DD/challan too?~~ | Phase 5 | ✅ Online only |
+| 3 | ~~Aadhaar OTP-based or offline XML?~~ | Phase 3 | ✅ Aadhaar + phone OTP (UIDAI) |
+| 4 | ~~Shared or separate admin credentials?~~ | Phase 7 | ✅ Separate deployments |
+| 7 | ~~Payment gateway choice?~~ | Phase 5 | ✅ Razorpay |
+| **8** | **Application form fields?** | **Phase 4 (HARD BLOCK)** | ❓ Open |
+| **9** | **WhatsApp BSP registered?** | **Phase 8 (HARD BLOCK)** | ❓ Open |
 
 ---
 

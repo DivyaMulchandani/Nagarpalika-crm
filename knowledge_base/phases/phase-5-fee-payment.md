@@ -7,7 +7,7 @@
 | **Depends On** | Phase 4 (Application Ref No must exist before payment) · Phase 1 (FeePayment model) |
 | **Blocks** | Phase 6 (Call Letter eligibility requires fee = Paid) |
 | **PRD Sections** | §5 M4 Fee Payment · §9.9 Payment Security |
-| **Open Questions** | #2 (online only vs DD/challan), #7 (payment gateway choice) |
+| **Resolved** | #2 ✅ Online only · #7 ✅ Razorpay |
 
 ---
 
@@ -21,7 +21,7 @@
 | Nodemailer (for fee receipt email with PDF) | Installed in `Server/package.json` |
 | Secure file storage (for receipt PDFs) | `Server/middlewares/secureUpload.js` — storage pattern |
 
-> ⚠️ **Open Question #7**: Payment gateway not selected (Razorpay / PayGov / Paytm / state portal). Build with gateway adapter pattern — provider swappable by config. Open Question #2 (offline DD/challan) — scaffold manual verification endpoint behind feature flag.
+> ✅ **Gateway: Razorpay** (confirmed 2026-05-25). Online only — no DD/challan.
 
 ---
 
@@ -42,18 +42,18 @@ Rename/replace `Payment.js` stub with full FeePayment model (see Phase 1 schema)
 
 #### Gateway Adapter Pattern
 ```javascript
-// Server/services/paymentGateway.service.js
+// Server/services/razorpay.service.js
 export const createOrder(applicationRefNo, amount, currency = 'INR')
 export const verifyWebhookSignature(payload, signature, secret)
 export const getPaymentStatus(gatewayTxnId)
 ```
-Config selects provider: `PAYMENT_GATEWAY_PROVIDER=razorpay|paygov|paytm` in `.env`.
+Config: `RAZORPAY_KEY_ID` + `RAZORPAY_KEY_SECRET` + `RAZORPAY_WEBHOOK_SECRET` in `.env`.
 
 #### Webhook Handler (critical security)
 - Verify HMAC signature **before** any processing — reject if invalid (401)
 - Idempotency: check `gateway_txn_id` already processed → skip if yes
 - Validate `amount` in webhook matches `advt.application_fee` in DB
-- Validate `application_ref_no` in webhook exists in DB for correct tenant
+- Validate `application_ref_no` in webhook exists in DB
 - On valid: set `fee_payment.status = paid`, generate receipt PDF, trigger WhatsApp + email notification
 - Never update DB from success/failure return URL — only from webhook
 

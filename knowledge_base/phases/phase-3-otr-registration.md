@@ -7,7 +7,8 @@
 | **Depends On** | Phase 1 (Candidate model + routes) · Phase 2 (nav restructure) |
 | **Blocks** | Phase 4 (Application requires valid Registration ID) |
 | **PRD Sections** | §5 M2 OTR Registration · §5 M7 Authentication · §9.1 Auth · §9.2 OTP · §9.3 Authorization |
-| **Open Questions** | #1 (edit window duration), #3 (Aadhaar OTP method), #9 (WhatsApp BSP) |
+| **Open Questions** | #1 (edit window duration — default 48h until confirmed), #9 (WhatsApp BSP) |
+| **Resolved** | #3 ✅ Aadhaar + phone OTP via UIDAI |
 
 ---
 
@@ -50,7 +51,7 @@
 | `/candidates/auth/password/reset` | POST | OTP | Reset password |
 
 #### Business Logic
-- `aadhaar_hash + tenant_id` unique constraint enforces 1 Aadhaar = 1 Reg ID per tenant
+- `aadhaar_hash` unique constraint enforces 1 Aadhaar = 1 Reg ID per deployment
 - Multi-step state persisted server-side per session — user can resume after Aadhaar verification
 - Edit window: `created_at + edit_window_hours < now()` — reject if expired
 - Locked fields: Aadhaar hash, DOB, name — rejected at controller level even if client sends them
@@ -97,7 +98,7 @@
 ## Acceptance Criteria
 
 - 10-step flow completes end-to-end: Aadhaar OTP → Registration ID issued + SMS received
-- Same Aadhaar on same tenant → second attempt rejected with clear error
+- Same Aadhaar → second attempt rejected with clear error (unique constraint)
 - Photo > 50 KB or non-JPG → rejected server-side (not just client validation)
 - Edit after window expired → 400 rejected with timestamp reason
 - Login → session cookie set with correct flags (HttpOnly, Secure, SameSite=Strict)

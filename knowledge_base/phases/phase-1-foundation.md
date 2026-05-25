@@ -38,18 +38,11 @@ The HMS-to-recruitment migration left a solid foundation. These are DONE — do 
 
 ---
 
+> **Architecture note (2026-05-25):** No multi-tenant middleware. Each municipality gets its own deployment (separate server + DB). No `tenant_id` on any model.
+
 ## Remaining Work 🔴
 
-### 1. Multi-Tenant Middleware
-Two subdomains → isolated DB data per municipality. **No `tenant_id` exists on any model yet.**
-
-- [ ] Middleware: resolve `tenant_id` from `Host` header at request time (e.g. `patan` vs `palanpur`)
-- [ ] Inject `tenant_id` into `req` — never read from request body
-- [ ] Reject unknown `Host` values with 400
-- [ ] Add `tenant_id` field (required, indexed) to all new recruitment models (§1.3 below)
-- [ ] Existing models (Employee, Dept, Menu, Role, Location, MasterData) can stay single-tenant for now — one admin panel serves both subdomains via staff accounts
-
-### 2. New Recruitment Models
+### 1. New Recruitment Models
 
 Create these 6 models — none exist yet:
 
@@ -73,7 +66,6 @@ Create these 6 models — none exist yet:
   pdf_path: String,
   other_conditions: String,
   status: Enum (Draft/Published/Closed/Archived),
-  tenant_id: String (required, indexed),
   createdBy: ObjectId → Employee,
   timestamps
 }
@@ -109,10 +101,9 @@ Create these 6 models — none exist yet:
   password: String (bcrypt hashed),
   otr_status: Enum (incomplete/complete),
   edit_window_expires_at: Date,
-  tenant_id: String (required, indexed),
   timestamps
 }
-Unique index: { aadhaar_hash: 1, tenant_id: 1 }
+Unique index: { aadhaar_hash: 1 }
 ```
 
 #### `Application.js`
@@ -124,10 +115,9 @@ Unique index: { aadhaar_hash: 1, tenant_id: 1 }
   submitted_at: Date,
   status: Enum (submitted/under_review/shortlisted/rejected/selected),
   edit_log: [{ field, old_value, new_value, changed_at }],
-  tenant_id: String (required, indexed),
   timestamps
 }
-Unique index: { registration_id: 1, advt_no: 1, tenant_id: 1 }
+Unique index: { registration_id: 1, advt_no: 1 }
 ```
 
 #### `FeePayment.js`
@@ -144,7 +134,6 @@ Unique index: { registration_id: 1, advt_no: 1, tenant_id: 1 }
   receipt_path: String,
   webhook_payload: Mixed,
   paid_at: Date,
-  tenant_id: String (required, indexed),
   createdBy: String (registration_id),
   timestamps
 }
@@ -162,7 +151,6 @@ Unique index: { registration_id: 1, advt_no: 1, tenant_id: 1 }
   enabled: Boolean (default: false),
   available_from: Date,
   downloaded_at: Date,
-  tenant_id: String (required, indexed),
   timestamps
 }
 ```
@@ -179,7 +167,6 @@ Unique index: { registration_id: 1, advt_no: 1, tenant_id: 1 }
   expiry_date: Date,
   status: Enum (draft/published/unpublished),
   is_important_instruction: Boolean (default: false),
-  tenant_id: String (required, indexed),
   createdBy: ObjectId → Employee,
   timestamps
 }
@@ -216,16 +203,12 @@ Add recruitment trigger functions to `Server/services/whatsapp.service.js`:
 - `node server.js` starts with no errors
 - `GET /api/v1/advertisements` returns 200
 - `GET /api/v1/candidates` (admin auth) returns 200
-- Unknown `Host` header → 400 rejected
-- Candidate registered on `patan.domain.gov.in` cannot appear in `palanpur.domain.gov.in` API response (tenant isolation test)
-- All 6 new models have `tenant_id` non-null constraint
+- All 6 new models seeded and queryable
 
 ---
 
 ## Security Checklist
 
-- [ ] `tenant_id` injected server-side from `Host` header — never from request body
-- [ ] All new models: `tenant_id` required + indexed
 - [ ] Aadhaar: only SHA-256 hash stored; raw Aadhaar never persisted
 - [ ] Candidate passwords: bcrypt (cost ≥ 12)
 - [ ] File uploads: secureUpload middleware applied to photo/signature endpoints
