@@ -111,12 +111,13 @@ export const ENDPOINTS = {
     },
 
     ANALYTICS: {
-        DASHBOARD:             `${V1}/analytics/dashboard`,
-        REPORT_FEE_COLLECTION: `${V1}/analytics/reports/fee-collection`,
-        // TODO Phase 1: Add recruitment analytics endpoints:
-        // REPORT_APPLICATIONS: `${V1}/analytics/reports/applications`,
-        // REPORT_CANDIDATES:   `${V1}/analytics/reports/candidates`,
-        // REPORT_CALL_LETTERS: `${V1}/analytics/reports/call-letters`,
+        DASHBOARD:                  `${V1}/analytics/dashboard`,
+        REPORT_FEE_COLLECTION:      `${V1}/analytics/reports/fee-collection`,
+        REPORT_APPOINTMENTS:        `${V1}/analytics/reports/appointments`,
+        REPORT_REVENUE:             `${V1}/analytics/reports/revenue`,
+        REPORT_PATIENTS:            `${V1}/analytics/reports/patients`,
+        REPORT_FOLLOW_UPS:          `${V1}/analytics/reports/follow-ups`,
+        REPORT_DOCTOR_UTILIZATION:  `${V1}/analytics/reports/doctor-utilization`,
     },
 
     WHATSAPP: {

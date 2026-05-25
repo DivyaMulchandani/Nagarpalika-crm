@@ -15,7 +15,6 @@ import {
   getFollowUpReport,
   getDoctorUtilizationReport,
 } from "../../api/analytics.api";
-import { getAllDoctors } from "../../api/doctors.api";
 import classnames from "classnames";
 
 const formatCurrency = (n) => {
@@ -69,12 +68,6 @@ const Reports = () => {
   const [followUpReport, setFollowUpReport] = useState(null);
   const [utilizationReport, setUtilizationReport] = useState(null);
   const [loading, setLoading] = useState(false);
-
-  useEffect(() => {
-    getAllDoctors()
-      .then((res) => { if (res.data.isOk) setDoctors(res.data.data || []); })
-      .catch(() => {});
-  }, []);
 
   useEffect(() => {
     fetchCurrentTab();
