@@ -4,117 +4,153 @@
 |-------|-------|
 | **Phase** | 3 of 9 |
 | **Status** | 🔴 Not Started |
-| **Depends On** | Phase 1 (Candidate model + routes) · Phase 2 (nav restructure) |
+| **Depends On** | Phase 1 (Candidate model + OTP model + routes) · Phase 2 (public API verified) |
 | **Blocks** | Phase 4 (Application requires valid Registration ID) |
 | **PRD Sections** | §5 M2 OTR Registration · §5 M7 Authentication · §9.1 Auth · §9.2 OTP · §9.3 Authorization |
-| **Open Questions** | #1 (edit window duration — default 48h until confirmed), #9 (WhatsApp BSP) |
-| **Resolved** | #3 ✅ Aadhaar + phone OTP via UIDAI |
+
+> **Backend-first:** This phase builds all candidate registration and auth API endpoints. The 10-step frontend OTR flow is deferred to **Frontend Binding** after backend phases are complete.
+
+> **Definition of Done** is defined in Phase 1. Apply those criteria here.
 
 ---
 
-## Already Built ✅
+## Remaining Work
 
-| Item | Location |
-|------|----------|
-| OTP model (TTL-indexed, 10-min expire, attempt tracking) | `Server/models/Otp.js` |
-| OTP send + verify + password-reset routes | `Server/routes/v1/otp.routes.js` |
-| Secure file upload (magic byte, UUID rename, Sharp compress) | `Server/middlewares/secureUpload.js` |
-| Session auth pattern (login → HttpOnly cookie → verify-session) | `Server/middlewares/authMiddleware.js` |
-| bcrypt password hashing | Used in `Server/controllers/v1/employee.controller.js` — same pattern for candidates |
-| Input validation framework (express-validator) | `Server/middlewares/inputValidator.js` |
-| WhatsApp send + SMS fallback infrastructure | `Server/services/whatsapp.service.js` |
-
----
-
-## Remaining Work 🔴
-
-### Backend
-
-#### Candidate Routes (`Server/routes/v1/candidates.routes.js`)
+### 1. Candidate Auth Routes (`Server/routes/v1/candidates.routes.js`)
 
 | Endpoint | Method | Auth | Purpose |
 |----------|--------|------|---------|
-| `/candidates/otp/aadhaar` | POST | None | Request Aadhaar OTP via UIDAI |
-| `/candidates/otp/aadhaar/verify` | POST | None | Verify Aadhaar OTP |
-| `/candidates/otp/phone` | POST | None | Send phone OTP (WhatsApp → SMS) |
-| `/candidates/otp/phone/verify` | POST | None | Verify phone OTP |
-| `/candidates/otp/email` | POST | None | Send email OTP |
-| `/candidates/otp/email/verify` | POST | None | Verify email OTP |
-| `/candidates/apply` | POST | Session (step 2+) | Submit each step's data |
-| `/candidates/apply/photo` | POST | Session | Upload photo (multipart, secureUpload) |
-| `/candidates/apply/signature` | POST | Session | Upload signature (multipart, secureUpload) |
-| `/candidates/apply/submit` | POST | Session | Final submit + CAPTCHA verify |
-| `/candidates/edit` | PATCH | Session / OTP | Edit allowed fields only |
-| `/candidates/find` | POST | None | Find Reg ID by mobile+DOB or Aadhaar+DOB |
-| `/candidates/auth/login` | POST | None | Login (Reg ID/Aadhaar + password) |
-| `/candidates/auth/logout` | POST | Session | Invalidate session |
-| `/candidates/auth/password/reset` | POST | OTP | Reset password |
+| `/api/v1/candidates/auth/login` | POST | None | Login with Registration ID (or Aadhaar hash) + password |
+| `/api/v1/candidates/auth/logout` | POST | Candidate session | Invalidate session |
+| `/api/v1/candidates/auth/password/reset` | POST | OTP-verified | Reset password via OTP |
 
-#### Business Logic
-- `aadhaar_hash` unique constraint enforces 1 Aadhaar = 1 Reg ID per deployment
-- Multi-step state persisted server-side per session — user can resume after Aadhaar verification
-- Edit window: `created_at + edit_window_hours < now()` — reject if expired
-- Locked fields: Aadhaar hash, DOB, name — rejected at controller level even if client sends them
+**Session rules:**
+- New session ID generated on every login (session fixation prevention)
+- Max 1 active session per candidate — previous session invalidated on new login
+- 30-min inactivity timeout enforced server-side
 
-### Frontend — 10-Step OTR Flow (`Web/src/pages/Registration/`)
+---
 
-| Step | Route | Key Implementation |
-|------|-------|--------------------|
-| 1 | `/registration/apply/instructions` | Bilingual text. "I Agree" disabled until scroll-to-bottom. Server validates I-Agree session flag. |
-| 2 | `/registration/apply/aadhaar` | Aadhaar input → UIDAI OTP → verify. Phone OTP (WhatsApp primary, SMS fallback). Password creation with policy validation. |
-| 3 | `/registration/apply/personal` | Name, Father/Husband, DOB, gender, category (General/OBC/SC/ST/EWS), nationality, religion |
-| 4 | `/registration/apply/communication` | Permanent + current address (same-as checkbox), OTP-verified mobile, optional alt mobile, OTP-verified email |
-| 5 | `/registration/apply/other` | Marital status, PH status (type + % if yes), ex-serviceman, highest qualification |
-| 6 | `/registration/apply/language` | Languages: Read/Write/Speak checkboxes per language, mother tongue |
-| 7 | `/registration/apply/photo` | JPG/JPEG, max 50 KB, 3.5×4.5 cm. Preview + re-upload. |
-| 8 | `/registration/apply/signature` | JPG/JPEG, max 20 KB, 3.5×1.5 cm. Preview + re-upload. |
-| 9 | `/registration/apply/declaration` | Bilingual declaration text. Checkbox required. |
-| 10 | `/registration/apply/submit` | Image CAPTCHA (server-side verified) → Registration ID displayed + sent via SMS + email |
+### 2. OTP Delivery (extend existing `/api/v1/otp`)
 
-**Multi-step state:** Store step data in React state + server session. On browser close/refresh, resume from last completed step if Aadhaar was verified.
+The OTP model from Phase 1 supports mobile and email targets. Extend the controller with candidate-specific rate limiting:
 
-### Edit Registration (`/registration/edit`)
-- Access: Reg ID + DOB **or** Aadhaar + OTP
-- Server checks: `edit_window_expires_at > now()` — reject if expired (server-side, not UI-gated)
-- Editable: communication details, photo, signature, language details
-- Locked UI: Aadhaar, DOB, name shown read-only
-- Save requires OTP confirmation to registered mobile
+| Endpoint | Method | Auth | Purpose |
+|----------|--------|------|---------|
+| `/api/v1/otp/send` | POST | None | Send OTP to mobile (SMS) or email |
+| `/api/v1/otp/verify` | POST | None | Verify OTP code |
 
-### Find Registration ID (`/registration/find`)
-- Input: Mobile + DOB **or** Aadhaar + DOB
-- OTP verification → Reg ID sent to registered mobile + email (NOT displayed on screen)
+**OTP security rules — all enforced in controller:**
+- Max 3 OTP requests per phone/email per hour
+- Max 3 failed verification attempts before OTP invalidated (`attempts` field on Otp model)
+- OTP expires after 10 minutes (TTL index auto-deletes; controller validates `createdAt`)
+- OTP value must never appear in any server log or response body
+- Constant-time string comparison (prevent timing attacks)
 
-### Login Modal (M7)
-- Trigger: "Login / Register" nav button
-- Fields: Registration ID **or** Aadhaar + Password
-- On success: session cookie set (HttpOnly, Secure, SameSite=Strict)
-- New session ID on login (session fixation prevention)
-- Max 1 active session per candidate
-- "Forgot Password": OTP → reset form
-- Timeout: 30-min inactivity
+**OTP delivery channels:**
+- Mobile OTP: SMS gateway (`SMS_API_URL`, `SMS_API_KEY`, `SMS_SENDER_ID` in `.env`)
+- Email OTP: email service (Phase 8 wires the full service; stub the function call here)
+
+> UIDAI Aadhaar OTP (AUA empanelment) is an external dependency. Until UIDAI credentials are obtained, treat Aadhaar verification as a standard OTP delivered to the Aadhaar-linked mobile. Mark as deferred external dependency in code comments.
+
+---
+
+### 3. Candidate Registration Routes
+
+| Endpoint | Method | Auth | Purpose |
+|----------|--------|------|---------|
+| `/api/v1/candidates/register/step` | POST | Step session | Save one step's data server-side (step ID in body) |
+| `/api/v1/candidates/register/photo` | POST | Step session | Upload candidate photo (`secureUpload` middleware) |
+| `/api/v1/candidates/register/signature` | POST | Step session | Upload candidate signature (`secureUpload` middleware) |
+| `/api/v1/candidates/register/submit` | POST | Step session | Finalize registration → issue Registration ID |
+| `/api/v1/candidates/register/resume` | GET | Step session | Return current step + saved data (for page-refresh recovery) |
+
+**Step session:** A temporary session key created after Aadhaar OTP verification (step 1). All subsequent steps attach to this key. `submit` converts to a full Candidate record and clears the step session.
+
+**Business logic (all server-side):**
+- `aadhaar_hash` (SHA-256) must be unique — 409 if already registered
+- `registration_id` auto-generated via Counter model: `ORGCODE/YEAR/SEQ`
+- `edit_window_expires_at = submitted_at + 48h` (configurable via CompanyMaster or env)
+- Locked fields after submit: `aadhaar_hash`, `dob`, `name` — 422 if sent in edit
+- Photo: JPEG only, max 50 KB, magic-byte validated by `secureUpload`
+- Signature: JPEG only, max 20 KB
+
+---
+
+### 4. Candidate Edit + Find Routes
+
+| Endpoint | Method | Auth | Purpose |
+|----------|--------|------|---------|
+| `/api/v1/candidates/edit` | PATCH | Candidate session | Edit allowed fields (communication, photo, signature, languages) |
+| `/api/v1/candidates/find` | POST | None | Find Reg ID by mobile + DOB or Aadhaar hash + DOB |
+
+**Edit rules:**
+- Controller checks `edit_window_expires_at > now()` — rejects with 400 + expiry timestamp if window closed
+- Editable: `address_current`, `address_permanent`, `mobile`, `email`, `photo_path`, `signature_path`, `languages`
+- Locked: `aadhaar_hash`, `dob`, `name` — 422 if included in PATCH body
+- OTP re-confirmation to registered mobile required before saving
+
+**Find rules:**
+- Registration ID NOT returned in response body — delivered to registered mobile + email only
+- Identical response shape and delay for "not found" vs "found" (enumeration prevention)
+
+---
+
+### 5. Admin-Facing Candidate Routes (for Phase 7 Admin APIs)
+
+| Endpoint | Method | Auth | Purpose |
+|----------|--------|------|---------|
+| `/api/v1/candidates` | GET | Admin session | List candidates (searchable by name, Reg ID; filterable by category, otr_status) |
+| `/api/v1/candidates/:id` | GET | Admin session | View full OTR profile (read-only) |
+| `/api/v1/candidates/export` | POST | Super Admin session | Export to CSV/Excel; auto-logged in audit trail |
+
+---
+
+### 6. Business Logic Reference
+
+| Rule | Enforcement |
+|------|------------|
+| 1 Aadhaar = 1 Registration ID | DB unique index on `aadhaar_hash` |
+| Aadhaar never stored raw | Controller SHA-256 hashes before any DB write or comparison |
+| Step state survives browser close | Persisted server-side via connect-mongo session |
+| Registration ID not displayed on screen | Delivered via SMS + email only; never in API response |
+| Duplicate mobile/email prevention | Unique index on `mobile` and `email` in Candidate model |
 
 ---
 
 ## Acceptance Criteria
 
-- 10-step flow completes end-to-end: Aadhaar OTP → Registration ID issued + SMS received
-- Same Aadhaar → second attempt rejected with clear error (unique constraint)
-- Photo > 50 KB or non-JPG → rejected server-side (not just client validation)
-- Edit after window expired → 400 rejected with timestamp reason
-- Login → session cookie set with correct flags (HttpOnly, Secure, SameSite=Strict)
-- 5 failed logins → 15-min lockout enforced server-side
-- Reg ID NOT displayed on Find page — delivered via SMS/email only
+- Full registration flow completable end-to-end via Postman: Aadhaar OTP → step data saved → submit → Registration ID issued
+- Duplicate Aadhaar hash → 409 with clear error
+- Photo > 50 KB or non-JPEG → 422 rejected server-side (not client-only)
+- Edit after `edit_window_expires_at` → 400 with expiry timestamp in response
+- `POST /candidates/auth/login` → session cookie with HttpOnly + Secure + SameSite=Strict
+- 5 failed logins → 15-min account lockout enforced server-side
+- `POST /candidates/find` response is identical body/timing whether Reg ID exists or not
+- All endpoints testable via Swagger UI — no frontend required
 
 ---
 
 ## Security Checklist
 
-- [ ] Aadhaar: SHA-256 hash only stored; raw number never in DB or logs
-- [ ] OTP: 6 digits, 5-min expiry, max 3 attempts, rate-limited 3/hour/phone, never in logs
-- [ ] Photo/signature: magic-byte MIME check; re-encoded; stored outside webroot; UUID filename
+- [ ] Aadhaar: SHA-256 hash only; raw Aadhaar never in DB, never in logs, never in any response
+- [ ] OTP: 6 digits, 10-min TTL, max 3 attempts, rate-limited 3 req/hour/phone, never logged
+- [ ] Photo/signature: magic-byte MIME check, Sharp re-encoding, stored outside webroot, UUID filename
 - [ ] Session fixation: new session ID on every login
-- [ ] Brute force: 5 failed attempts → 15-min lockout (server-side, not cookie-based)
-- [ ] Edit window: enforced server-side via `edit_window_expires_at` timestamp
-- [ ] CSRF tokens on all registration form submissions
-- [ ] CAPTCHA: server-side token verified with provider API before step 10 processing
-- [ ] Enumeration prevention: same response time + message for valid and invalid Aadhaar on OTP request
+- [ ] Brute force: 5 failed logins → 15-min lockout (server-side)
+- [ ] Edit window: enforced via `edit_window_expires_at` timestamp — no UI-only gating
+- [ ] Constant-time OTP comparison (prevent timing attacks)
+- [ ] Enumeration prevention: same response for valid vs invalid Aadhaar on OTP request
+
+---
+
+## Frontend Binding — Deferred
+
+Pick up after backend phases 1–7 are complete.
+
+| Work Item | File |
+|-----------|------|
+| 10-step OTR registration flow | `Web/src/pages/Registration/` |
+| Edit Registration page | `Web/src/pages/Registration/Edit.jsx` |
+| Find Registration ID page | `Web/src/pages/Registration/Find.jsx` |
+| Login modal (M7) with session management | `Web/src/components/LoginModal.jsx` |

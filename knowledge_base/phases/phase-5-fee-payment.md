@@ -7,84 +7,118 @@
 | **Depends On** | Phase 4 (Application Ref No must exist before payment) · Phase 1 (FeePayment model) |
 | **Blocks** | Phase 6 (Call Letter eligibility requires fee = Paid) |
 | **PRD Sections** | §5 M4 Fee Payment · §9.9 Payment Security |
-| **Resolved** | #2 ✅ Online only · #7 ✅ Razorpay |
+
+> **Gateway: Razorpay.** Online only — no DD, challan, or offline payment.
+
+> **Backend-first:** This phase builds the full Razorpay integration and webhook handler. The payment frontend pages are deferred to **Frontend Binding**.
+
+> **Definition of Done** is defined in Phase 1. Apply those criteria here.
 
 ---
 
-## Already Built ✅
+## Remaining Work
 
-| Item | Location |
-|------|----------|
-| Payment model stub (Invoice/Patient refs stripped, ready for rebuild) | `Server/models/Payment.js` |
-| express-session (for payment initiation auth) | `Server/server.js` |
-| WhatsApp send (for fee receipt notification) | `Server/services/whatsapp.service.js` |
-| Nodemailer (for fee receipt email with PDF) | Installed in `Server/package.json` |
-| Secure file storage (for receipt PDFs) | `Server/middlewares/secureUpload.js` — storage pattern |
+### 1. FeePayment Model
 
-> ✅ **Gateway: Razorpay** (confirmed 2026-05-25). Online only — no DD/challan.
+`Server/models/Payment.js` (the HMS stub) must be replaced with the `FeePayment` model defined in Phase 1. Delete the old file; create `Server/models/FeePayment.js`.
 
 ---
 
-## Remaining Work 🔴
+### 2. Razorpay Service (`Server/services/razorpay.service.js`)
 
-### Rebuild `Server/models/FeePayment.js`
+```javascript
+// Functions to implement:
+createOrder(applicationRefNo, amount, currency = 'INR')
+  // Creates Razorpay order, returns { orderId, amount, currency, key }
 
-Rename/replace `Payment.js` stub with full FeePayment model (see Phase 1 schema).
+verifyWebhookSignature(rawBody, signature, secret)
+  // HMAC-SHA256 verify; returns boolean
 
-### Backend (`Server/routes/v1/feePayments.routes.js`)
+getPaymentStatus(gatewayTxnId)
+  // Fetch status from Razorpay API
+```
+
+Config in `Server/.env`:
+```
+RAZORPAY_KEY_ID=
+RAZORPAY_KEY_SECRET=
+RAZORPAY_WEBHOOK_SECRET=
+```
+
+---
+
+### 3. Fee Payment Routes (`Server/routes/v1/feePayments.routes.js`)
 
 | Endpoint | Method | Auth | Purpose |
 |----------|--------|------|---------|
-| `/api/v1/fee-payments/status` | POST | None | Lookup pending fees by Aadhaar or Reg ID |
-| `/api/v1/fee-payments/initiate` | POST | Candidate session | Create gateway order → return redirect URL |
-| `/api/v1/webhooks/payment` | POST | HMAC signature | Receive gateway payment notification |
+| `/api/v1/fee-payments/status` | POST | None | Lookup pending/paid fees by Aadhaar hash or Reg ID |
+| `/api/v1/fee-payments/initiate` | POST | Candidate session | Create Razorpay order → return `orderId` + `key` |
+| `/api/v1/webhooks/razorpay` | POST | HMAC signature | Receive and process Razorpay payment webhook |
 | `/api/v1/fee-payments/receipt/:payment_id` | GET | Candidate session | Download fee receipt PDF |
+| `/api/v1/fee-payments` | GET | Admin session | List all payments (filterable by advt, status, date) |
+| `/api/v1/fee-payments/reconciliation` | GET | Admin session | Total collected per advertisement + date range report |
+| `/api/v1/fee-payments/:id/manual` | PATCH | Super Admin session | Manual verification override (feature-flagged) |
 
-#### Gateway Adapter Pattern
-```javascript
-// Server/services/razorpay.service.js
-export const createOrder(applicationRefNo, amount, currency = 'INR')
-export const verifyWebhookSignature(payload, signature, secret)
-export const getPaymentStatus(gatewayTxnId)
-```
-Config: `RAZORPAY_KEY_ID` + `RAZORPAY_KEY_SECRET` + `RAZORPAY_WEBHOOK_SECRET` in `.env`.
+---
 
-#### Webhook Handler (critical security)
-- Verify HMAC signature **before** any processing — reject if invalid (401)
-- Idempotency: check `gateway_txn_id` already processed → skip if yes
-- Validate `amount` in webhook matches `advt.application_fee` in DB
-- Validate `application_ref_no` in webhook exists in DB
-- On valid: set `fee_payment.status = paid`, generate receipt PDF, trigger WhatsApp + email notification
-- Never update DB from success/failure return URL — only from webhook
+### 4. Webhook Handler (critical — implement carefully)
 
-### Frontend (`Web/src/pages/Fee/`)
+The webhook endpoint at `/api/v1/webhooks/razorpay` must:
 
-- Entry: Aadhaar **or** Registration ID (no login required for lookup)
-- Display: list of applied posts with payment status (Paid / Pending) per post
-- Select pending posts → "Pay Fee" button
-- Server creates gateway order → client redirects to gateway
-- `/fee/success` and `/fee/failure` pages: display only, no DB update
-- Fee receipt download button on Paid entries
+1. **Verify HMAC signature first** — reject with 401 if missing or invalid before any processing
+2. **Idempotency check** — if `gateway_txn_id` already processed, return 200 and skip
+3. **Amount validation** — webhook `amount` must match `advt.application_fee` from DB (in paise)
+4. **Application ref validation** — `application_ref_no` in webhook must exist in DB
+5. **Status update** — set `fee_payment.status = paid`, record `paid_at`, store `webhook_payload`
+6. **Receipt generation** — generate PDF receipt, store path in `receipt_path`
+7. **Notify** — trigger email receipt notification (Phase 8 wires the full service; stub the call)
+
+**Critical rule:** Never update payment status from the success/failure redirect URL — only from webhook.
+
+---
+
+### 5. Receipt PDF Service (`Server/services/receiptPdf.service.js`)
+
+PDF contains:
+- Receipt number (payment_id), transaction date
+- Candidate name, Registration ID
+- Advertisement number, post title
+- Amount paid, payment mode, gateway transaction ID
+- Municipality branding (CompanyMaster logo + name)
 
 ---
 
 ## Acceptance Criteria
 
-- Fee amount sent to gateway read from DB by Advt No — client-modified amount has no effect
-- Webhook without valid HMAC → 401 rejected, not processed
-- Same webhook delivered twice → processed once (idempotency)
-- Candidate cannot download another candidate's receipt (session + ownership check)
-- Failed payment: application record intact; user can retry
-- Successful payment: status changes to Paid within 10s of webhook receipt
+- Fee amount sent to Razorpay is always read from `advt.application_fee` in DB — client-provided amount has zero effect
+- Webhook without valid HMAC signature → 401, no processing
+- Same webhook delivered twice → processed once (idempotency via `gateway_txn_id`)
+- `GET /fee-payments/receipt/:payment_id` for another candidate's receipt → 403
+- Failed payment: Application record intact; candidate can retry
+- Successful payment: `fee_payment.status = paid` within normal webhook delivery time
+- All endpoints testable via Swagger UI / Postman — no frontend required
 
 ---
 
 ## Security Checklist
 
-- [ ] Fee amount: always from `advt.application_fee` in DB — never from client form field
-- [ ] Webhook HMAC: missing or invalid signature → 401
-- [ ] Webhook replay: `gateway_txn_id` idempotency key in DB
-- [ ] Receipt IDOR: endpoint verifies `registration_id` matches session
-- [ ] Payment initiation: requires valid Application Ref No in DB
-- [ ] No card data stored on server (PCI-DSS scope: redirect model only)
-- [ ] CSRF token on fee initiation form
+- [ ] Fee amount: always from `advt.application_fee` in DB — never from client form or redirect params
+- [ ] Webhook HMAC: `verifyWebhookSignature()` called before any DB read or write; missing signature → 401
+- [ ] Webhook replay: `gateway_txn_id` idempotency check — second delivery returns 200 and stops
+- [ ] Receipt IDOR: endpoint verifies `registration_id` in session matches payment owner
+- [ ] Payment initiation: requires valid Application Ref No in DB (no phantom payments)
+- [ ] No card data stored on server — redirect model only (PCI-DSS scope: SAQ A)
+- [ ] Webhook endpoint bypasses session auth — uses HMAC only; all other routes require session
+
+---
+
+## Frontend Binding — Deferred
+
+Pick up after backend phases 1–7 are complete.
+
+| Work Item | File |
+|-----------|------|
+| Fee status lookup form (Aadhaar or Reg ID) | `Web/src/pages/Fee/index.jsx` |
+| Razorpay checkout redirect flow | `Web/src/pages/Fee/Checkout.jsx` |
+| Success and failure landing pages | `Web/src/pages/Fee/Success.jsx`, `Failure.jsx` |
+| Receipt download button (on Paid entries) | `Web/src/pages/Fee/Receipt.jsx` |
