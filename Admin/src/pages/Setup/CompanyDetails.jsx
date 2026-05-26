@@ -18,6 +18,12 @@ import UiContent from "../../Components/Common/UiContent";
 import { getAllCountries, getStatesByCountry, getCitiesByState } from "../../api/locations.api";
 import { updateCompany } from "../../api/companies.api";
 
+const API_URL = import.meta.env.VITE_API_URL || ""
+const toAbsUrl = (p) => {
+  if (!p || p.startsWith("blob:") || p.startsWith("http")) return p
+  return `${API_URL}/${p.replace(/\\/g, "/")}`
+}
+
 const CompanyDetails = () => {
   const { adminData, getAdmin } = useContext(AuthContext);
 
@@ -153,15 +159,15 @@ const CompanyDetails = () => {
 
   useEffect(() => {
     if (adminData.logo) {
-      setLogoPreview(adminData.logo);
-      setShowFileInput(false); // Hide file input when logo exists
+      setLogoPreview(toAbsUrl(adminData.logo));
+      setShowFileInput(false);
     }
   }, [adminData.logo]);
 
   useEffect(() => {
     if (adminData.favicon) {
-      setFaviconPreview(adminData.favicon);
-      setShowFaviconInput(false); // Hide file input when favicon exists
+      setFaviconPreview(toAbsUrl(adminData.favicon));
+      setShowFaviconInput(false);
     }
   }, [adminData.favicon]);
 
@@ -268,7 +274,7 @@ const CompanyDetails = () => {
 
   useEffect(() => {
     if (!selectedFile && values.logo) {
-      setLogoPreview(values.logo);
+      setLogoPreview(toAbsUrl(values.logo));
       setShowFileInput(false);
     }
   }, [values.logo, selectedFile]);

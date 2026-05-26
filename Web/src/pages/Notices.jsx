@@ -1,34 +1,33 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
+import { get } from '../api/index'
 
-const ALL_NOTICES = [
-  { sr: 1,  date: '07/05/2026', ref: 'UD/NOT/2026/47',  subject: 'Public hearing on Ahmedabad Master Plan 2041 — second draft',                                   type: 'notice', typeLabel: 'Notice' },
-  { sr: 2,  date: '04/05/2026', ref: 'UD/PR/2026/19',   subject: "Foundation stone of Surat Metro Phase II laid by Hon'ble Chief Minister",                        type: 'press',  typeLabel: 'Press' },
-  { sr: 3,  date: '02/05/2026', ref: 'UD/CIR/2026/31',  subject: 'Revised guidelines for issuance of Building Use (BU) permission — applicable from 01/06/2026',   type: 'notice', typeLabel: 'Circular' },
-  { sr: 4,  date: '28/04/2026', ref: 'UD/2026/04',      subject: 'Recruitment Notification — Town Planner, Junior Engineer & Clerk-cum-Typist (142 posts)',         type: 'recruit',typeLabel: 'Recruit' },
-  { sr: 5,  date: '22/04/2026', ref: 'AMC/TND/2026/08', subject: 'Tender for solid-waste-to-energy plant at Pirana, Ahmedabad — pre-bid 12/05/2026',                type: 'tender', typeLabel: 'Tender' },
-  { sr: 6,  date: '18/04/2026', ref: 'UD/CIR/2026/30',  subject: 'Implementation of unified property tax assessment formula across Class A & B Municipalities',     type: 'notice', typeLabel: 'Circular' },
-  { sr: 7,  date: '15/04/2026', ref: 'UD/NOT/2026/45',  subject: 'Janata Darbar — public grievance hearing rescheduled to 18/05/2026',                              type: 'notice', typeLabel: 'Notice' },
-  { sr: 8,  date: '10/04/2026', ref: 'SUDA/TND/2026/04',subject: 'Tender for development of Sarthana–Khajod Metro corridor stations (Phase II)',                    type: 'tender', typeLabel: 'Tender' },
-  { sr: 9,  date: '05/04/2026', ref: 'UD/PR/2026/17',   subject: 'AMRUT 2.0 — Gujarat ranks first nationally in 24×7 water supply coverage',                        type: 'press',  typeLabel: 'Press' },
-  { sr: 10, date: '01/04/2026', ref: 'UD/CIR/2026/29',  subject: 'Allocation of FY 2026-27 budget to Urban Local Bodies — district-wise breakdown',                  type: 'notice', typeLabel: 'Circular' },
-  { sr: 11, date: '26/03/2026', ref: 'VUDA/TND/2026/02',subject: 'Tender for redevelopment of Old Padra Road as a model Smart Street, Vadodara',                    type: 'tender', typeLabel: 'Tender' },
-  { sr: 12, date: '20/03/2026', ref: 'UD/NOT/2026/42',  subject: 'Notice inviting objections — Town Planning Scheme No. 442, Vastrapur (Final)',                    type: 'notice', typeLabel: 'Notice' },
-]
+const fmtDate = (d) => d ? new Date(d).toLocaleDateString('en-IN', { day: '2-digit', month: '2-digit', year: 'numeric' }) : '—'
 
 const TYPE_FILTERS = [
-  { k: 'all',    l: 'All',          count: ALL_NOTICES.length },
-  { k: 'notice', l: 'Notice',       count: ALL_NOTICES.filter(n => n.type === 'notice').length },
-  { k: 'notice', l: 'Circular',     count: ALL_NOTICES.filter(n => n.typeLabel === 'Circular').length },
-  { k: 'tender', l: 'Tender',       count: ALL_NOTICES.filter(n => n.type === 'tender').length },
-  { k: 'press',  l: 'Press Release',count: ALL_NOTICES.filter(n => n.type === 'press').length },
+  { k: 'all',        l: 'All' },
+  { k: 'general',    l: 'General' },
+  { k: 'recruitment',l: 'Recruitment' },
+  { k: 'tender',     l: 'Tender' },
+  { k: 'result',     l: 'Result' },
 ]
 
-export default function Notices() {
-  const [filter, setFilter] = useState('all')
+const TYPE_LABEL = { general: 'General', recruitment: 'Recruit', tender: 'Tender', result: 'Result' }
 
-  const visible = filter === 'all'
-    ? ALL_NOTICES
-    : ALL_NOTICES.filter(n => n.type === filter)
+export default function Notices() {
+  const [filter, setFilter]   = useState('all')
+  const [notices, setNotices] = useState([])
+  const [loading, setLoading] = useState(true)
+  const [error, setError]     = useState(null)
+
+  useEffect(() => {
+    get('/api/v1/notices', { status: 'published', limit: 50 })
+      .then(res => setNotices(res?.data || []))
+      .catch(() => setError('Failed to load notices'))
+      .finally(() => setLoading(false))
+  }, [])
+
+  const visible  = filter === 'all' ? notices : notices.filter(n => n.type === filter)
+  const countOf  = (k) => k === 'all' ? notices.length : notices.filter(n => n.type === k).length
 
   return (
     <>
@@ -39,13 +38,13 @@ export default function Notices() {
 
       <div className="filter-row">
         <span className="label">Filter by Type</span>
-        {TYPE_FILTERS.map((f, i) => (
+        {TYPE_FILTERS.map(f => (
           <button
-            key={i}
-            className={`chip${filter === f.k && (f.k !== 'all' || filter === 'all') ? ' active' : ''}`}
+            key={f.k}
+            className={`chip${filter === f.k ? ' active' : ''}`}
             onClick={() => setFilter(f.k)}
           >
-            {f.l} <span className="count">({f.count})</span>
+            {f.l} <span className="count">({countOf(f.k)})</span>
           </button>
         ))}
       </div>
@@ -55,37 +54,45 @@ export default function Notices() {
           <span>Recent Notices &amp; Circulars</span>
           <span className="guj">તાજેતરની સૂચનાઓ</span>
         </div>
-        <table className="ojas">
-          <thead>
-            <tr>
-              <th style={{ width: 36 }}>Sr.</th>
-              <th style={{ width: 110 }}>Date</th>
-              <th style={{ width: 130 }}>Reference No.</th>
-              <th>Subject</th>
-              <th style={{ width: 100 }}>Type</th>
-              <th style={{ width: 80 }}>File</th>
-            </tr>
-          </thead>
-          <tbody>
-            {visible.map((n, i) => (
-              <tr key={n.sr}>
-                <td>{i + 1}</td>
-                <td>{n.date}</td>
-                <td style={{ fontFamily: 'var(--font-mono)', fontSize: 11.5 }}>{n.ref}</td>
-                <td><a href="#">{n.subject}</a></td>
-                <td><span className={`tag ${n.type}`}>{n.typeLabel}</span></td>
-                <td><a href="#">PDF ▶</a></td>
+        {loading ? (
+          <div style={{ padding: '32px', textAlign: 'center', color: 'var(--ojas-ink-3)' }}>Loading…</div>
+        ) : error ? (
+          <div style={{ padding: '32px', textAlign: 'center', color: 'var(--ojas-red)' }}>{error}</div>
+        ) : (
+          <table className="ojas">
+            <thead>
+              <tr>
+                <th style={{ width: 36 }}>Sr.</th>
+                <th style={{ width: 110 }}>Date</th>
+                <th>Subject</th>
+                <th style={{ width: 100 }}>Type</th>
+                <th style={{ width: 80 }}>File</th>
               </tr>
-            ))}
-          </tbody>
-        </table>
-      </div>
-
-      <div className="pagination">
-        <a className="active">1</a>
-        <a>2</a>
-        <a>3</a>
-        <a>Next ▶</a>
+            </thead>
+            <tbody>
+              {visible.map((n, i) => (
+                <tr key={n._id}>
+                  <td>{i + 1}</td>
+                  <td>{fmtDate(n.publish_date)}</td>
+                  <td>
+                    {n.is_important_instruction && <span style={{ color: 'var(--ojas-red)', fontWeight: 700, marginRight: 4 }}>★</span>}
+                    {n.title}
+                  </td>
+                  <td><span className={`tag ${n.type}`}>{TYPE_LABEL[n.type] || n.type}</span></td>
+                  <td>
+                    {n.pdf_path
+                      ? <a href={`/api/v1/notices/${n._id}/pdf`} target="_blank" rel="noreferrer">PDF ▶</a>
+                      : <span style={{ color: 'var(--ojas-ink-3)' }}>—</span>
+                    }
+                  </td>
+                </tr>
+              ))}
+              {visible.length === 0 && (
+                <tr><td colSpan={5} style={{ textAlign: 'center', padding: '24px', color: 'var(--ojas-ink-3)', fontStyle: 'italic' }}>No notices found.</td></tr>
+              )}
+            </tbody>
+          </table>
+        )}
       </div>
     </>
   )

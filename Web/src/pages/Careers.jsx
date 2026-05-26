@@ -1,44 +1,44 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { useLang } from '../context/LangContext'
-import { JOBS } from '../data/jobs'
+import { get } from '../api/index'
 
-const STATUS_LABEL = { urgent: 'Closing Soon', new: 'New', closed: 'Closed', active: 'Active' }
+const fmtDate = (d) => d ? new Date(d).toLocaleDateString('en-IN', { day: '2-digit', month: '2-digit', year: 'numeric' }) : '—'
+const isClosingSoon = (d) => { if (!d) return false; const diff = new Date(d) - Date.now(); return diff > 0 && diff < 7 * 86400 * 1000 }
+
+const FILTERS = [
+  { k: 'all', i: 'car.filter.all', l: 'All' },
+  { k: 'I',   i: 'car.filter.1',   l: 'Class I' },
+  { k: 'II',  i: 'car.filter.2',   l: 'Class II' },
+  { k: 'III', i: 'car.filter.3',   l: 'Class III' },
+]
 
 export default function Careers() {
   const { t } = useLang()
-  const [filter, setFilter] = useState('all')
+  const [filter, setFilter]   = useState('all')
+  const [jobs, setJobs]       = useState([])
+  const [loading, setLoading] = useState(true)
+  const [error, setError]     = useState(null)
 
-  const visible = filter === 'all' ? JOBS : JOBS.filter(j => j.cls === filter)
-  const counts = {
-    all: JOBS.length,
-    I:   JOBS.filter(j => j.cls === 'I').length,
-    II:  JOBS.filter(j => j.cls === 'II').length,
-    III: JOBS.filter(j => j.cls === 'III').length,
+  useEffect(() => {
+    get('/api/v1/advertisements', { status: 'Published', limit: 100 })
+      .then(res => setJobs(res?.data || []))
+      .catch(() => setError('Failed to load advertisements'))
+      .finally(() => setLoading(false))
+  }, [])
+
+  const visible = filter === 'all' ? jobs : jobs.filter(j => j.class === filter)
+  const counts  = {
+    all: jobs.length,
+    I:   jobs.filter(j => j.class === 'I').length,
+    II:  jobs.filter(j => j.class === 'II').length,
+    III: jobs.filter(j => j.class === 'III').length,
   }
-
-  const FILTERS = [
-    { k: 'all', i: 'car.filter.all', l: 'All' },
-    { k: 'I',   i: 'car.filter.1',   l: 'Class I' },
-    { k: 'II',  i: 'car.filter.2',   l: 'Class II' },
-    { k: 'III', i: 'car.filter.3',   l: 'Class III' },
-  ]
 
   return (
     <>
       <div className="page-heading">
         <h1>{t('car.h')}</h1>
         <span className="guj">{t('car.guj')}</span>
-      </div>
-
-      <div className="advt-banner">
-        <div>
-          <div className="meta" style={{ textTransform: 'uppercase', letterSpacing: '.1em' }}>Advertisement No.</div>
-          <div className="num">UD / 2026 / 04</div>
-        </div>
-        <div className="meta" style={{ textAlign: 'right' }}>
-          Issued <strong>28/04/2026</strong><br />
-          Last Date: <strong style={{ color: '#fff' }}>22/05/2026 — 23:59 IST</strong>
-        </div>
       </div>
 
       <div className="notice info">
@@ -55,55 +55,72 @@ export default function Careers() {
             onClick={() => setFilter(f.k)}
           >
             <span>{t(f.i) || f.l}</span>
-            <span className="count">({counts[f.k]})</span>
+            <span className="count">({counts[f.k] ?? 0})</span>
           </button>
         ))}
       </div>
 
       <div className="box">
         <div className="box-title">
-          <span>Open Positions — Department of Urban Development</span>
-          <span className="guj">શહેરી વિકાસ વિભાગ — ખાલી જગ્યાઓ</span>
+          <span>Open Positions</span>
+          <span className="guj">ખાલી જગ્યાઓ</span>
         </div>
-        <table className="ojas">
-          <thead>
-            <tr>
-              <th style={{ width: 36 }}>Sr.</th>
-              <th style={{ width: 110 }}>Advt. No.</th>
-              <th>Name of Post</th>
-              <th style={{ width: 90 }}>Class</th>
-              <th style={{ width: 60 }}>Posts</th>
-              <th style={{ width: 70 }}>Fee</th>
-              <th style={{ width: 90 }}>Last Date</th>
-              <th style={{ width: 110 }}>Status</th>
-              <th style={{ width: 90 }}>Action</th>
-            </tr>
-          </thead>
-          <tbody>
-            {visible.map((j, i) => (
-              <tr key={j.id}>
-                <td>{i + 1}</td>
-                <td style={{ fontFamily: 'var(--font-mono)', fontSize: 11.5 }}>{j.id}</td>
-                <td>
-                  <a href="#">{j.title}</a>
-                  <div style={{ fontSize: 11, color: 'var(--ojas-ink-3)', marginTop: 2 }}>{j.dept}</div>
-                  <div style={{ fontSize: 11, color: 'var(--ojas-ink-2)', marginTop: 2 }}>Pay: {j.scale}</div>
-                </td>
-                <td style={{ fontWeight: 700 }}>{j.cls}</td>
-                <td style={{ textAlign: 'center', fontWeight: 700, color: 'var(--ojas-navy)' }}>{j.posts}</td>
-                <td>{j.fee}</td>
-                <td style={{ color: j.status === 'urgent' ? 'var(--ojas-red)' : 'inherit', fontWeight: j.status === 'urgent' ? 700 : 400 }}>{j.last}</td>
-                <td><span className={`badge ${j.status}`}>{STATUS_LABEL[j.status]}</span></td>
-                <td>
-                  <a href="#" style={{ color: 'var(--ojas-saffron-deep)', fontWeight: 700 }}>{t('car.apply')}</a>
-                </td>
+        {loading ? (
+          <div style={{ padding: '32px', textAlign: 'center', color: 'var(--ojas-ink-3)' }}>Loading…</div>
+        ) : error ? (
+          <div style={{ padding: '32px', textAlign: 'center', color: 'var(--ojas-red)' }}>{error}</div>
+        ) : (
+          <table className="ojas">
+            <thead>
+              <tr>
+                <th style={{ width: 36 }}>Sr.</th>
+                <th style={{ width: 120 }}>Advt. No.</th>
+                <th>Name of Post</th>
+                <th style={{ width: 80 }}>Class</th>
+                <th style={{ width: 60 }}>Posts</th>
+                <th style={{ width: 70 }}>Fee</th>
+                <th style={{ width: 100 }}>Last Date</th>
+                <th style={{ width: 110 }}>Status</th>
+                <th style={{ width: 70 }}>PDF</th>
+                <th style={{ width: 90 }}>Action</th>
               </tr>
-            ))}
-            {visible.length === 0 && (
-              <tr><td colSpan={9} style={{ textAlign: 'center', padding: '24px', color: 'var(--ojas-ink-3)', fontStyle: 'italic' }}>No positions match this filter.</td></tr>
-            )}
-          </tbody>
-        </table>
+            </thead>
+            <tbody>
+              {visible.map((j, i) => {
+                const closing = isClosingSoon(j.end_date)
+                return (
+                  <tr key={j._id}>
+                    <td>{i + 1}</td>
+                    <td style={{ fontFamily: 'var(--font-mono)', fontSize: 11.5 }}>{j.advt_no}</td>
+                    <td>
+                      <span style={{ fontWeight: 500 }}>{j.post_title?.en}</span>
+                      {j.post_title?.gu && <div style={{ fontSize: 11, fontFamily: 'var(--font-guj)', color: 'var(--ojas-ink-3)', marginTop: 2 }}>{j.post_title.gu}</div>}
+                      {j.department?.departmentName && <div style={{ fontSize: 11, color: 'var(--ojas-ink-3)', marginTop: 2 }}>{j.department.departmentName}</div>}
+                      {j.pay_scale && <div style={{ fontSize: 11, color: 'var(--ojas-ink-2)', marginTop: 2 }}>Pay: {j.pay_scale}</div>}
+                      {j.note && <div style={{ fontSize: 11, color: 'var(--ojas-red)', marginTop: 4, fontStyle: 'italic' }}>Note: {j.note}</div>}
+                    </td>
+                    <td style={{ fontWeight: 700 }}>{j.class}</td>
+                    <td style={{ textAlign: 'center', fontWeight: 700, color: 'var(--ojas-navy)' }}>{j.vacancies?.total ?? '—'}</td>
+                    <td>{j.application_fee ? `₹${j.application_fee}` : 'Free'}</td>
+                    <td style={{ color: closing ? 'var(--ojas-red)' : 'inherit', fontWeight: closing ? 700 : 400 }}>{fmtDate(j.end_date)}</td>
+                    <td><span className={`badge ${j.status === 'Closed' ? 'closed' : closing ? 'urgent' : 'active'}`}>{j.status === 'Closed' ? 'Closed' : closing ? 'Closing Soon' : 'Active'}</span></td>
+                    <td style={{ textAlign: 'center' }}>
+                      {j.pdf_path && (
+                        <a href={`${import.meta.env.VITE_API_URL}/api/v1/advertisements/${j._id}/pdf`} target="_blank" rel="noreferrer" download style={{ color: 'var(--ojas-red)', fontWeight: 700, fontSize: 13 }} title="Download PDF">📄</a>
+                      )}
+                    </td>
+                    <td>
+                      {j.status !== 'Closed' && <a href={`/apply/${encodeURIComponent(j.advt_no)}`} style={{ color: 'var(--ojas-saffron-deep)', fontWeight: 700 }}>{t('car.apply')}</a>}
+                    </td>
+                  </tr>
+                )
+              })}
+              {visible.length === 0 && (
+                <tr><td colSpan={10} style={{ textAlign: 'center', padding: '24px', color: 'var(--ojas-ink-3)', fontStyle: 'italic' }}>No positions match this filter.</td></tr>
+              )}
+            </tbody>
+          </table>
+        )}
       </div>
 
       <div style={{ marginTop: 12, fontSize: 11.5, color: 'var(--ojas-ink-3)', textAlign: 'center' }}>

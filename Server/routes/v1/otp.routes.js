@@ -4,8 +4,20 @@ import {
   verifyOtp,
   resetPassword,
 } from "../../controllers/v1/otp.controller.js";
+import {
+  sendCandidateOtp,
+  verifyCandidateOtp,
+  sendPasswordResetOtp,
+  verifyPasswordResetOtp,
+} from "../../controllers/v1/candidateOtp.controller.js";
 
 const router = express.Router();
+
+// ── Candidate OTP ─────────────────────────────────────────────────────────────
+router.post("/candidates/send", sendCandidateOtp);
+router.post("/candidates/verify", verifyCandidateOtp);
+router.post("/candidates/password-reset/send", sendPasswordResetOtp);
+router.post("/candidates/password-reset/verify", verifyPasswordResetOtp);
 
 /**
  * @swagger

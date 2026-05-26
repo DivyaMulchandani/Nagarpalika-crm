@@ -7,6 +7,7 @@ import { useNavigate } from "react-router-dom";
 import BreadCrumb from "../../Components/Common/BreadCrumb";
 import { AuthContext } from "../../context/AuthContext";
 import { getDashboardStats } from "../../api/analytics.api";
+import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Cell } from "recharts";
 const dashboardStyles = `
 .vy-dashboard {
   font-family: var(--vy-font-body, 'Manrope', sans-serif);
@@ -95,27 +96,8 @@ const dashboardStyles = `
 .vy-dashboard .btn { font-family: var(--vy-font-display, 'Barlow', sans-serif); }
 `;
 
-const statusColors = {
-  scheduled: "primary",
-  confirmed: "info",
-  arrived: "warning",
-  in_consultation: "secondary",
-  completed: "success",
-  checked_out: "dark",
-  cancelled: "danger",
-  no_show: "danger",
-};
-
-const formatCurrency = (n) => {
-  if (n == null) return "₹0";
-  return `₹${Number(n).toLocaleString("en-IN")}`;
-};
-
-const formatDate = (d) => {
-  if (!d) return "-";
-  const dt = new Date(d);
-  return dt.toLocaleDateString("en-IN", { day: "2-digit", month: "short" });
-};
+const fmt = (n) => Number(n ?? 0).toLocaleString("en-IN");
+const fmtRs = (n) => `₹${fmt(n)}`;
 
 const Dashboard = () => {
   const { adminData } = useContext(AuthContext);
@@ -123,80 +105,41 @@ const Dashboard = () => {
   const [stats, setStats] = useState(null);
   const [loading, setLoading] = useState(true);
 
-  useEffect(() => {
-    fetchStats();
-  }, []);
-
-  const currentHour = new Date().getHours();
-  const greeting = currentHour < 12 ? "Good morning" : currentHour < 17 ? "Good afternoon" : "Good evening";
-
   const fetchStats = async () => {
     setLoading(true);
     try {
       const res = await getDashboardStats();
-      if (res.data.isOk) {
-        setStats(res.data.data);
-      }
-    } catch {
-      // silently fail — widgets show 0
-    }
+      if (res.data.isOk) setStats(res.data.data);
+    } catch { /* widgets show 0 */ }
     setLoading(false);
   };
 
+  useEffect(() => { fetchStats(); }, []);
+
+  const currentHour = new Date().getHours();
+  const greeting = currentHour < 12 ? "Good morning" : currentHour < 17 ? "Good afternoon" : "Good evening";
+
   document.title = `Dashboard · ${adminData?.companyName}`;
 
-  const todayAppts = stats?.todaysAppointments || { total: 0, byStatus: {} };
-  const revenueThisMonth = stats?.revenueThisMonth || 0;
-  const revenueLastMonth = stats?.revenueLastMonth || 0;
-  const revChange = revenueLastMonth > 0
-    ? (((revenueThisMonth - revenueLastMonth) / revenueLastMonth) * 100).toFixed(1)
-    : revenueThisMonth > 0 ? 100 : 0;
+  const adv  = stats?.advertisements  || {};
+  const appl = stats?.applications    || {};
+  const fee  = stats?.feePayments     || {};
+  const totalApps = (appl.submitted || 0) + (appl.under_review || 0) + (appl.shortlisted || 0) + (appl.rejected || 0) + (appl.selected || 0);
 
   const widgets = [
-    {
-      title: "Today's appointments",
-      value: todayAppts.total,
-      icon: "ri-calendar-check-line",
-      accent: true,
-      onClick: () => navigate("/appointments"),
-    },
-    {
-      title: "Patients this month",
-      value: stats?.patientsThisMonth || 0,
-      icon: "ri-user-heart-line",
-      onClick: () => navigate("/patients"),
-    },
-    {
-      title: "Revenue this month",
-      value: formatCurrency(revenueThisMonth),
-      icon: "ri-money-rupee-circle-line",
-      delta: revenueLastMonth > 0
-        ? `${revChange >= 0 ? "▲ +" : "▼ "}${revChange}% vs last month`
-        : null,
-      deltaClass: revChange > 0 ? "up" : revChange < 0 ? "down" : "flat",
-    },
-    {
-      title: "Pending payments",
-      value: formatCurrency(stats?.pendingPayments?.totalAmount || 0),
-      icon: "ri-bank-card-line",
-      delta: `${stats?.pendingPayments?.count || 0} invoices`,
-      deltaClass: "flat",
-      onClick: () => navigate("/invoices"),
-    },
+    { title: "Active Advertisements",     value: fmt(adv.published),               icon: "ri-newspaper-line",         accent: true,  onClick: () => navigate("/advertisements") },
+    { title: "Registered Candidates",     value: fmt(stats?.candidates?.total),     icon: "ri-user-search-line",                      onClick: () => navigate("/candidates") },
+    { title: "Applications Submitted",    value: fmt(totalApps),                    icon: "ri-file-list-3-line",                      onClick: () => navigate("/applications") },
+    { title: "Fees Collected",            value: fmtRs(fee.paid?.amount),           icon: "ri-money-rupee-circle-line",               onClick: () => navigate("/fee-payments") },
   ];
 
-  const smallWidgets = [
-    {
-      title: "Patients this week",
-      value: stats?.patientsThisWeek || 0,
-      icon: "ri-user-add-line",
-    },
-    {
-      title: "Follow-ups pending",
-      value: stats?.followUpsPending || 0,
-      icon: "ri-phone-line",
-      onClick: () => navigate("/appointments"),
-    },
+  const appStatusColors = ["#4A90D9", "#F5A623", "#7ED321", "#D0021B", "#417505"];
+  const barData = [
+    { name: "Submitted",    value: appl.submitted    || 0 },
+    { name: "Under Review", value: appl.under_review || 0 },
+    { name: "Shortlisted",  value: appl.shortlisted  || 0 },
+    { name: "Rejected",     value: appl.rejected     || 0 },
+    { name: "Selected",     value: appl.selected     || 0 },
   ];
 
   return (
@@ -211,11 +154,9 @@ const Dashboard = () => {
               <p className="vy-eyebrow mb-2">Overview</p>
               <h1 className="vy-greeting">
                 {greeting},{" "}
-                <span className="accent">
-                  {adminData?.employeeName || adminData?.companyName}
-                </span>
+                <span className="accent">{adminData?.employeeName || adminData?.companyName}</span>
               </h1>
-              <p className="vy-sub">Here's what's happening at your clinic today.</p>
+              <p className="vy-sub">Recruitment portal at a glance.</p>
             </Col>
             <Col xs="auto">
               <Button color="light" size="sm" onClick={fetchStats} disabled={loading}>
@@ -228,22 +169,15 @@ const Dashboard = () => {
             <div className="text-center py-5"><Spinner color="primary" /></div>
           ) : (
             <>
-              <Row>
+              <Row className="mb-3">
                 {widgets.map((w, i) => (
                   <Col md={6} xl={3} key={i}>
-                    <Card
-                      className="card-animate"
-                      style={{ cursor: w.onClick ? "pointer" : "default" }}
-                      onClick={w.onClick}
-                    >
+                    <Card className="card-animate" style={{ cursor: w.onClick ? "pointer" : "default" }} onClick={w.onClick}>
                       <CardBody>
                         <div className="d-flex align-items-start justify-content-between">
                           <div className="flex-grow-1">
                             <p className="vy-eyebrow">{w.title}</p>
                             <h2 className="vy-metric-num">{w.value}</h2>
-                            {w.delta && (
-                              <p className={`vy-metric-delta ${w.deltaClass || ""}`}>{w.delta}</p>
-                            )}
                           </div>
                           <div className={`vy-icon-square ${w.accent ? "accent" : ""}`}>
                             <i className={w.icon}></i>
@@ -256,59 +190,58 @@ const Dashboard = () => {
               </Row>
 
               <Row>
-                {smallWidgets.map((w, i) => (
-                  <Col md={3} key={i}>
-                    <Card
-                      className="card-animate"
-                      style={{ cursor: w.onClick ? "pointer" : "default" }}
-                      onClick={w.onClick}
-                    >
-                      <CardBody className="py-3">
-                        <div className="d-flex align-items-center">
-                          <div className="vy-icon-square me-3">
-                            <i className={w.icon}></i>
-                          </div>
-                          <div>
-                            <p className="vy-eyebrow mb-1" style={{ fontSize: 10 }}>{w.title}</p>
-                            <h5 className="mb-0" style={{ fontFamily: "var(--vy-font-display)", fontWeight: 700, color: "var(--vy-ink)" }}>
-                              {w.value}
-                            </h5>
-                          </div>
-                        </div>
-                      </CardBody>
-                    </Card>
-                  </Col>
-                ))}
-
-                <Col md={3}>
+                <Col xl={7}>
                   <Card>
-                    <CardBody className="py-3">
-                      <div className="d-flex align-items-center">
-                        <div className="vy-icon-square me-3">
-                          <i className="ri-exchange-line"></i>
-                        </div>
-                        <div>
-                          <p className="vy-eyebrow mb-1" style={{ fontSize: 10 }}>Last month revenue</p>
-                          <h5 className="mb-0" style={{ fontFamily: "var(--vy-font-display)", fontWeight: 700, color: "var(--vy-ink)" }}>
-                            {formatCurrency(revenueLastMonth)}
-                          </h5>
-                        </div>
-                      </div>
+                    <CardHeader className="d-flex justify-content-between align-items-center">
+                      <h6 className="card-title"><i className="ri-bar-chart-2-line me-2"></i>Applications by Status</h6>
+                      <Button color="light" size="sm" onClick={() => navigate("/applications")}>View All</Button>
+                    </CardHeader>
+                    <CardBody>
+                      <ResponsiveContainer width="100%" height={260}>
+                        <BarChart data={barData} margin={{ top: 4, right: 8, left: 0, bottom: 4 }}>
+                          <CartesianGrid strokeDasharray="3 3" vertical={false} />
+                          <XAxis dataKey="name" tick={{ fontSize: 12 }} />
+                          <YAxis allowDecimals={false} tick={{ fontSize: 12 }} />
+                          <Tooltip />
+                          <Bar dataKey="value" radius={[4, 4, 0, 0]}>
+                            {barData.map((_, i) => <Cell key={i} fill={appStatusColors[i % appStatusColors.length]} />)}
+                          </Bar>
+                        </BarChart>
+                      </ResponsiveContainer>
                     </CardBody>
                   </Card>
                 </Col>
 
-                <Col md={3}>
+                <Col xl={5}>
+                  <Card className="mb-3">
+                    <CardHeader><h6 className="card-title"><i className="ri-file-text-line me-2"></i>Advertisements</h6></CardHeader>
+                    <CardBody>
+                      <div className="d-flex flex-wrap gap-3">
+                        {[["Draft", adv.draft, "secondary"], ["Published", adv.published, "success"], ["Closed", adv.closed, "warning"], ["Archived", adv.archived, "dark"]].map(([label, count, color]) => (
+                          <div key={label} className="text-center" style={{ minWidth: 60 }}>
+                            <Badge color={color} style={{ fontSize: 13, padding: "6px 10px" }}>{fmt(count)}</Badge>
+                            <div style={{ fontSize: 10, marginTop: 4, color: "#888" }}>{label}</div>
+                          </div>
+                        ))}
+                      </div>
+                    </CardBody>
+                  </Card>
+
                   <Card>
-                    <CardBody className="py-3">
-                      <p className="vy-eyebrow mb-2" style={{ fontSize: 10 }}>Quick actions</p>
-                      <div className="d-flex gap-2 flex-wrap">
-                        <Button color="primary" size="sm" onClick={() => navigate("/appointments/add")}>
-                          <i className="ri-add-line me-1"></i>Appointment
-                        </Button>
-                        <Button color="light" size="sm" onClick={() => navigate("/patients/new")}>
-                          <i className="ri-user-add-line me-1"></i>Patient
-                        </Button>
+                    <CardHeader><h6 className="card-title"><i className="ri-bank-card-line me-2"></i>Fee Payments</h6></CardHeader>
+                    <CardBody>
+                      <div className="d-flex flex-wrap gap-3">
+                        {[
+                          ["Paid", fee.paid?.count, fmtRs(fee.paid?.amount), "success"],
+                          ["Pending", fee.pending?.count, `${fmt(fee.pending?.count)} txns`, "warning"],
+                          ["Failed", fee.failed?.count, `${fmt(fee.failed?.count)} txns`, "danger"],
+                        ].map(([label, count, sub, color]) => (
+                          <div key={label} className="border rounded p-2 text-center" style={{ minWidth: 90 }}>
+                            <Badge color={color} className="mb-1">{label}</Badge>
+                            <div style={{ fontWeight: 700, fontSize: 16 }}>{fmt(count)}</div>
+                            <div style={{ fontSize: 10, color: "#888" }}>{sub}</div>
+                          </div>
+                        ))}
                       </div>
                     </CardBody>
                   </Card>
@@ -316,76 +249,24 @@ const Dashboard = () => {
               </Row>
 
               <Row>
-                <Col xl={8}>
+                <Col>
                   <Card>
-                    <CardHeader className="d-flex justify-content-between align-items-center">
-                      <h6 className="card-title">
-                        <i className="ri-calendar-line me-2"></i>Today's appointments
-                      </h6>
-                      <Button color="light" size="sm" onClick={() => navigate("/appointments")}>
-                        View schedule
-                      </Button>
-                    </CardHeader>
-                    <CardBody>
-                      {todayAppts.total === 0 ? (
-                        <div className="text-center text-muted py-4">
-                          <i className="ri-calendar-line" style={{ fontSize: "40px", opacity: 0.3 }}></i>
-                          <p className="mt-2 mb-0">No appointments scheduled for today.</p>
-                        </div>
-                      ) : (
-                        <Row>
-                          {Object.entries(todayAppts.byStatus || {}).map(([status, count]) => {
-                            if (count === 0) return null;
-                            return (
-                              <Col xs={6} sm={4} md={3} key={status} className="mb-3">
-                                <div className="d-flex align-items-center gap-2">
-                                  <Badge color={statusColors[status] || "secondary"} className="text-capitalize" style={{ fontSize: "10px", minWidth: "80px" }}>
-                                    {status.replace(/_/g, " ")}
-                                  </Badge>
-                                  <span className="fw-semibold" style={{ fontFamily: "var(--vy-font-mono)", color: "var(--vy-ink)" }}>{count}</span>
-                                </div>
-                              </Col>
-                            );
-                          })}
-                        </Row>
-                      )}
-                    </CardBody>
-                  </Card>
-                </Col>
-
-                <Col xl={4}>
-                  <Card>
-                    <CardHeader>
-                      <h6 className="card-title">
-                        <i className="ri-cake-2-line me-2"></i>Upcoming birthdays · 7d
-                      </h6>
-                    </CardHeader>
-                    <CardBody style={{ maxHeight: "280px", overflowY: "auto" }}>
-                      {!stats?.upcomingBirthdays || stats.upcomingBirthdays.length === 0 ? (
-                        <div className="text-center text-muted py-3">
-                          <i className="ri-cake-2-line" style={{ fontSize: "32px", opacity: 0.3 }}></i>
-                          <p className="mt-2 mb-0">No upcoming birthdays.</p>
-                        </div>
-                      ) : (
-                        <div className="vstack gap-3">
-                          {stats.upcomingBirthdays.map((p, i) => (
-                            <div key={i} className="d-flex align-items-center">
-                              <div className="vy-icon-square me-3">
-                                <span style={{ fontWeight: 700 }}>{(p.firstName || "?")[0]}</span>
-                              </div>
-                              <div className="flex-grow-1">
-                                <h6 className="mb-0" style={{ fontSize: "13px", color: "var(--vy-ink)" }}>
-                                  {p.firstName} {p.lastName}
-                                </h6>
-                                <small className="text-muted">{p.mobileNumber}</small>
-                              </div>
-                              <Badge color="warning" style={{ fontSize: "10px" }}>
-                                {formatDate(p.dateOfBirth)}
-                              </Badge>
-                            </div>
-                          ))}
-                        </div>
-                      )}
+                    <CardBody className="py-3">
+                      <p className="vy-eyebrow mb-2" style={{ fontSize: 10 }}>Quick actions</p>
+                      <div className="d-flex gap-2 flex-wrap">
+                        <Button color="primary" size="sm" onClick={() => navigate("/advertisements/new")}>
+                          <i className="ri-add-line me-1"></i>New Advertisement
+                        </Button>
+                        <Button color="light" size="sm" onClick={() => navigate("/notices/new")}>
+                          <i className="ri-notification-3-line me-1"></i>New Notice
+                        </Button>
+                        <Button color="light" size="sm" onClick={() => navigate("/call-letters")}>
+                          <i className="ri-mail-send-line me-1"></i>Call Letters
+                        </Button>
+                        <Button color="light" size="sm" onClick={() => navigate("/fee-payments/reconciliation")}>
+                          <i className="ri-pie-chart-line me-1"></i>Reconciliation
+                        </Button>
+                      </div>
                     </CardBody>
                   </Card>
                 </Col>

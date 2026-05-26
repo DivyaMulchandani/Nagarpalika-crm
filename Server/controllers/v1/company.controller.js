@@ -4,6 +4,23 @@ import bcrypt from "bcrypt";
 import fs from "fs";
 import path from "path";
 
+export const getPublicDetails = async (req, res) => {
+  try {
+    const company = await CompanyMasterModels.findOne({}).select(
+      "companyName logo favicon address mobileNumber website",
+    );
+    if (!company)
+      return res
+        .status(404)
+        .json({ isOk: false, status: 404, message: "Not configured" });
+    return res.status(200).json({ isOk: true, status: 200, data: company });
+  } catch (error) {
+    return res
+      .status(500)
+      .json({ isOk: false, status: 500, message: error.message });
+  }
+};
+
 export const createCompanyMaster = async (req, res) => {
   try {
     const {
@@ -43,7 +60,8 @@ export const createCompanyMaster = async (req, res) => {
         return res.status(401).json({
           isOk: false,
           status: 401,
-          message: "Company already provisioned. Authentication required to create additional companies.",
+          message:
+            "Company already provisioned. Authentication required to create additional companies.",
         });
       }
     }
@@ -114,6 +132,7 @@ export const updateCompanyMaster = async (req, res) => {
       "cityId",
       "address",
       "pincode",
+      "website",
       "isActive",
     ];
 

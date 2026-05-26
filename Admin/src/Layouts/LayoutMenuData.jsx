@@ -11,6 +11,7 @@ const Navdata = () => {
     const [isLocation, setIsLocation] = useState(false);
     const [isNotifications, setIsNotifications] = useState(false);
     const [isAccessControl, setIsAccessControl] = useState(false);
+    const [isRecruitment, setIsRecruitment] = useState(false);
 
     const [iscurrentState, setIscurrentState] = useState("Dashboard");
 
@@ -19,6 +20,7 @@ const Navdata = () => {
         if (iscurrentState !== "Location")      setIsLocation(false);
         if (iscurrentState !== "Notifications") setIsNotifications(false);
         if (iscurrentState !== "AccessControl") setIsAccessControl(false);
+        if (iscurrentState !== "Recruitment")   setIsRecruitment(false);
     }, [iscurrentState]);
 
     const menuItems = [
@@ -88,6 +90,22 @@ const Navdata = () => {
                 { id: "roleMaster",  label: "Role Master",  link: "/role-master",  parentId: "accessControl" },
                 { id: "menuMaster",  label: "Menu Master",  link: "/menu-master",  parentId: "accessControl" },
                 { id: "menuGroups",  label: "Menu Groups",  link: "/menu-group",   parentId: "accessControl" },
+            ],
+        },
+        {
+            id: "recruitment",
+            label: "Recruitment",
+            icon: "ri-user-search-line",
+            link: "/#",
+            stateVariables: isRecruitment,
+            click: (e) => { e.preventDefault(); setIsRecruitment(!isRecruitment); setIscurrentState("Recruitment"); },
+            subItems: [
+                { id: "advertisements", label: "Advertisements",  link: "/advertisements",  parentId: "recruitment" },
+                { id: "candidates",     label: "Candidates",      link: "/candidates",      parentId: "recruitment" },
+                { id: "applications",   label: "Applications",    link: "/applications",    parentId: "recruitment" },
+                { id: "feePayments",    label: "Fee Payments",    link: "/fee-payments",    parentId: "recruitment" },
+                { id: "callLetters",    label: "Call Letters",    link: "/call-letters",    parentId: "recruitment" },
+                { id: "notices",        label: "Notice Board",    link: "/notices",         parentId: "recruitment" },
             ],
         },
         {

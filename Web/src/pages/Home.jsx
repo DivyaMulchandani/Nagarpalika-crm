@@ -1,5 +1,7 @@
+import { useState, useEffect } from 'react'
 import { Link } from 'react-router-dom'
 import { useLang } from '../context/LangContext'
+import { get } from '../api/index'
 
 const FACTS = [
   { n: '142', l: 'Open Posts' },
@@ -41,10 +43,11 @@ const VM_ITEMS = [
 
 const VM_TAG_LABELS = { new: 'NEW', urgent: 'URGENT', rel: 'RELEASE' }
 
-function VmList({ ariaHidden }) {
+function VmList({ ariaHidden, items }) {
+  const list = items?.length ? items : VM_ITEMS
   return (
     <ul className="vm-list" aria-hidden={ariaHidden || undefined}>
-      {VM_ITEMS.map((item, i) => (
+      {list.map((item, i) => (
         <li key={i}>
           <span className={`vm-tag ${item.tag}`}>{VM_TAG_LABELS[item.tag]}</span>
           <span>{item.bold && <strong>{item.bold}</strong>}{item.rest}</span>
@@ -54,8 +57,25 @@ function VmList({ ariaHidden }) {
   )
 }
 
+const fmtDate = (d) => d ? new Date(d).toLocaleDateString('en-IN', { day: '2-digit', month: '2-digit', year: 'numeric' }) : ''
+
 export default function Home() {
   const { t } = useLang()
+  const [liveItems, setLiveItems] = useState([])
+
+  useEffect(() => {
+    get('/api/v1/advertisements', { status: 'Published', limit: 10 })
+      .then(res => {
+        const ads = res?.data || []
+        setLiveItems(ads.map(a => ({
+          tag: 'new',
+          bold: a.advt_no,
+          rest: ` — ${a.post_title?.en || ''}${a.end_date ? ' · Last date ' + fmtDate(a.end_date) : ''}`,
+        })))
+      })
+      .catch(() => {})
+  }, [])
+
   return (
     <>
       <div className="hero-strip">
@@ -152,8 +172,8 @@ export default function Home() {
             <div className="box-body" style={{ padding: 0 }}>
               <div className="vmarquee" aria-label="Latest releases marquee">
                 <div className="vmarquee-track">
-                  <VmList />
-                  <VmList ariaHidden />
+                  <VmList items={liveItems} />
+                  {liveItems.length >= 4 && <VmList items={liveItems} ariaHidden />}
                 </div>
               </div>
               <div style={{ borderTop: '1px solid var(--ojas-border)', padding: '8px 12px', textAlign: 'right', background: 'var(--ojas-cream)' }}>

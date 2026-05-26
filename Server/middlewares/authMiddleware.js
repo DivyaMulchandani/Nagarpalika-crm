@@ -1,55 +1,82 @@
-/**
- * Authentication Middleware using Express Session
- * Uses in-memory session storage via express-session
- */
+const ADMIN_TIMEOUT_MS = 15 * 60 * 1000;
+const CANDIDATE_TIMEOUT_MS = 30 * 60 * 1000;
+const ADMIN_ROLES = new Set(["ADMIN", "EMPLOYEE", "DEPT_ADMIN"]);
 
 export const authMiddleware = (roles) => {
   return async (req, res, next) => {
-    // Check if user has an active session
     if (!req.session || !req.session.user) {
-      // Clear the session cookie since it's invalid
-      res.clearCookie('sessionId');
-      return res.status(401).json({
-        success: false,
-        error: "Not logged in",
-        status: 401,
-        message: "Not logged in",
-      });
+      res.clearCookie("sessionId");
+      return res
+        .status(401)
+        .json({ isOk: false, status: 401, message: "Not logged in" });
     }
 
     const sessionUser = req.session.user;
 
-    // Check if session has required data
     if (!sessionUser.id || !sessionUser.role) {
-      // Clear the session cookie since it's invalid
-      res.clearCookie('sessionId');
-      return res.status(401).json({
-        success: false,
-        message: "Session invalid or expired",
-        error: "Session invalid or expired",
-        status: 401,
-      });
+      res.clearCookie("sessionId");
+      return res
+        .status(401)
+        .json({
+          isOk: false,
+          status: 401,
+          message: "Session invalid or expired",
+        });
     }
 
-    // Check if user role is allowed
+    // Session inactivity timeout
+    const isAdminRole = ADMIN_ROLES.has(sessionUser.role);
+    const timeoutMs = isAdminRole ? ADMIN_TIMEOUT_MS : CANDIDATE_TIMEOUT_MS;
+    if (
+      req.session.lastActivity &&
+      Date.now() - req.session.lastActivity > timeoutMs
+    ) {
+      req.session.destroy((err) => {
+        if (err) console.error("[SESSION] Destroy error:", err.message);
+      });
+      res.clearCookie("sessionId");
+      return res
+        .status(401)
+        .json({
+          isOk: false,
+          status: 401,
+          message: "Session expired due to inactivity",
+        });
+    }
+    req.session.lastActivity = Date.now();
+
+    // Admin IP whitelist
+    if (isAdminRole) {
+      const allowedIps = (process.env.ADMIN_ALLOWED_IPS || "")
+        .split(",")
+        .map((ip) => ip.trim())
+        .filter(Boolean);
+      if (allowedIps.length) {
+        const clientIp = (req.ip || "").replace(/^::ffff:/, "");
+        if (!allowedIps.includes(clientIp)) {
+          return res
+            .status(403)
+            .json({ isOk: false, status: 403, message: "IP not permitted" });
+        }
+      }
+    }
+
+    // Role check
     if (roles && roles.length > 0 && !roles.includes(sessionUser.role)) {
-      return res.status(403).json({
-        success: false,
-        message: "Access denied",
-        error: "You do not have permission to access this resource",
-        status: 403,
-      });
+      return res
+        .status(403)
+        .json({ isOk: false, status: 403, message: "Access denied" });
     }
 
-    // Attach user data to request (compatible with existing code)
     req.user = {
       id: sessionUser.id,
       role: sessionUser.role,
       email: sessionUser.email,
       name: sessionUser.name,
+      registration_id: sessionUser.registration_id,
+      departmentId: sessionUser.departmentId,
     };
 
     next();
   };
 };
-

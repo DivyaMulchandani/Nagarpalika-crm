@@ -1,5 +1,19 @@
 import { Navigate } from "react-router-dom";
 import Login from "../pages/Authentication/Login";
+// Recruitment
+import AdvertisementList from "../pages/Advertisements/AdvertisementList";
+import AdvertisementForm from "../pages/Advertisements/AdvertisementForm";
+import CandidateList from "../pages/Candidates/CandidateList";
+import CandidateProfile from "../pages/Candidates/CandidateProfile";
+import ApplicationList from "../pages/Applications/ApplicationList";
+import ApplicationView from "../pages/Applications/ApplicationView";
+import FeePaymentList from "../pages/FeePayments/FeePaymentList";
+import FeePaymentView from "../pages/FeePayments/FeePaymentView";
+import Reconciliation from "../pages/FeePayments/Reconciliation";
+import CallLetterList from "../pages/CallLetters/CallLetterList";
+import CallLetterManage from "../pages/CallLetters/CallLetterManage";
+import NoticeList from "../pages/Notices/NoticeList";
+import NoticeForm from "../pages/Notices/NoticeForm";
 import UserProfile from "../pages/Authentication/user-profile";
 import CompanyDetails from "../pages/Setup/CompanyDetails";
 import Department from "../pages/Setup/Department";
@@ -94,6 +108,35 @@ const authProtectedRoutes = [
     // Notifications & Reports
     { path: "/whatsapp", component: <WhatsAppMessages /> },
     { path: "/reports",  component: <Reports /> },
+
+    // Recruitment — Advertisements
+    { path: "/advertisements",           component: <AdvertisementList /> },
+    { path: "/advertisements/add",       component: <AdvertisementForm /> },
+    { path: "/advertisements/:id",       component: <AdvertisementForm /> },
+    { path: "/advertisements/:id/edit",  component: <AdvertisementForm /> },
+
+    // Recruitment — Candidates
+    { path: "/candidates",     component: <CandidateList /> },
+    { path: "/candidates/:id", component: <CandidateProfile /> },
+
+    // Recruitment — Applications
+    { path: "/applications",      component: <ApplicationList /> },
+    { path: "/applications/:ref", component: <ApplicationView /> },
+
+    // Recruitment — Fee Payments
+    { path: "/fee-payments",                component: <FeePaymentList /> },
+    { path: "/fee-payments/reconciliation", component: <Reconciliation /> },
+    { path: "/fee-payments/:id",            component: <FeePaymentView /> },
+
+    // Recruitment — Call Letters
+    { path: "/call-letters",                    component: <CallLetterList /> },
+    { path: "/call-letters/:advtNo/manage",     component: <CallLetterManage /> },
+
+    // Recruitment — Notices
+    { path: "/notices",           component: <NoticeList /> },
+    { path: "/notices/add",       component: <NoticeForm /> },
+    { path: "/notices/:id",       component: <NoticeForm /> },
+    { path: "/notices/:id/edit",  component: <NoticeForm /> },
 
     { path: "/",  exact: true, component: <Navigate to="/dashboard" /> },
     { path: "*",  component: <Navigate to="/dashboard" /> },

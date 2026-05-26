@@ -5,6 +5,7 @@ import {
   updateCompanyMaster,
   loginCompany,
   getCurrentUserDetails,
+  getPublicDetails,
 } from "../../controllers/v1/company.controller.js";
 import { authMiddleware } from "../../middlewares/authMiddleware.js";
 import {
@@ -12,7 +13,7 @@ import {
   createCompanyValidation,
   allowOnlyFields,
   allowedLoginFields,
-  allowedCompanyFields
+  allowedCompanyFields,
 } from "../../middlewares/inputValidator.js";
 import { createSecureMultiUpload } from "../../middlewares/secureUpload.js";
 
@@ -38,8 +39,8 @@ if (!fs.existsSync(logoUploadFolder)) {
 const secureCompanyUpload = createSecureMultiUpload({
   destination: logoUploadFolder,
   fields: [
-    { name: 'logo', maxCount: 1 },
-    { name: 'favicon', maxCount: 1 },
+    { name: "logo", maxCount: 1 },
+    { name: "favicon", maxCount: 1 },
   ],
   maxSize: 5 * 1024 * 1024, // 5MB
   compress: true,
@@ -83,6 +84,8 @@ const secureCompanyUpload = createSecureMultiUpload({
  *       429:
  *         description: Upload rate limit exceeded
  */
+router.get("/companies/details", getPublicDetails);
+
 // SECURITY: Bootstrap-only when no CompanyMaster exists; ADMIN-required otherwise (enforced in controller).
 // Field whitelist + validation block mass-assignment of isSuperAdmin/isActive.
 router.post(
@@ -141,7 +144,7 @@ router.post(
 router.put(
   "/companies/:id",
   authMiddleware(["ADMIN"]),
-  secureCompanyUpload,       // Secure file validation & compression
+  secureCompanyUpload, // Secure file validation & compression
   updateCompanyMaster,
 );
 
@@ -198,9 +201,9 @@ router.get(
 // SECURITY: Rate limit + field whitelist + input validation on login
 router.post(
   "/auth/company/login",
-  allowOnlyFields(allowedLoginFields),      // Reject unexpected fields
-  loginValidation,                          // Validate & sanitize input
-  loginCompany
+  allowOnlyFields(allowedLoginFields), // Reject unexpected fields
+  loginValidation, // Validate & sanitize input
+  loginCompany,
 );
 
 export default router;

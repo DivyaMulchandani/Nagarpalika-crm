@@ -17,11 +17,10 @@ import {
   securityHeaders,
   additionalSecurityHeaders,
   getCorsConfig,
-  sanitizeErrors
+  sanitizeErrors,
+  publicApiLimiter,
 } from "./middlewares/securityHeaders.js";
-import {
-  mongoSanitizer
-} from "./middlewares/inputValidator.js";
+import { mongoSanitizer } from "./middlewares/inputValidator.js";
 
 // ES6 module equivalent of __dirname and __filename
 const __filename = fileURLToPath(import.meta.url);
@@ -90,7 +89,15 @@ app.use(cors(corsConfig));
 app.options("*", cors(corsConfig));
 
 // 3. Body Parsing with size limits (OWASP: limit request body size)
-app.use(bodyParser.json({ limit: "10mb" })); // Reduced from 50mb for security
+// verify callback captures raw body for Razorpay webhook HMAC verification
+app.use(
+  bodyParser.json({
+    limit: "10mb",
+    verify: (req, _res, buf) => {
+      if (req.path && req.path.includes("/webhooks/")) req.rawBody = buf;
+    },
+  }),
+);
 app.use(bodyParser.urlencoded({ extended: true, limit: "10mb" }));
 
 // 5. MongoDB NoSQL Injection Protection
@@ -102,34 +109,35 @@ app.use(hpp());
 // 7. Express Session - MongoDB Session Storage (persistent)
 import MongoStore from "connect-mongo";
 
-app.use(session({
-  secret: process.env.SESSION_SECRET || 'your-super-secret-key-change-in-production',
-  resave: false,
-  saveUninitialized: false,
-  name: 'sessionId',
-  store: MongoStore.create({
-    mongoUrl: process.env.DATABASE,
-    collectionName: 'sessions',
-    ttl: 24 * 60 * 60, // 24 hours in seconds
-    autoRemove: 'native', // Use MongoDB TTL index for cleanup
+app.use(
+  session({
+    secret:
+      process.env.SESSION_SECRET ||
+      "your-super-secret-key-change-in-production",
+    resave: false,
+    saveUninitialized: false,
+    name: "sessionId",
+    store: MongoStore.create({
+      mongoUrl: process.env.DATABASE,
+      collectionName: "sessions",
+      ttl: 24 * 60 * 60, // 24 hours in seconds
+      autoRemove: "native", // Use MongoDB TTL index for cleanup
+    }),
+    cookie: {
+      secure: process.env.NODE_ENV === "production", // HTTPS only in production
+      httpOnly: true, // Prevents XSS attacks
+      maxAge: 24 * 60 * 60 * 1000, // 24 hours
+      sameSite: "strict", // CSRF protection
+    },
   }),
-  cookie: {
-    secure: process.env.NODE_ENV === 'production', // HTTPS only in production
-    httpOnly: true, // Prevents XSS attacks
-    maxAge: 24 * 60 * 60 * 1000, // 24 hours
-    sameSite: 'lax' // CSRF protection
-  }
-}));
+);
 
 console.log("✅ Express session middleware configured (MongoDB storage)");
 
-// ============ STATIC FILE SERVING ============
-// Candidate documents (photo, signature) served via authenticated API endpoint — not static.
-app.use("/uploads", express.static("uploads"));
-// NOTE: Removed /log static serving for security - logs should not be publicly accessible
+// NOTE: /uploads intentionally NOT served statically — all file downloads go through authenticated API endpoints.
 
 mongoose.set("strictQuery", false);
-mongoose.set("debug", true);
+if (process.env.NODE_ENV !== "production") mongoose.set("debug", true);
 
 const dbURI = process.env.DATABASE;
 
@@ -166,8 +174,17 @@ mongoose.connection.on("reconnected", () => {
 app.use(morgan("dev"));
 app.use(express.static("files"));
 
-// Setup Swagger documentation (consider disabling in production)
-setupSwagger(app);
+// Serve uploaded files (logos, favicons, documents) with cross-origin access
+app.use(
+  "/uploads",
+  (req, res, next) => {
+    res.setHeader("Cross-Origin-Resource-Policy", "cross-origin");
+    next();
+  },
+  express.static(path.join(__dirname, "uploads")),
+);
+
+if (process.env.NODE_ENV !== "production") setupSwagger(app);
 
 // ============ V1 ROUTES ============
 // Import v1 routes
@@ -182,7 +199,18 @@ import rolesRoutes from "./routes/v1/roles.routes.js";
 import otpRoutes from "./routes/v1/otp.routes.js";
 import masterDataRoutes from "./routes/v1/masterData.routes.js";
 import analyticsRoutes from "./routes/v1/analytics.routes.js";
-import whatsappRoutes from "./routes/v1/whatsapp.routes.js";
+import advertisementsRoutes from "./routes/v1/advertisements.routes.js";
+import candidatesRoutes from "./routes/v1/candidates.routes.js";
+import applicationsRoutes from "./routes/v1/applications.routes.js";
+import feePaymentsRoutes from "./routes/v1/feePayments.routes.js";
+import callLettersRoutes from "./routes/v1/callLetters.routes.js";
+import noticesRoutes from "./routes/v1/notices.routes.js";
+import helpQueryRoutes from "./routes/v1/helpQuery.routes.js";
+
+// Rate limit all public API reads
+app.use("/api/v1/advertisements", publicApiLimiter);
+app.use("/api/v1/notices", publicApiLimiter);
+app.use("/api/v1/companies/details", publicApiLimiter);
 
 app.use("/api/v1", companiesRoutes);
 app.use("/api/v1", departmentsRoutes);
@@ -193,7 +221,13 @@ app.use("/api/v1", locationsRoutes);
 app.use("/api/v1", menusRoutes);
 app.use("/api/v1", rolesRoutes);
 app.use("/api/v1", analyticsRoutes);
-app.use("/api/v1", whatsappRoutes);
+app.use("/api/v1", advertisementsRoutes);
+app.use("/api/v1", candidatesRoutes);
+app.use("/api/v1", applicationsRoutes);
+app.use("/api/v1", feePaymentsRoutes);
+app.use("/api/v1", callLettersRoutes);
+app.use("/api/v1", noticesRoutes);
+app.use("/api/v1", helpQueryRoutes);
 app.use("/api/v1/otp", otpRoutes);
 app.use("/api/v1/master-data", masterDataRoutes);
 
@@ -229,13 +263,13 @@ app.use(async (err, req, res, _next) => {
     method: req?.method,
     ip: req?.ip,
     // Don't log full stack trace to file in production
-    stack: process.env.NODE_ENV === 'development' ? err?.stack : undefined,
+    stack: process.env.NODE_ENV === "development" ? err?.stack : undefined,
   };
 
   try {
     let writecontent = [];
     if (fs.existsSync("log/error.html")) {
-      const filedata = fs.readFileSync("log/error.html", 'utf8');
+      const filedata = fs.readFileSync("log/error.html", "utf8");
       if (filedata) {
         try {
           writecontent = JSON.parse(filedata);
@@ -257,12 +291,12 @@ app.use(async (err, req, res, _next) => {
   }
 
   // SECURITY: Don't expose internal error details to users
-  const isProduction = process.env.NODE_ENV === 'production';
+  const isProduction = process.env.NODE_ENV === "production";
   return res.status(500).json({
     isOk: false,
     status: 500,
-    error: 'Internal Server Error',
-    message: isProduction ? 'An unexpected error occurred' : err?.message,
+    error: "Internal Server Error",
+    message: isProduction ? "An unexpected error occurred" : err?.message,
   });
 });
 
@@ -270,5 +304,7 @@ const port = process.env.PORT || 8000;
 
 app.listen(port, () => {
   console.log(`✅ Server is running on port ${port}`);
-  console.log(`🔒 Security middleware enabled: Helmet, Input Validation, CSRF Protection`);
+  console.log(
+    `🔒 Security middleware enabled: Helmet, Input Validation, CSRF Protection`,
+  );
 });

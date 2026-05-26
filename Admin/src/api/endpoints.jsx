@@ -130,9 +130,55 @@ export const ENDPOINTS = {
         RETRY:           `${V1}/whatsapp/retry`,
     },
 
-    // ── Recruitment Portal Endpoints (Phase 1) ────────────────────────────────
-    // ADVERTISEMENTS, CANDIDATES, APPLICATIONS, FEE_PAYMENTS, CALL_LETTERS, NOTICES
-    // will be added here when Phase 1 backend is built.
+    // ── Recruitment Portal ────────────────────────────────────────────────────
+    ADVERTISEMENTS: {
+        BASE:    `${V1}/advertisements`,
+        BY_ID:   (id) => `${V1}/advertisements/${id}`,
+        STATUS:  (id) => `${V1}/advertisements/${id}/status`,
+        PDF:     (id) => `${V1}/advertisements/${id}/pdf`,
+        SEARCH:  `${V1}/advertisements/search`,
+        STATS:   (id) => `${V1}/advertisements/${id}/stats`,
+    },
+
+    CANDIDATES: {
+        BASE:    `${V1}/candidates`,
+        BY_ID:   (id) => `${V1}/candidates/${id}`,
+        SEARCH:  `${V1}/candidates/search`,
+        EXPORT:  `${V1}/candidates/export`,
+    },
+
+    APPLICATIONS: {
+        BASE:    `${V1}/applications`,
+        BY_REF:  (ref) => `${V1}/applications/${ref}`,
+        LIST:    `${V1}/applications/list`,
+        SEARCH:  `${V1}/applications/search`,
+        EXPORT:  `${V1}/applications/export`,
+        STATUS:  (id) => `${V1}/applications/${id}/status`,
+    },
+
+    FEE_PAYMENTS: {
+        BASE:           `${V1}/fee-payments`,
+        BY_ID:          (id) => `${V1}/fee-payments/${id}`,
+        RECONCILIATION: `${V1}/fee-payments/reconciliation`,
+        MANUAL_VERIFY:  (id) => `${V1}/fee-payments/${id}/manual-verify`,
+        SEARCH:         `${V1}/fee-payments/search`,
+    },
+
+    CALL_LETTERS: {
+        BASE:         `${V1}/call-letters`,
+        BY_ADVT:      (advtNo) => `${V1}/call-letters/${encodeURIComponent(advtNo)}`,
+        ROLL_NUMBERS: (advtNo) => `${V1}/call-letters/${encodeURIComponent(advtNo)}/roll-numbers`,
+        PREVIEW:      (advtNo) => `${V1}/call-letters/${encodeURIComponent(advtNo)}/preview`,
+        SEARCH:       `${V1}/call-letters/search`,
+    },
+
+    NOTICES: {
+        BASE:    `${V1}/notices`,
+        BY_ID:   (id) => `${V1}/notices/${id}`,
+        STATUS:  (id) => `${V1}/notices/${id}/status`,
+        PDF:     (id) => `${V1}/notices/${id}/pdf`,
+        SEARCH:  `${V1}/notices/search`,
+    },
 };
 
 export default ENDPOINTS;
