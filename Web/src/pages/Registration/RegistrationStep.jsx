@@ -1,7 +1,9 @@
-import { useState, useRef } from 'react'
+import { useState, useRef, useEffect } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
 import StepIndicator from './StepIndicator'
-import { post } from '../../api/index'
+import { get, post } from '../../api/index'
+
+const API_BASE = import.meta.env.VITE_API_URL || ''
 
 const TOTAL_STEPS = 10
 const CATEGORIES  = ['General', 'OBC', 'SC', 'ST', 'EWS']
@@ -22,6 +24,7 @@ export default function RegistrationStep() {
   const [loading, setLoading]     = useState(false)
   const [errors, setErrors]       = useState({})
   const [registrationId, setRegId] = useState(null)
+  const [sessionMissing, setSessionMissing] = useState(false)
 
   const photoRef = useRef()
   const sigRef   = useRef()
@@ -30,15 +33,26 @@ export default function RegistrationStep() {
   const go   = (n) => navigate(`/registration/apply/step/${n}`)
   const back = (n) => go(n)
 
+  // ── Session guard: steps 3+ require an active registration session ──
+  useEffect(() => {
+    if (step <= 2) return
+    get('/api/v1/candidates/register/resume')
+      .then(res => {
+        // Restore any previously saved fields into local state
+        if (res?.data?.data) setData(p => ({ ...p, ...res.data.data }))
+      })
+      .catch(() => setSessionMissing(true))
+  }, [step])
+
   const saveStep = async (payload) => {
     setErrors({})
     setLoading(true)
     try {
-      const res = await post('/api/v1/candidates/register/step', { step, ...payload })
-      if (res?.data?.registration_id) setRegId(res.data.registration_id)
+      await post('/api/v1/candidates/register/step', { step, data: payload })
       go(step + 1)
     } catch (err) {
-      setErrors({ _: err.message || 'Save failed. Please try again.' })
+      if (err.message?.toLowerCase().includes('no registration')) setSessionMissing(true)
+      else setErrors({ _: err.message || 'Save failed. Please try again.' })
     } finally {
       setLoading(false)
     }
@@ -53,10 +67,15 @@ export default function RegistrationStep() {
     try {
       const fd = new FormData()
       fd.append(field, file)
-      await fetch(url, { method: 'POST', credentials: 'include', body: fd })
+      const res = await fetch(`${API_BASE}${url}`, { method: 'POST', credentials: 'include', body: fd })
+      if (!res.ok) {
+        const json = await res.json().catch(() => ({}))
+        throw new Error(json?.message || 'Upload failed.')
+      }
       go(step + 1)
     } catch (err) {
-      setErrors({ [field]: err.message || 'Upload failed.' })
+      if (err.message?.toLowerCase().includes('no registration')) setSessionMissing(true)
+      else setErrors({ [field]: err.message || 'Upload failed.' })
     } finally {
       setLoading(false)
     }
@@ -106,25 +125,19 @@ export default function RegistrationStep() {
                 <input type="tel" maxLength={10} value={data.mobile || ''} onChange={set('mobile')} placeholder="10-digit mobile" />
                 <FieldError msg={errors.mobile} />
               </div>
-              <div className="form-field">
-                <label>Set Password * (min 8 chars)</label>
-                <input type="password" value={data.password || ''} onChange={set('password')} />
-                <FieldError msg={errors.password} />
-              </div>
               <FieldError msg={errors._} />
               {!otpSent ? (
                 <div className="form-actions">
                   <button className="btn" onClick={() => back(1)}>← Back</button>
                   <button className="btn primary" disabled={loading} onClick={async () => {
                     const e = {}
-                    if (!/^\d{12}$/.test(data.aadhaar || ''))  e.aadhaar  = 'Enter a valid 12-digit Aadhaar number.'
-                    if (!/^\d{10}$/.test(data.mobile  || ''))  e.mobile   = 'Enter a valid 10-digit mobile number.'
-                    if ((data.password || '').length < 8)      e.password = 'Minimum 8 characters required.'
+                    if (!/^\d{12}$/.test(data.aadhaar || ''))  e.aadhaar = 'Enter a valid 12-digit Aadhaar number.'
+                    if (!/^\d{10}$/.test(data.mobile  || ''))  e.mobile  = 'Enter a valid 10-digit mobile number.'
                     if (Object.keys(e).length) { setErrors(e); return }
                     setErrors({})
                     setLoading(true)
                     try {
-                      await post('/api/v1/candidates/otp/send', { aadhaar: data.aadhaar, mobile: data.mobile })
+                      await post('/api/v1/otp/candidates/send', { mobile: data.mobile })
                       setOtpSent(true)
                     } catch (err) {
                       setErrors({ _: err.message || 'Failed to send OTP.' })
@@ -142,7 +155,8 @@ export default function RegistrationStep() {
                     <button className="btn primary" disabled={loading || otp.length < 6} onClick={async () => {
                       setLoading(true)
                       try {
-                        await post('/api/v1/candidates/otp/verify', { mobile: data.mobile, otp, aadhaar: data.aadhaar, password: data.password })
+                        await post('/api/v1/otp/candidates/verify', { mobile: data.mobile, otp })
+                        await post('/api/v1/candidates/register/init', { aadhaar: data.aadhaar, mobile: data.mobile })
                         go(3)
                       } catch (err) {
                         setErrors({ _: err.message || 'Invalid OTP.' })
@@ -387,12 +401,11 @@ export default function RegistrationStep() {
         return (
           <>
             <h2 style={{ fontSize: 16, marginBottom: 12 }}>Step 10: Submit Registration</h2>
-            {registrationId ? (
+            {registrationId === 'sent' ? (
               <div className="notice info" style={{ textAlign: 'center' }}>
-                <div className="title" style={{ color: '#2a7a2a', fontSize: 18 }}>✓ Registration Successful</div>
-                <p style={{ marginTop: 8 }}>Your Registration ID is:</p>
-                <p style={{ fontFamily: 'var(--font-mono)', fontSize: 24, fontWeight: 700, letterSpacing: 3, margin: '12px 0' }}>{registrationId}</p>
-                <p style={{ fontSize: 12, color: 'var(--ojas-ink-3)' }}>Note this ID. You will need it for all future applications and correspondence.</p>
+                <div className="title" style={{ color: '#2a7a2a', fontSize: 18 }}>✓ Registration Submitted</div>
+                <p style={{ marginTop: 8, fontSize: 13.5 }}>Your Registration ID has been sent to your registered <strong>mobile number</strong> and <strong>email address</strong>.</p>
+                <p style={{ fontSize: 12, color: 'var(--ojas-ink-3)', marginTop: 8 }}>Keep that ID safe — you will need it to login and apply for posts.</p>
                 <div style={{ marginTop: 16 }}><button className="btn primary" onClick={() => navigate('/careers')}>Apply for a Post ▶</button></div>
               </div>
             ) : (
@@ -408,8 +421,12 @@ export default function RegistrationStep() {
                     setErrors({})
                     setLoading(true)
                     try {
-                      const res = await post('/api/v1/candidates/register/submit', {})
-                      setRegId(res?.data?.registration_id || '—')
+                      // password field removed (OTP login); auto-generate throwaway value
+                      await post('/api/v1/candidates/register/submit', {
+                        name: data.name_en || data.name_gu || 'Candidate',
+                        password: crypto.randomUUID() + crypto.randomUUID(),
+                      })
+                      setRegId('sent')
                     } catch (err) {
                       setErrors({ _: err.message || 'Submission failed. Please try again.' })
                     } finally { setLoading(false) }
@@ -434,7 +451,19 @@ export default function RegistrationStep() {
       <div className="box" style={{ maxWidth: 720, margin: '0 auto' }}>
         <div className="box-body">
           <StepIndicator total={TOTAL_STEPS} current={step} />
-          {renderStep()}
+          {sessionMissing ? (
+            <div className="notice warn">
+              <div className="title">No Registration In Progress</div>
+              <p style={{ fontSize: 13, marginTop: 4 }}>
+                Your registration session has expired or was not started. Please begin from Step 1.
+              </p>
+              <div className="form-actions" style={{ marginTop: 12 }}>
+                <button className="btn primary" onClick={() => { setSessionMissing(false); go(1) }}>
+                  ← Start from Step 1
+                </button>
+              </div>
+            </div>
+          ) : renderStep()}
         </div>
       </div>
     </>

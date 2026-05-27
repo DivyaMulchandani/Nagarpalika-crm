@@ -18,6 +18,8 @@ import FindRegistration from './pages/Registration/FindRegistration'
 import ApplicationEntry from './pages/Application/ApplicationEntry'
 import ApplicationForm from './pages/Application/ApplicationForm'
 import PrintApplication from './pages/Application/PrintApplication'
+import ApplyDirect from './pages/Application/ApplyDirect'
+import AdvertisementDetail from './pages/AdvertisementDetail'
 
 function Layout({ children }) {
   return (
@@ -53,6 +55,9 @@ export default function App() {
           <Route path="/registration"                  element={<Navigate to="/registration/apply/step/1" replace />} />
           <Route path="/registration/apply/step/:step" element={<Layout><RegistrationStep /></Layout>} />
           <Route path="/registration/find"             element={<Layout><FindRegistration /></Layout>} />
+
+          <Route path="/advertisement/:id"              element={<Layout><AdvertisementDetail /></Layout>} />
+          <Route path="/apply/:id"                      element={<Layout><ApplyDirect /></Layout>} />
 
           <Route path="/application"                   element={<Layout><ApplicationEntry /></Layout>} />
           <Route path="/application/apply"             element={<Layout><ApplicationForm /></Layout>} />

@@ -6,6 +6,19 @@ Format: [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 ## [Unreleased]
 
 ### Added
+- Advertisement detail page (`/advertisement/:id`) — full post info: vacancies by category, eligibility, important dates, PDF download, and Apply button
+- `🔍` Details column on Careers table; post title is now a clickable link to the detail page
+- Inline OTP login on apply page (`/apply/:id`) — candidates login and submit on the same screen with no redirect
+- `.btn-link` utility CSS class for inline anchor-styled buttons
+
+### Fixed
+- Apply links used `advt_no` (e.g. `ADV/2026/0006`, contains slashes) as URL segment, breaking React Router — switched to MongoDB `_id`
+- OTR `saveStep` sent flat payload `{ step, ...fields }`; backend expects `{ step, data: {...} }` — payload corrected
+- Navigating directly to `/registration/apply/step/3+` or refreshing showed "No registration in progress" error — added session check on mount with redirect-to-step-1 banner
+- `uploadFile` used bare `fetch` with relative URL, ignoring `VITE_API_URL` — prefixed with `API_BASE`
+- OTR submit showed `'—'` for Registration ID (backend sends ID via SMS/email) — replaced with correct confirmation message
+- Application auth check called `/api/v1/applications/my` (wrong endpoint); corrected to `/api/v1/applications/me`
+
 - Candidate login via mobile OTP — replaced password-based login with 2-step phone + OTP flow; dev mode accepts `000000` and auto-fills from API response
 - `POST /api/v1/otp/candidates/login/send` and `/verify` endpoints with rate limiting and session fixation prevention
 - REGISTRATION nav tab in Web header linking to `/registration`
