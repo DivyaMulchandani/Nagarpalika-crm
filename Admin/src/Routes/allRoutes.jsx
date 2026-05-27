@@ -37,9 +37,6 @@ import MenuMasterForm from "../pages/Master/MenuMasterForm";
 import EmployeeRoles from "../pages/Setup/EmployeeRoles";
 import RoleMaster from "../pages/Master/RoleMaster";
 import RoleMasterForm from "../pages/Master/RoleMasterForm";
-import MasterData from "../pages/MasterData/MasterData";
-import MasterDataForm from "../pages/MasterData/MasterDataForm";
-import Reports from "../pages/Reports/Reports";
 import WhatsAppMessages from "../pages/WhatsApp/WhatsAppMessages";
 
 const authProtectedRoutes = [
@@ -99,15 +96,8 @@ const authProtectedRoutes = [
     { path: "/role-master/:id",      component: <RoleMasterForm /> },
     { path: "/role-master/:id/edit", component: <RoleMasterForm /> },
 
-    // Master Data
-    { path: "/master-data",          component: <MasterData /> },
-    { path: "/master-data/add",      component: <MasterDataForm /> },
-    { path: "/master-data/:id",      component: <MasterDataForm /> },
-    { path: "/master-data/:id/edit", component: <MasterDataForm /> },
-
-    // Notifications & Reports
+    // Notifications
     { path: "/whatsapp", component: <WhatsAppMessages /> },
-    { path: "/reports",  component: <Reports /> },
 
     // Recruitment — Advertisements
     { path: "/advertisements",           component: <AdvertisementList /> },

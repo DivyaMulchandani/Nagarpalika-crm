@@ -5,8 +5,9 @@ import SiteMarquee from './SiteMarquee'
 const NAV = [
   { path: '/',           key: 'nav.home',       fallback: 'HOME' },
   { path: '/about',      key: 'nav.about',      fallback: 'ABOUT' },
-  { path: '/careers',    key: 'nav.careers',    fallback: 'CAREERS / ભરતી' },
-  { path: '/notices',    key: 'nav.notices',    fallback: 'NOTICES' },
+  { path: '/careers',      key: 'nav.careers',      fallback: 'CAREERS / ભરતી' },
+  { path: '/registration',  key: 'nav.registration',  fallback: 'REGISTRATION' },
+  { path: '/notices',      key: 'nav.notices',      fallback: 'NOTICES' },
   { path: '/results',    key: 'nav.results',    fallback: 'RESULT' },
   { path: '/callletter', key: 'nav.callletter', fallback: 'CALL LETTER' },
   { path: '/contact',    key: 'nav.contact',    fallback: 'CONTACT' },

@@ -9,6 +9,8 @@ import {
   verifyCandidateOtp,
   sendPasswordResetOtp,
   verifyPasswordResetOtp,
+  sendLoginOtp,
+  verifyLoginOtp,
 } from "../../controllers/v1/candidateOtp.controller.js";
 
 const router = express.Router();
@@ -18,6 +20,8 @@ router.post("/candidates/send", sendCandidateOtp);
 router.post("/candidates/verify", verifyCandidateOtp);
 router.post("/candidates/password-reset/send", sendPasswordResetOtp);
 router.post("/candidates/password-reset/verify", verifyPasswordResetOtp);
+router.post("/candidates/login/send", sendLoginOtp);
+router.post("/candidates/login/verify", verifyLoginOtp);
 
 /**
  * @swagger

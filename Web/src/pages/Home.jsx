@@ -3,51 +3,33 @@ import { Link } from 'react-router-dom'
 import { useLang } from '../context/LangContext'
 import { get } from '../api/index'
 
-const FACTS = [
-  { n: '142', l: 'Open Posts' },
-  { n: '10', l: 'Active Advts.' },
-  { n: '22/05', l: 'Next Last Date' },
-  { n: '33', l: 'Districts Covered' },
-]
 
-const SERVICES = [
-  { title: 'Mukhyamantri Awas Yojana (Urban)', sub: 'Affordable housing for EWS & LIG households · મુખ્યમંત્રી શહેરી આવાસ યોજના', dept: 'Urban Housing Cell', badge: 'active', badgeLabel: 'Active', action: 'Apply ▶' },
-  { title: 'Property Tax Self-Assessment', sub: 'Online assessment, payment & receipt · મિલકત વેરો', dept: 'Municipal Corporations', badge: 'active', badgeLabel: 'Online', action: 'Pay ▶' },
-  { title: 'Building Plan Approval (BPMS)', sub: 'Online sanctioning of building permissions · બાંધકામ મંજૂરી', dept: 'Town Planning Office', badge: 'active', badgeLabel: 'Online', action: 'Submit ▶' },
-  { title: 'Birth & Death Registration', sub: 'e-Nagar portal certificate issue · જન્મ-મરણ નોંધણી', dept: 'e-Nagar / ULBs', badge: 'active', badgeLabel: 'Online', action: 'Apply ▶' },
-  { title: 'Public Grievance Redressal (SWAGAT)', sub: 'State-wide Attention on Grievances · જાહેર ફરિયાદ નિવારણ', dept: 'Sachivalaya, Gandhinagar', badge: 'new', badgeLabel: '24×7', action: 'File ▶' },
-  { title: 'Smart City Mission — Project Tracker', sub: 'Ahmedabad, Surat, Vadodara, Rajkot, Gandhinagar & Dahod · સ્માર્ટ સિટી', dept: 'Urban Development', badge: 'info', badgeLabel: 'View', action: 'Open ▶' },
-  { title: 'RTI & Public Records', sub: 'Right to Information request & first-appeal · માહિતી અધિકાર', dept: 'State Public Information Officer', badge: 'active', badgeLabel: 'Online', action: 'Apply ▶' },
-]
-
-const NEWS = [
-  { day: '07', mo: 'May 2026', tag: 'notice', tagLabel: 'Notice', h: 'Public hearing on Ahmedabad Master Plan 2041 — second draft', p: 'Citizens, RWAs and trade bodies are invited to submit objections and suggestions on the revised draft by 30/05/2026 at the AUDA office, Usmanpura.', href: '#' },
-  { day: '04', mo: 'May 2026', tag: 'press',  tagLabel: 'Press',  h: 'Foundation stone laid for Surat Metro Phase II', p: 'The 14.4 km extension will connect Sarthana to the Diamond Bourse at Khajod, with twelve new stations and an estimated completion in 2029.', href: '#' },
-  { day: '28', mo: 'Apr 2026', tag: 'recruit',tagLabel: 'Recruit',h: 'Advt. UD/2026/04 — Town Planner, Junior Engineer & Clerk-cum-Typist', p: 'Applications invited for 142 posts across municipal corporations and urban development authorities. Last date 22/05/2026 through OJAS.', href: '/careers', router: true },
-  { day: '22', mo: 'Apr 2026', tag: 'tender', tagLabel: 'Tender', h: 'Tender for solid-waste-to-energy plant at Pirana — pre-bid meeting', p: 'Pre-bid meeting scheduled at AMC Headquarters on 12/05/2026. Tender document and EMD details available on the State e-Procurement portal.', href: '#' },
-  { day: '15', mo: 'Apr 2026', tag: 'notice', tagLabel: 'Notice', h: 'Janata Darbar — public grievance hearing rescheduled to 18/05/2026', p: 'The fortnightly Janata Darbar at the Sachivalaya, Block 14, Ground Floor will be held on the third Monday of the month due to administrative reasons.', href: '#' },
-]
-
-const VM_ITEMS = [
-  { tag: 'new',    bold: 'Advt. UD/2026/04',    rest: ' — Town Planner, JE & Clerk-cum-Typist · 142 posts · Last date 22/05/2026' },
-  { tag: 'urgent', bold: 'Advt. UD/2026/04-3',  rest: ' — Municipal Commissioner (Class A) · Last date 15/05/2026' },
-  { tag: 'new',    bold: 'Advt. UD/2026/04-10', rest: ' — Data Entry Operator (Contract) · e-Nagar Cell · 18/05/2026' },
-  { tag: 'rel',    bold: null, rest: 'OJAS portal v3.2 — improved photo & signature upload · Live since 02/05/2026' },
-  { tag: 'rel',    bold: null, rest: 'Call letters published for Advt. UD/2025/14 · Download from Candidate Portal' },
-  { tag: 'rel',    bold: null, rest: 'Final Answer Key — Advt. UD/2025/11 (Junior Engineer) · Available now' },
-  { tag: 'rel',    bold: null, rest: 'Result declared — Advt. UD/2025/09 (Surveyor) · Cut-off 78.5' },
-  { tag: 'urgent', bold: 'Advt. UD/2026/04-6',  rest: ' — Asst. Inspector, Building Permissions · Last date 20/05/2026' },
-  { tag: 'new',    bold: null, rest: 'Mukhyamantri Awas Yojana (Urban) — applications reopened · Online via e-Nagar' },
-  { tag: 'rel',    bold: null, rest: 'OTR (One Time Registration) reset facility now available · Help Manual updated' },
-]
+const NEWS_TAG_MAP = {
+  notice:      { cls: 'notice',  label: 'Notice'  },
+  circular:    { cls: 'notice',  label: 'Circular' },
+  press:       { cls: 'press',   label: 'Press'   },
+  recruitment: { cls: 'recruit', label: 'Recruit' },
+  tender:      { cls: 'tender',  label: 'Tender'  },
+}
 
 const VM_TAG_LABELS = { new: 'NEW', urgent: 'URGENT', rel: 'RELEASE' }
 
+const fmtDate = (d) => d ? new Date(d).toLocaleDateString('en-IN', { day: '2-digit', month: '2-digit', year: 'numeric' }) : ''
+const fmtDayMo = (d) => {
+  if (!d) return { day: '—', mo: '' }
+  const dt = new Date(d)
+  return {
+    day: String(dt.getDate()).padStart(2, '0'),
+    mo: dt.toLocaleDateString('en-IN', { month: 'short', year: 'numeric' }),
+  }
+}
+const isClosingSoon = (d) => { if (!d) return false; const diff = new Date(d) - Date.now(); return diff > 0 && diff < 7 * 86400 * 1000 }
+
 function VmList({ ariaHidden, items }) {
-  const list = items?.length ? items : VM_ITEMS
+  if (!items?.length) return null
   return (
     <ul className="vm-list" aria-hidden={ariaHidden || undefined}>
-      {list.map((item, i) => (
+      {items.map((item, i) => (
         <li key={i}>
           <span className={`vm-tag ${item.tag}`}>{VM_TAG_LABELS[item.tag]}</span>
           <span>{item.bold && <strong>{item.bold}</strong>}{item.rest}</span>
@@ -57,24 +39,41 @@ function VmList({ ariaHidden, items }) {
   )
 }
 
-const fmtDate = (d) => d ? new Date(d).toLocaleDateString('en-IN', { day: '2-digit', month: '2-digit', year: 'numeric' }) : ''
-
 export default function Home() {
   const { t } = useLang()
-  const [liveItems, setLiveItems] = useState([])
+  const [ads, setAds]   = useState([])
+  const [news, setNews] = useState([])
 
   useEffect(() => {
-    get('/api/v1/advertisements', { status: 'Published', limit: 10 })
-      .then(res => {
-        const ads = res?.data || []
-        setLiveItems(ads.map(a => ({
-          tag: 'new',
-          bold: a.advt_no,
-          rest: ` — ${a.post_title?.en || ''}${a.end_date ? ' · Last date ' + fmtDate(a.end_date) : ''}`,
-        })))
-      })
+    get('/api/v1/advertisements', { status: 'Published', limit: 100 })
+      .then(res => setAds(res?.data || []))
       .catch(() => {})
   }, [])
+
+  useEffect(() => {
+    get('/api/v1/notices', { status: 'published', limit: 5 })
+      .then(res => setNews(res?.data || []))
+      .catch(() => {})
+  }, [])
+
+  // Compute facts from live data
+  const totalPosts     = ads.reduce((s, a) => s + (a.vacancies?.total || 0), 0)
+  const activeAdvts    = ads.length
+  const soonDates      = ads.map(a => a.end_date).filter(Boolean).sort()
+  const nextLastDate   = soonDates[0] ? (() => { const d = new Date(soonDates[0]); return `${String(d.getDate()).padStart(2,'0')}/${String(d.getMonth()+1).padStart(2,'0')}` })() : '—'
+
+  const facts = [
+    { n: String(totalPosts || '—'),  l: 'Open Posts'     },
+    { n: String(activeAdvts || '—'), l: 'Active Advts.'  },
+    { n: nextLastDate,               l: 'Next Last Date'  },
+  ]
+
+  // Vertical marquee items from live advertisements
+  const liveItems = ads.map(a => ({
+    tag:  isClosingSoon(a.end_date) ? 'urgent' : 'new',
+    bold: a.advt_no,
+    rest: ` — ${a.post_title?.en || ''}${a.end_date ? ' · Last date ' + fmtDate(a.end_date) : ''}`,
+  }))
 
   return (
     <>
@@ -84,80 +83,118 @@ export default function Home() {
         <div className="guj">{t('home.welcome.guj')}</div>
       </div>
 
-      <div className="fact-strip">
-        {FACTS.map(f => (
-          <div key={f.l} className="fact">
-            <div className="n">{f.n}</div>
-            <div className="l">{f.l}</div>
-          </div>
-        ))}
-      </div>
+      {facts.some(f => f.n !== '—' && f.n !== '0') && (
+        <div className="fact-strip">
+          {facts.map(f => (
+            <div key={f.l} className="fact">
+              <div className="n">{f.n}</div>
+              <div className="l">{f.l}</div>
+            </div>
+          ))}
+        </div>
+      )}
 
       <div className="two-col">
         <div>
-          {/* Citizen Services */}
+          {/* Open Advertisements */}
           <div className="box">
             <div className="box-title">
-              <span>{t('home.svc.title')}</span>
-              <span className="guj">{t('home.svc.guj')}</span>
+              <span>Open Advertisements</span>
+              <span className="guj">ખુલ્લી જાહેરાતો</span>
             </div>
             <div className="box-body" style={{ padding: 0 }}>
-              <table className="ojas">
-                <thead>
-                  <tr>
-                    <th style={{ width: 36 }}>Sr.</th>
-                    <th>Service / Scheme</th>
-                    <th style={{ width: 160 }}>Department / Authority</th>
-                    <th style={{ width: 100 }}>Status</th>
-                    <th style={{ width: 90 }}>Action</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {SERVICES.map((s, i) => (
-                    <tr key={i}>
-                      <td>{i + 1}</td>
-                      <td>
-                        <a href="#">{s.title}</a>
-                        <div style={{ fontSize: 11, color: 'var(--ojas-ink-3)', marginTop: 2 }}>{s.sub}</div>
-                      </td>
-                      <td>{s.dept}</td>
-                      <td><span className={`badge ${s.badge}`}>{s.badgeLabel}</span></td>
-                      <td><a href="#" style={{ color: 'var(--ojas-saffron-deep)', fontWeight: 700 }}>{s.action}</a></td>
+              {ads.length === 0 ? (
+                <div style={{ padding: '24px', textAlign: 'center', color: 'var(--ojas-ink-3)', fontStyle: 'italic' }}>
+                  No open advertisements at this time.
+                </div>
+              ) : (
+                <table className="ojas">
+                  <thead>
+                    <tr>
+                      <th style={{ width: 36 }}>Sr.</th>
+                      <th style={{ width: 120 }}>Advt. No.</th>
+                      <th>Post</th>
+                      <th style={{ width: 70 }}>Class</th>
+                      <th style={{ width: 60 }}>Posts</th>
+                      <th style={{ width: 100 }}>Last Date</th>
+                      <th style={{ width: 110 }}>Status</th>
+                      <th style={{ width: 80 }}>Action</th>
                     </tr>
-                  ))}
-                </tbody>
-              </table>
+                  </thead>
+                  <tbody>
+                    {ads.slice(0, 8).map((a, i) => {
+                      const closing = isClosingSoon(a.end_date)
+                      return (
+                        <tr key={a._id}>
+                          <td>{i + 1}</td>
+                          <td style={{ fontFamily: 'var(--font-mono)', fontSize: 11.5 }}>{a.advt_no}</td>
+                          <td>
+                            <span style={{ fontWeight: 500 }}>{a.post_title?.en}</span>
+                            {a.department?.departmentName && (
+                              <div style={{ fontSize: 11, color: 'var(--ojas-ink-3)', marginTop: 2 }}>{a.department.departmentName}</div>
+                            )}
+                          </td>
+                          <td style={{ fontWeight: 700 }}>{a.class}</td>
+                          <td style={{ textAlign: 'center', fontWeight: 700, color: 'var(--ojas-navy)' }}>{a.vacancies?.total ?? '—'}</td>
+                          <td style={{ color: closing ? 'var(--ojas-red)' : 'inherit', fontWeight: closing ? 700 : 400 }}>{fmtDate(a.end_date)}</td>
+                          <td>
+                            <span className={`badge ${closing ? 'urgent' : 'active'}`}>
+                              {closing ? 'Closing Soon' : 'Active'}
+                            </span>
+                          </td>
+                          <td>
+                            <Link to={`/apply/${encodeURIComponent(a.advt_no)}`} style={{ color: 'var(--ojas-saffron-deep)', fontWeight: 700 }}>Apply ▶</Link>
+                          </td>
+                        </tr>
+                      )
+                    })}
+                  </tbody>
+                </table>
+              )}
+              {ads.length > 8 && (
+                <div style={{ padding: '8px 12px', textAlign: 'right', borderTop: '1px solid var(--ojas-border)', background: 'var(--ojas-cream)' }}>
+                  <Link to="/careers" style={{ fontWeight: 700 }}>View all {ads.length} advertisements ▶</Link>
+                </div>
+              )}
             </div>
           </div>
 
-          {/* News */}
+          {/* News from Notices */}
           <div className="box" style={{ marginTop: 12 }}>
             <div className="box-title">
               <span>{t('home.news.title')}</span>
               <span className="guj">{t('home.news.guj')}</span>
             </div>
             <div className="box-body">
-              <ul className="news-list">
-                {NEWS.map((n, i) => (
-                  <li key={i}>
-                    <div className="news-date">
-                      <span className="news-day">{n.day}</span>
-                      <span className="news-mo">{n.mo}</span>
-                    </div>
-                    <div className="news-body">
-                      <h3>
-                        <span className={`tag ${n.tag}`}>{n.tagLabel}</span>
-                        {n.h}
-                      </h3>
-                      <p>{n.p}</p>
-                      {n.router
-                        ? <Link to={n.href}>View open positions ▶</Link>
-                        : <a href={n.href}>Read full notice ▶</a>
-                      }
-                    </div>
-                  </li>
-                ))}
-              </ul>
+              {news.length === 0 ? (
+                <p style={{ color: 'var(--ojas-ink-3)', fontStyle: 'italic', textAlign: 'center' }}>No recent notices.</p>
+              ) : (
+                <ul className="news-list">
+                  {news.map((n, i) => {
+                    const { day, mo } = fmtDayMo(n.publish_date || n.createdAt)
+                    const tagInfo = NEWS_TAG_MAP[n.type] || { cls: 'notice', label: n.type }
+                    const href = n.pdf_path
+                      ? `${import.meta.env.VITE_API_URL || ''}/api/v1/notices/${n._id}/pdf`
+                      : '#'
+                    return (
+                      <li key={n._id || i}>
+                        <div className="news-date">
+                          <span className="news-day">{day}</span>
+                          <span className="news-mo">{mo}</span>
+                        </div>
+                        <div className="news-body">
+                          <h3>
+                            <span className={`tag ${tagInfo.cls}`}>{tagInfo.label}</span>
+                            {n.title}
+                          </h3>
+                          {n.body && <p>{n.body}</p>}
+                          <a href={href} target={n.pdf_path ? '_blank' : undefined} rel="noreferrer">Read full notice ▶</a>
+                        </div>
+                      </li>
+                    )
+                  })}
+                </ul>
+              )}
             </div>
           </div>
         </div>
@@ -170,12 +207,18 @@ export default function Home() {
               <span className="guj">{t('home.up.guj')}</span>
             </div>
             <div className="box-body" style={{ padding: 0 }}>
-              <div className="vmarquee" aria-label="Latest releases marquee">
-                <div className="vmarquee-track">
-                  <VmList items={liveItems} />
-                  {liveItems.length >= 4 && <VmList items={liveItems} ariaHidden />}
+              {liveItems.length === 0 ? (
+                <div style={{ padding: '24px', textAlign: 'center', color: 'var(--ojas-ink-3)', fontStyle: 'italic' }}>
+                  No open advertisements.
                 </div>
-              </div>
+              ) : (
+                <div className="vmarquee" aria-label="Latest releases marquee">
+                  <div className="vmarquee-track">
+                    <VmList items={liveItems} />
+                    {liveItems.length >= 4 && <VmList items={liveItems} ariaHidden />}
+                  </div>
+                </div>
+              )}
               <div style={{ borderTop: '1px solid var(--ojas-border)', padding: '8px 12px', textAlign: 'right', background: 'var(--ojas-cream)' }}>
                 <Link to="/careers" style={{ fontWeight: 700 }}>View all advertisements ▶</Link>
               </div>
@@ -189,7 +232,7 @@ export default function Home() {
             </div>
             <div className="box-body" style={{ padding: 0 }}>
               <ul className="ojas">
-                <li><Link to="/careers">Apply Online — Advt. UD/2026/04</Link></li>
+                <li><Link to="/careers">Apply Online</Link></li>
                 <li><a href="#">Know Confirmation Number</a></li>
                 <li><a href="#">Forgot Password?</a></li>
                 <li><Link to="/callletter">Call Letter Download</Link></li>

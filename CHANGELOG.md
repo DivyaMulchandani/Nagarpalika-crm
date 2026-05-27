@@ -5,6 +5,16 @@ Format: [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 ## [Unreleased]
 
+### Added
+- Candidate login via mobile OTP — replaced password-based login with 2-step phone + OTP flow; dev mode accepts `000000` and auto-fills from API response
+- `POST /api/v1/otp/candidates/login/send` and `/verify` endpoints with rate limiting and session fixation prevention
+- REGISTRATION nav tab in Web header linking to `/registration`
+- SiteMarquee fetches live advertisements and notices from API
+
+### Removed
+- MasterData and Reports pages/routes from Admin panel
+- Static `jobs.js` and `marqueeItems.js` data files (replaced by API-driven marquee)
+
 ### Changed
 - Resolved open questions Q2/Q3/Q4/Q7 in knowledge base: fee payment online-only via Razorpay, Aadhaar + UIDAI phone OTP, two separate deployments replacing multi-tenant architecture
 - Removed multi-tenant middleware task and `tenant_id` from all 6 recruitment model schemas in phase-1 plan

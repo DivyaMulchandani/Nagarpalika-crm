@@ -59,13 +59,6 @@ const Navdata = () => {
             ],
         },
         {
-            id: "masterData",
-            label: "Master Data",
-            icon: "ri-list-settings-line",
-            link: "/master-data",
-            click: (e) => { e.preventDefault(); navigate("/master-data"); setIscurrentState("Dashboard"); },
-        },
-        {
             id: "notifications",
             label: "Notifications",
             icon: "ri-notification-3-line",
@@ -107,13 +100,6 @@ const Navdata = () => {
                 { id: "callLetters",    label: "Call Letters",    link: "/call-letters",    parentId: "recruitment" },
                 { id: "notices",        label: "Notice Board",    link: "/notices",         parentId: "recruitment" },
             ],
-        },
-        {
-            id: "reports",
-            label: "Reports",
-            icon: "ri-bar-chart-box-line",
-            link: "/reports",
-            click: (e) => { e.preventDefault(); navigate("/reports"); setIscurrentState("Dashboard"); },
         },
     ];
 

@@ -1,20 +1,3 @@
-const RESULTS = [
-  { sr: 1, advt: 'UD/2025/14', exam: 'Junior Engineer (Civil) — Final Selection List',         declared: '02/05/2026', cutoff: '72.50', stage: 'active', stageLabel: 'Final',    dl: ['PDF', 'Excel'] },
-  { sr: 2, advt: 'UD/2025/11', exam: 'Town Planning Assistant — Document Verification List',   declared: '28/04/2026', cutoff: '68.25', stage: 'new',    stageLabel: 'DV Round',  dl: ['PDF'] },
-  { sr: 3, advt: 'UD/2025/09', exam: 'Surveyor / Draftsman — Final Result',                   declared: '22/04/2026', cutoff: '78.50', stage: 'active', stageLabel: 'Final',    dl: ['PDF', 'Excel'] },
-  { sr: 4, advt: 'UD/2025/07', exam: 'Clerk-cum-Typist — Mains Result',                       declared: '18/04/2026', cutoff: '62.10', stage: 'info',   stageLabel: 'Mains',    dl: ['PDF'] },
-  { sr: 5, advt: 'UD/2025/04', exam: 'Asst. Inspector (Building) — Preliminary Result',       declared: '10/04/2026', cutoff: '55.00', stage: 'info',   stageLabel: 'Prelim',   dl: ['PDF'] },
-  { sr: 6, advt: 'UD/2024/22', exam: 'Accounts Officer — Final Selection List',               declared: '02/04/2026', cutoff: '74.80', stage: 'active', stageLabel: 'Final',    dl: ['PDF', 'Excel'] },
-]
-
-const ANSWER_KEYS = [
-  'UD/2025/14 — Junior Engineer (Civil) — Final Answer Key · 12/04/2026',
-  'UD/2025/11 — Town Planning Asst. — Provisional Answer Key · 05/04/2026',
-  'UD/2025/09 — Surveyor / Draftsman — Final Answer Key · 28/03/2026',
-  'UD/2025/07 — Clerk-cum-Typist — Mains Answer Key · 22/03/2026',
-  'UD/2025/04 — Asst. Inspector — Provisional Key · 15/03/2026',
-]
-
 export default function Results() {
   return (
     <>
@@ -38,12 +21,7 @@ export default function Results() {
           <div className="form-row">
             <div className="form-field">
               <label>Advertisement No.</label>
-              <select>
-                <option>UD/2025/14 — Junior Engineer (Civil)</option>
-                <option>UD/2025/11 — Town Planning Asst.</option>
-                <option>UD/2025/09 — Surveyor / Draftsman</option>
-                <option>UD/2025/07 — Clerk-cum-Typist</option>
-              </select>
+              <input type="text" placeholder="e.g. ADV/2026/0001" />
             </div>
             <div className="form-field">
               <label>Confirmation Number</label>
@@ -79,17 +57,11 @@ export default function Results() {
             </tr>
           </thead>
           <tbody>
-            {RESULTS.map((r, i) => (
-              <tr key={r.sr}>
-                <td>{i + 1}</td>
-                <td style={{ fontFamily: 'var(--font-mono)', fontSize: 11.5 }}>{r.advt}</td>
-                <td><a href="#">{r.exam}</a></td>
-                <td>{r.declared}</td>
-                <td>{r.cutoff}</td>
-                <td><span className={`badge ${r.stage}`}>{r.stageLabel}</span></td>
-                <td>{r.dl.map((d, j) => <span key={j}>{j > 0 && ' · '}<a href="#">{d}</a></span>)}</td>
-              </tr>
-            ))}
+            <tr>
+              <td colSpan={7} style={{ textAlign: 'center', padding: '24px', color: 'var(--ojas-ink-3)', fontStyle: 'italic' }}>
+                No results published yet.
+              </td>
+            </tr>
           </tbody>
         </table>
       </div>
@@ -99,7 +71,7 @@ export default function Results() {
           <div className="box-title saffron"><span>Answer Keys</span><span className="guj">ઉત્તરકૂંચી</span></div>
           <div className="box-body" style={{ padding: 0 }}>
             <ul className="ojas">
-              {ANSWER_KEYS.map((k, i) => <li key={i}><a href="#">{k}</a></li>)}
+              <li style={{ padding: '16px', color: 'var(--ojas-ink-3)', fontStyle: 'italic' }}>No answer keys published yet.</li>
             </ul>
           </div>
         </div>
