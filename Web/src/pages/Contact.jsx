@@ -58,11 +58,11 @@ export default function Contact() {
             <div className="box-title"><span>Send a Grievance / Query</span><span className="guj">ફરિયાદ / પ્રશ્ન મોકલો</span></div>
             <div className="box-body">
               <div className="form-row">
-                <div className="form-field" style={{ gridColumn: '1 / -1', display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
+                <div className="form-field-row">
                   <div><label>Full Name</label><input type="text" placeholder="As per official ID" /></div>
                   <div><label>Mobile Number</label><input type="text" placeholder="10-digit" /></div>
                 </div>
-                <div className="form-field" style={{ gridColumn: '1 / -1', display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
+                <div className="form-field-row">
                   <div><label>Email Address</label><input type="email" placeholder="name@example.com" /></div>
                   <div>
                     <label>Category</label>

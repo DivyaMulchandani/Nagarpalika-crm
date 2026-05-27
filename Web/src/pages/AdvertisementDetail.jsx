@@ -84,7 +84,7 @@ export default function AdvertisementDetail() {
   return (
     <>
       {/* ── Breadcrumb ── */}
-      <div style={{ fontSize: 12.5, color: 'var(--ojas-ink-3)', marginBottom: 8 }}>
+      <div className="breadcrumb-bar" style={{ fontSize: 12.5, color: 'var(--ojas-ink-3)', marginBottom: 8 }}>
         <Link to="/careers" style={{ color: 'var(--ojas-navy)', textDecoration: 'none' }}>Current Openings</Link>
         {' › '}
         <span>{advt.advt_no}</span>
@@ -104,7 +104,7 @@ export default function AdvertisementDetail() {
       </div>
 
       {/* ── Advt No + Dept badges ── */}
-      <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', marginBottom: 20 }}>
+      <div className="badge-row">
         <span style={{ background: 'var(--ojas-navy)', color: '#fff', padding: '4px 12px', borderRadius: 3, fontSize: 12.5, fontFamily: 'var(--font-mono)', fontWeight: 700 }}>
           {advt.advt_no}
         </span>
@@ -118,7 +118,7 @@ export default function AdvertisementDetail() {
         )}
       </div>
 
-      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16, alignItems: 'start' }}>
+      <div className="detail-grid">
 
         {/* ── Key Details ── */}
         <div className="box">
@@ -262,7 +262,7 @@ export default function AdvertisementDetail() {
       )}
 
       {/* ── Actions ── */}
-      <div style={{ display: 'flex', gap: 12, flexWrap: 'wrap', marginTop: 20, alignItems: 'center' }}>
+      <div className="action-bar">
         {!isClosed && (
           <a
             href={`/apply/${encodeURIComponent(advt.advt_no)}`}
@@ -309,7 +309,7 @@ export default function AdvertisementDetail() {
       </div>
 
       {/* ── Disclaimer ── */}
-      <div style={{ marginTop: 20, fontSize: 11.5, color: 'var(--ojas-ink-3)', borderTop: '1px solid var(--ojas-line)', paddingTop: 12 }}>
+      <div className="adv-disclaimer" style={{ marginTop: 20, fontSize: 11.5, color: 'var(--ojas-ink-3)', borderTop: '1px solid var(--ojas-line)', paddingTop: 12 }}>
         OTR (One Time Registration) does <strong style={{ color: 'var(--ojas-red)' }}>NOT</strong> mean your application is accepted.{' '}
         <span style={{ fontFamily: 'var(--font-guj)' }}>OTR નો અર્થ એ નથી કે તમારી અરજી સ્વીકારાઈ ગઈ છે.</span>
       </div>

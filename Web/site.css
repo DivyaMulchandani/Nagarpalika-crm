@@ -4,13 +4,24 @@
 @import url('ojas-tokens.css');
 
 * { box-sizing: border-box; margin: 0; padding: 0; }
-html, body { background: var(--bg-page); }
+html { height: 100%; }
+html, body { background: var(--bg-page); overflow-x: hidden; max-width: 100%; }
 body {
   font-family: var(--font-sans);
   font-size: var(--fs-13);
   line-height: var(--lh-body);
   color: var(--fg1);
+  min-width: 0;
+  min-height: 100%;
 }
+#root {
+  display: flex;
+  flex-direction: column;
+  min-height: 100vh;
+  overflow-x: hidden;
+  max-width: 100%;
+}
+#main { flex: 1 0 auto; }
 a { color: var(--fg-link); text-decoration: underline; }
 a:hover { color: var(--fg-link-hover); }
 a:visited { color: var(--fg-link-visited); }
@@ -100,7 +111,7 @@ a:visited { color: var(--fg-link-visited); }
   margin-left: 16px;
 }
 .marquee-track-wrap { flex: 1; overflow: hidden; white-space: nowrap; margin-left: 14px; }
-.marquee-track { display: inline-block; animation: ojasmarquee 50s linear infinite; }
+.marquee-track { display: inline-block; animation: ojasmarquee 30s linear infinite; }
 .marquee-track span.item {
   display: inline-block;
   padding: 0 28px;
@@ -214,6 +225,8 @@ table.ojas td a { color: var(--fg-link); text-decoration: underline; }
 ul.ojas { margin: 0; padding: 8px 16px 10px 28px; font: 400 12.5px/1.8 var(--font-sans); }
 ul.ojas li { list-style: '▶ '; padding-left: 4px; }
 ul.ojas li a { color: var(--fg-link); }
+ol.ojas { margin: 0; padding: 8px 16px 10px 32px; font: 400 12.5px/1.8 var(--font-sans); }
+ol.ojas li { padding-left: 4px; }
 
 /* ===== FOOTER ===== */
 .footer {
@@ -571,6 +584,8 @@ ul.ojas li a { color: var(--fg-link); }
 .vmarquee {
   height: 360px;
   overflow: hidden;
+  width: 100%;
+  max-width: 100%;
   position: relative;
   background: #fff;
   mask-image: linear-gradient(180deg, transparent 0, #000 18px, #000 calc(100% - 18px), transparent 100%);
@@ -578,7 +593,8 @@ ul.ojas li a { color: var(--fg-link); }
 }
 .vmarquee:hover .vmarquee-track { animation-play-state: paused; }
 .vmarquee-track {
-  animation: vm-scroll 32s linear infinite;
+  animation: vm-scroll 12s linear infinite;
+  width: 100%;
 }
 @keyframes vm-scroll {
   0%   { transform: translateY(0); }
@@ -677,6 +693,39 @@ ul.ojas li a { color: var(--fg-link); }
 .lang-toggle button.active { background: var(--ojas-saffron); color: #fff; }
 .lang-toggle button:hover:not(.active) { background: rgba(255,239,203,0.15); }
 
+/* Grid min-width fix — prevents 1fr column overflow with long text */
+.vm-list li > *,
+.news-list li > *,
+.up-list li > *,
+.cal-side-list li > * { min-width: 0; }
+
+/* ===== UTILITY: responsive 2-col grid ===== */
+.detail-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 16px;
+  align-items: start;
+}
+.badge-row {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+  margin-bottom: 20px;
+}
+.action-bar {
+  display: flex;
+  gap: 12px;
+  flex-wrap: wrap;
+  align-items: center;
+  margin-top: 20px;
+}
+.form-field-row {
+  grid-column: 1 / -1;
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 12px;
+}
+
 /* ===== RESPONSIVE ===== */
 img { max-width: 100%; height: auto; }
 .box-body { overflow-x: auto; }
@@ -697,36 +746,79 @@ table.ojas { min-width: 540px; }
 @media (max-width: 768px) {
   .three-col { grid-template-columns: 1fr; }
   .fact-strip { grid-template-columns: repeat(2, 1fr); }
-  .footer-grid { grid-template-columns: 1fr; gap: 16px; padding: 16px 12px; }
+  .footer-grid { grid-template-columns: 1fr; gap: 16px; padding: 16px 12px; text-align: center; }
   .form-row { grid-template-columns: 1fr; gap: 12px; }
   .container { padding: 10px 12px; }
-  .brand-bar { padding: 8px 12px; gap: 10px; }
+  .brand-bar { padding: 8px 12px; gap: 8px; flex-direction: column; align-items: center; text-align: center; }
   .brand-bar img { height: 40px; }
   .brand-title { font-size: 16px; white-space: normal; }
   .brand-sub { font-size: 10px; }
-  .brand-utility { margin-left: 0; flex-wrap: wrap; gap: 6px; width: 100%; }
-  .nav-row { padding: 6px 12px; gap: 10px; font-size: 11px; }
+  .brand-utility { margin-left: 0; flex-wrap: wrap; gap: 6px; width: 100%; justify-content: center; }
+  .nav-row { padding: 6px 12px; gap: 10px; font-size: 11px; justify-content: center; }
+  .hero-strip { text-align: center; }
   .hero-strip h1 { font-size: 18px; }
   .hero-strip .guj { font-size: 12px; }
-  .page-heading { flex-wrap: wrap; gap: 6px; }
-  .page-heading h1 { font-size: 16px; }
-  .page-heading .guj { margin-left: 0; }
-  .advt-banner { flex-direction: column; align-items: flex-start; gap: 6px; }
+  .page-heading { flex-wrap: wrap; gap: 6px; justify-content: center; }
+  .page-heading h1 { font-size: 16px; text-align: center; }
+  .page-heading .guj { margin-left: 0; text-align: center; }
+  .advt-banner { flex-direction: column; align-items: center; text-align: center; gap: 6px; }
+  .filter-row { justify-content: center; }
   .news-list li { grid-template-columns: 56px 1fr; gap: 10px; }
   .vmarquee { height: 280px; }
   .cm-block { grid-template-columns: 1fr; }
   .cm-portrait { width: 100%; height: 160px; }
   .cal-cell { min-height: 60px; }
-  .box-title { flex-wrap: wrap; gap: 4px; padding: 8px 10px; font-size: 13px; }
+  .box-title { flex-wrap: wrap; gap: 4px; padding: 8px 10px; font-size: 13px; justify-content: center; text-align: center; }
   .box-title .guj { margin-left: 0; font-size: 10px; }
   .box-body { padding: 12px; }
+  .form-actions { justify-content: center; flex-wrap: wrap; }
+  .notice { text-align: center; }
+  .detail-grid { grid-template-columns: 1fr; }
+  .badge-row { justify-content: center; }
+  .action-bar { justify-content: center; }
+  .form-field-row { grid-template-columns: 1fr; }
+  /* Truncate marquee text — marquee is scrolling so ellipsis is correct */
+  .vm-list li > *:last-child { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  /* Tables placed directly in .box without .box-body wrapper (Careers, Notices, Results) */
+  .box > table.ojas { display: block; overflow-x: auto; max-width: 100%; }
+  /* box-title long text wrap */
+  .box-title > span { overflow-wrap: break-word; word-break: break-word; }
+  /* news-body text wrap */
+  .news-body { overflow-wrap: break-word; word-break: break-word; }
+  /* CM block — center portrait and text when stacked */
+  .cm-portrait { margin: 0 auto; }
+  .cm-name, .cm-title { text-align: center; }
+  .cm-quote { text-align: center; }
+  /* legend — center items when wrapped */
+  .legend { justify-content: center; flex-wrap: wrap; text-align: center; }
+  /* calendar header — wrap and center on small screens */
+  .cal-head { flex-wrap: wrap; justify-content: center; gap: 8px; text-align: center; }
+  /* hero eyebrow — explicit center (parent has text-align:center but be explicit) */
+  .hero-strip .eyebrow { text-align: center; }
+  .hero-strip .guj { text-align: center; }
+  /* fact-strip odd last item (e.g. 3rd of 3) — center it in its row */
+  .fact-strip > :last-child:nth-child(odd) { grid-column: 1 / -1; justify-self: center; max-width: calc(50% - 5px); }
+  /* box-title gujarati — block so it wraps to own line */
+  .box-title .guj { display: block; }
+  /* filter label — full-width so it doesn't sit left of centered chips */
+  .filter-row .label { width: 100%; text-align: center; margin-right: 0; margin-bottom: 4px; }
+  /* breadcrumb and disclaimer — center on mobile */
+  .breadcrumb-bar { text-align: center; }
+  .adv-disclaimer { text-align: center; }
+  /* center standalone buttons and links not already inside form-actions/action-bar */
+  .box-body > p { text-align: left; }
+  .box-body > div:not(.form-row):not(.form-actions) > .btn { display: block; margin: 0 auto; width: fit-content; }
+  /* captcha row — keep flex but allow wrap and center */
+  .captcha-row { flex-wrap: wrap; justify-content: center; }
+  /* two-col collapse — text in right col boxes center */
+  .two-col > div .notice { text-align: center; }
 }
 
 @media (max-width: 480px) {
   .fact-strip { grid-template-columns: 1fr 1fr; gap: 6px; }
   .fact .n { font-size: 18px; }
   .hero-strip h1 { font-size: 16px; }
-  .filter-row { gap: 4px; }
+  .filter-row { gap: 4px; justify-content: center; }
   .chip { font-size: 11px; padding: 4px 8px; }
   .btn { padding: 8px 14px; font-size: 12px; }
   .vmarquee { height: 240px; }
@@ -736,6 +828,11 @@ table.ojas { min-width: 540px; }
   .cal-event { font-size: 9px; }
   .news-day { font-size: 14px; }
   .news-mo { font-size: 9px; }
-  .nav-row { padding: 6px 8px; gap: 6px 12px; font-size: 10.5px; letter-spacing: .02em; }
+  .nav-row { padding: 6px 8px; gap: 6px 12px; font-size: 10.5px; letter-spacing: .02em; justify-content: center; }
   .nav-row a { padding: 3px 0; }
+  .page-heading h1 { font-size: 14px; }
+  .footer-grid { padding: 12px 8px; }
+  .vm-list li { grid-template-columns: 56px 1fr; gap: 6px; padding: 8px 8px; }
+  .box-title > span { max-width: 100%; overflow-wrap: break-word; word-break: break-word; }
+  .container { padding: 8px 8px; }
 }

@@ -15,6 +15,7 @@ import BreadCrumb from "../../Components/Common/BreadCrumb";
 import { toast } from "react-toastify";
 import { AuthContext } from "../../context/AuthContext";
 import { MenuContext } from "../../context/MenuContext";
+import config from "../../config";
 
 const CLASS_OPTIONS = [
   { value: "I", label: "Class I" }, { value: "II", label: "Class II" },
@@ -174,7 +175,13 @@ const AdvertisementForm = () => {
     fd.append("file", pdfFile);
     setPdfUploading(true);
     uploadAdvertisementPdf(id, fd)
-      .then(() => { toast.success("PDF uploaded"); setPdfFile(null); })
+      .then((r) => {
+        toast.success("PDF uploaded");
+        setPdfFile(null);
+        if (r.data?.data?.pdf_path) {
+          setRecord((p) => ({ ...p, pdf_path: r.data.data.pdf_path }));
+        }
+      })
       .catch(() => toast.error("PDF upload failed"))
       .finally(() => setPdfUploading(false));
   };
@@ -315,7 +322,7 @@ const AdvertisementForm = () => {
                 <TabPane tabId="5">
                   {record?.pdf_path && (
                     <div className="mb-3">
-                      <a href={`/api/v1/advertisements/${id}/pdf`} target="_blank" rel="noreferrer" className="btn btn-sm btn-outline-primary">
+                      <a href={`${config.api.API_URL}/api/v1/advertisements/${id}/pdf`} target="_blank" rel="noreferrer" className="btn btn-sm btn-outline-primary">
                         <i className="ri-file-pdf-line me-1"></i>View Current PDF
                       </a>
                     </div>

@@ -143,7 +143,7 @@ export default function Home() {
                             </span>
                           </td>
                           <td>
-                            <Link to={`/apply/${encodeURIComponent(a.advt_no)}`} style={{ color: 'var(--ojas-saffron-deep)', fontWeight: 700 }}>Apply ▶</Link>
+                            <Link to={`/apply/${a._id}`} style={{ color: 'var(--ojas-saffron-deep)', fontWeight: 700 }}>Apply ▶</Link>
                           </td>
                         </tr>
                       )
@@ -175,7 +175,7 @@ export default function Home() {
                     const tagInfo = NEWS_TAG_MAP[n.type] || { cls: 'notice', label: n.type }
                     const href = n.pdf_path
                       ? `${import.meta.env.VITE_API_URL || ''}/api/v1/notices/${n._id}/pdf`
-                      : '#'
+                      : '/notices'
                     return (
                       <li key={n._id || i}>
                         <div className="news-date">

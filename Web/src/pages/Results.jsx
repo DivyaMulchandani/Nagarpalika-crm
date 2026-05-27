@@ -80,7 +80,7 @@ export default function Results() {
           <div className="box-body">
             <p>Candidates may file objections against any provisional answer key by paying a non-refundable fee of <strong>Rs. 100/-</strong> per question. Representations against final results may be filed online within <strong>15 days</strong> of declaration.</p>
             <p style={{ marginTop: 10 }}>For grievances, write to <a href="#">grievance.ud@gujarat.gov.in</a> or visit the Sachivalaya Help Desk between 11:00 — 17:00 (Mon — Fri).</p>
-            <div style={{ marginTop: 12 }}>
+            <div className="form-actions">
               <button className="btn primary">File Representation</button>
             </div>
           </div>

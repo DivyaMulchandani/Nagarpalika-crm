@@ -62,7 +62,7 @@ export default function Header() {
           <Link
             key={path}
             to={path}
-            className={pathname === path ? 'active' : ''}
+            className={(path === '/' ? pathname === '/' : pathname.startsWith(path)) ? 'active' : ''}
           >
             {t(key) || fallback}
           </Link>

@@ -1,6 +1,6 @@
 export default function StepIndicator({ total, current }) {
   return (
-    <div style={{ display: 'flex', alignItems: 'center', marginBottom: 24, overflowX: 'auto' }}>
+    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', marginBottom: 24, overflowX: 'auto' }}>
       {Array.from({ length: total }, (_, i) => {
         const n = i + 1
         const done   = n < current
