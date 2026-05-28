@@ -46,7 +46,7 @@ export const createCountry = async (req, res) => {
 
 export const listAllCountries = async (req, res) => {
   try {
-    const countries = await CountryModels.find({ isActive: true });
+    const countries = await CountryModels.find({ isActive: true }) .sort({ countryName: 1 });
 
     return res.status(200).json({
       isOk: true,
@@ -323,7 +323,8 @@ export const listAllStates = async (req, res) => {
   try {
     const states = await StateModels.find({ isActive: true }).populate(
       "countryId",
-    );
+    )
+     .sort({ stateName: 1 });
 
     return res.status(200).json({
       isOk: true,
@@ -634,7 +635,8 @@ export const listAllCities = async (req, res) => {
   try {
     const cities = await CityModels.find({ isActive: true }).populate(
       "stateId countryId",
-    );
+    )
+     .sort({ cityName: 1 });
 
     return res.status(200).json({
       isOk: true,
