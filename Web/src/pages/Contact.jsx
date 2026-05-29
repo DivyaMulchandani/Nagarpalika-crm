@@ -59,12 +59,12 @@ export default function Contact() {
             <div className="box-body">
               <div className="form-row">
                 <div className="form-field-row">
-                  <div><label>Full Name</label><input type="text" placeholder="As per official ID" /></div>
-                  <div><label>Mobile Number</label><input type="text" placeholder="10-digit" /></div>
+                  <div className="form-field"><label>Full Name</label><input type="text" placeholder="As per official ID" /></div>
+                  <div className="form-field"><label>Mobile Number</label><input type="text" placeholder="10-digit" /></div>
                 </div>
                 <div className="form-field-row">
-                  <div><label>Email Address</label><input type="email" placeholder="name@example.com" /></div>
-                  <div>
+                  <div className="form-field"><label>Email Address</label><input type="email" placeholder="name@example.com" /></div>
+                  <div className="form-field">
                     <label>Category</label>
                     <select>
                       <option>General Query</option>
@@ -85,8 +85,8 @@ export default function Contact() {
                   <textarea rows={5} placeholder="Please provide all relevant details, dates, reference numbers..." />
                 </div>
                 <div className="form-actions">
-                  <button className="btn primary">Submit</button>
-                  <button className="btn">Reset</button>
+                  <button className="btn">Submit</button>
+                  <button className="btn ghost">Reset</button>
                 </div>
               </div>
             </div>

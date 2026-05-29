@@ -133,7 +133,9 @@ const authProtectedRoutes = [
 ];
 
 const publicRoutes = [
+    { path: "/login", component: <Login /> },
     { path: "/", component: <Login /> },
+    { path: "*", component: <Navigate to="/" /> },
 ];
 
 export { authProtectedRoutes, publicRoutes };

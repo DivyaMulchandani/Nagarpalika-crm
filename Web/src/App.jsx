@@ -62,6 +62,9 @@ export default function App() {
           <Route path="/application"                   element={<Layout><ApplicationEntry /></Layout>} />
           <Route path="/application/apply"             element={<Layout><ApplicationForm /></Layout>} />
           <Route path="/application/print"             element={<Layout><PrintApplication /></Layout>} />
+
+          <Route path="/login"                         element={<Navigate to="/registration/find" replace />} />
+          <Route path="*"                              element={<Navigate to="/" replace />} />
         </Routes>
       </BrowserRouter>
     </LangProvider>

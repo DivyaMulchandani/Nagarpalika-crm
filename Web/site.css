@@ -111,7 +111,7 @@ a:visited { color: var(--fg-link-visited); }
   margin-left: 16px;
 }
 .marquee-track-wrap { flex: 1; overflow: hidden; white-space: nowrap; margin-left: 14px; }
-.marquee-track { display: inline-block; animation: ojasmarquee 30s linear infinite; }
+.marquee-track { display: inline-block; animation: ojasmarquee 30s linear infinite; will-change: transform; backface-visibility: hidden; }
 .marquee-track span.item {
   display: inline-block;
   padding: 0 28px;
@@ -593,8 +593,10 @@ ol.ojas li { padding-left: 4px; }
 }
 .vmarquee:hover .vmarquee-track { animation-play-state: paused; }
 .vmarquee-track {
-  animation: vm-scroll 12s linear infinite;
+  animation: vm-scroll 18s linear infinite;
   width: 100%;
+  will-change: transform;
+  backface-visibility: hidden;
 }
 @keyframes vm-scroll {
   0%   { transform: translateY(0); }
@@ -699,6 +701,12 @@ ol.ojas li { padding-left: 4px; }
 .up-list li > *,
 .cal-side-list li > * { min-width: 0; }
 
+/* Grid track fix — prevents children from expanding tracks beyond available space */
+.two-col > *,
+.three-col > *,
+.fact-strip > *,
+.detail-grid > * { min-width: 0; }
+
 /* ===== UTILITY: responsive 2-col grid ===== */
 .detail-grid {
   display: grid;
@@ -799,7 +807,7 @@ table.ojas { min-width: 540px; }
   /* fact-strip odd last item (e.g. 3rd of 3) — center it in its row */
   .fact-strip > :last-child:nth-child(odd) { grid-column: 1 / -1; justify-self: center; max-width: calc(50% - 5px); }
   /* box-title gujarati — block so it wraps to own line */
-  .box-title .guj { display: block; }
+  .box-title .guj { display: block; flex-basis: 100%; }
   /* filter label — full-width so it doesn't sit left of centered chips */
   .filter-row .label { width: 100%; text-align: center; margin-right: 0; margin-bottom: 4px; }
   /* breadcrumb and disclaimer — center on mobile */
@@ -815,6 +823,7 @@ table.ojas { min-width: 540px; }
 }
 
 @media (max-width: 480px) {
+  table.ojas { min-width: 380px; }
   .fact-strip { grid-template-columns: 1fr 1fr; gap: 6px; }
   .fact .n { font-size: 18px; }
   .hero-strip h1 { font-size: 16px; }

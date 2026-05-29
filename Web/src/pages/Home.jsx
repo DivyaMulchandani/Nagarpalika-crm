@@ -187,7 +187,9 @@ export default function Home() {
                             <span className={`tag ${tagInfo.cls}`}>{tagInfo.label}</span>
                             {n.title}
                           </h3>
-                          {n.body && <p>{n.body}</p>}
+                          {n.body && n.body.replace(/<[^>]*>/g, '').trim() && (
+                            <div className="news-excerpt" dangerouslySetInnerHTML={{ __html: n.body }} />
+                          )}
                           <a href={href} target={n.pdf_path ? '_blank' : undefined} rel="noreferrer">Read full notice ▶</a>
                         </div>
                       </li>
