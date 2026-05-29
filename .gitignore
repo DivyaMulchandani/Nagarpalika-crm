@@ -2,4 +2,14 @@
 .DS_Store
 node_modules/
 *.log
-dist/
+Web/dist/
+Admin/build/
+Server/out/
+Server/uploads/
+Server/log/
+knowledge_base/.obsidian/
+
+# Secrets — never commit
+.env
+.env.local
+.env.production

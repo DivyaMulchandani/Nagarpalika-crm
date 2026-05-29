@@ -1,0 +1,44 @@
+{
+  "name": "hms-server",
+  "$schema": "../node_modules/nx/schemas/project-schema.json",
+  "sourceRoot": "hms-server",
+  "projectType": "application",
+  "targets": {
+    "dev": {
+      "executor": "nx:run-commands",
+      "options": {
+        "cwd": "hms-server",
+        "command": "bun run dev"
+      }
+    },
+    "start": {
+      "executor": "nx:run-commands",
+      "options": {
+        "cwd": "hms-server",
+        "command": "bun run start"
+      }
+    },
+    "build": {
+      "executor": "nx:run-commands",
+      "options": {
+        "cwd": "hms-server",
+        "command": "bun run build"
+      }
+    },
+    "lint": {
+      "executor": "nx:run-commands",
+      "options": {
+        "cwd": "hms-server",
+        "command": "bun run lint"
+      }
+    },
+    "test": {
+      "executor": "nx:run-commands",
+      "options": {
+        "cwd": "hms-server",
+        "command": "bun run test"
+      }
+    }
+  },
+  "tags": []
+}

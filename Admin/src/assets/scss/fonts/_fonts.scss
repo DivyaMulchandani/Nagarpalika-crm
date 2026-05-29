@@ -1,0 +1,36 @@
+//
+// Vyaris brand fonts
+// — Barlow (display) and Manrope (body) via Google Fonts
+// — JetBrains Mono (code/metrics) via local TTFs in src/assets/fonts/jetbrains-mono/
+//
+
+@import url('https://fonts.googleapis.com/css2?family=Barlow:wght@300;400;500;600;700;800&family=Manrope:wght@300;400;500;600;700;800&display=swap');
+
+@font-face {
+  font-family: 'JetBrains Mono';
+  font-weight: 400;
+  font-style: normal;
+  font-display: swap;
+  src: url('../../fonts/jetbrains-mono/JetBrainsMono-Regular.ttf') format('truetype');
+}
+@font-face {
+  font-family: 'JetBrains Mono';
+  font-weight: 400;
+  font-style: italic;
+  font-display: swap;
+  src: url('../../fonts/jetbrains-mono/JetBrainsMono-Italic.ttf') format('truetype');
+}
+@font-face {
+  font-family: 'JetBrains Mono';
+  font-weight: 500;
+  font-style: normal;
+  font-display: swap;
+  src: url('../../fonts/jetbrains-mono/JetBrainsMono-Medium.ttf') format('truetype');
+}
+@font-face {
+  font-family: 'JetBrains Mono';
+  font-weight: 700;
+  font-style: normal;
+  font-display: swap;
+  src: url('../../fonts/jetbrains-mono/JetBrainsMono-Bold.ttf') format('truetype');
+}

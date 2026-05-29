@@ -1,0 +1,139 @@
+// :root CSS variables — Vyaris light theme
+//
+// Off-white ground (#F5F6F2), ink text (#0A0B0A), neon-lime accent (#1a7a3e).
+// Hairlines do the work shadows do in lighter designs.
+
+:root{
+
+  // ── Vertical sidebar ──────────────────────────────────────────────
+  // White panel, hairline right border, lime active indicator.
+  --#{$prefix}vertical-menu-bg:                      #FFFFFF;
+  --#{$prefix}vertical-menu-item-color:              #5C5F58;
+  --#{$prefix}vertical-menu-item-hover-color:        #0A0B0A;
+  --#{$prefix}vertical-menu-item-active-color:       #0A0B0A;
+  --#{$prefix}vertical-menu-sub-item-color:          #5C5F58;
+  --#{$prefix}vertical-menu-sub-item-hover-color:    #0A0B0A;
+  --#{$prefix}vertical-menu-sub-item-active-color:   #0A0B0A;
+  --#{$prefix}vertical-menu-title-color:             #8E918A;
+
+  // Dark sidebar (kept for compat — not used in light-only build)
+  --#{$prefix}vertical-menu-bg-dark:                 #0A0B0A;
+  --#{$prefix}vertical-menu-item-color-dark:         #C9CBC5;
+  --#{$prefix}vertical-menu-item-hover-color-dark:   #F4F5F2;
+  --#{$prefix}vertical-menu-item-active-color-dark:  #1a7a3e;
+  --#{$prefix}vertical-menu-sub-item-color-dark:     #C9CBC5;
+  --#{$prefix}vertical-menu-sub-item-hover-color-dark: #F4F5F2;
+  --#{$prefix}vertical-menu-sub-item-active-color-dark: #1a7a3e;
+  --#{$prefix}vertical-menu-title-color-dark:         #8E918A;
+
+  // ── Topbar ────────────────────────────────────────────────────────
+  --#{$prefix}header-bg:           #FFFFFF;
+  --#{$prefix}header-item-color:   #2B2D28;
+  --#{$prefix}header-bg-dark:      #0A0B0A;
+  --#{$prefix}header-item-color-dark: #C9CBC5;
+
+  --#{$prefix}topbar-search-bg:    #F5F6F2;
+  --#{$prefix}topbar-user-bg:      #F5F6F2;
+  --#{$prefix}topbar-user-bg-dark: #181A19;
+
+  // ── Footer ────────────────────────────────────────────────────────
+  --#{$prefix}footer-bg:    #FFFFFF;
+  --#{$prefix}footer-color: #8E918A;
+
+  // ── Horizontal nav ────────────────────────────────────────────────
+  --#{$prefix}topnav-bg:                #FFFFFF;
+  --#{$prefix}topnav-item-color:        #5C5F58;
+  --#{$prefix}topnav-item-color-active: #1a7a3e;
+
+  // ── Two-column menu ───────────────────────────────────────────────
+  --#{$prefix}twocolumn-menu-iconview-bg: #FFFFFF;
+  --#{$prefix}twocolumn-menu-bg:          #F5F6F2;
+  --#{$prefix}twocolumn-menu-iconview-bg-dark: #0A0B0A;
+  --#{$prefix}twocolumn-menu-bg-dark:     #111312;
+  --#{$prefix}twocolumn-menu-item-color-dark: #C9CBC5;
+  --#{$prefix}twocolumn-menu-item-active-color-dark: #1a7a3e;
+  --#{$prefix}twocolumn-menu-item-active-bg-dark: rgba(200, 255, 61, 0.08);
+
+  // ── Boxed layout ──────────────────────────────────────────────────
+  --#{$prefix}boxed-body-bg: #EDEFE8;
+
+  // ── Heading colour ────────────────────────────────────────────────
+  --#{$prefix}heading-color: #0A0B0A;
+
+  // ── Links ─────────────────────────────────────────────────────────
+  --#{$prefix}link-color:       #145c2e;
+  --#{$prefix}link-hover-color: #B3EF22;
+
+  // ── Borders ───────────────────────────────────────────────────────
+  --#{$prefix}border-color: #D2D6CB;
+
+  // ── Cards ─────────────────────────────────────────────────────────
+  --#{$prefix}card-bg-custom:  #FFFFFF;
+  --#{$prefix}card-logo-dark:  block;
+  --#{$prefix}card-logo-light: none;
+
+  // ── Nav tabs ──────────────────────────────────────────────────────
+  .nav-tabs {
+    --#{$prefix}nav-tabs-link-active-bg: #FFFFFF;
+  }
+
+  // ── Choices / flatpickr / select2 dropdown surfaces ───────────────
+  .choices, .flatpickr-calendar, .ck, .ql-toolbar, .select2-container, .menu-dropdown{
+    --#{$prefix}choices-bg:                #FFFFFF;
+    --#{$prefix}choices-link-color:        #0A0B0A;
+    --#{$prefix}choices-link-hover-bg:     #EDEFE8;
+    --#{$prefix}choices-link-active-color: #0A0B0A;
+  }
+
+  // ── List groups ───────────────────────────────────────────────────
+  --#{$prefix}list-group-hover-bg: #EDEFE8;
+
+  // ── Inputs ────────────────────────────────────────────────────────
+  --#{$prefix}input-bg:           #FFFFFF;
+  --#{$prefix}input-border:       #D2D6CB;
+  --#{$prefix}input-focus-border: #1a7a3e;
+  --#{$prefix}input-disabled-bg:  #F5F6F2;
+
+  --#{$prefix}input-group-addon-bg: #F5F6F2;
+
+  --#{$prefix}input-check-border: var(--#{$prefix}input-border);
+
+  // ── Vyaris brand tokens (referenced by hand-tuned components) ─────
+  --vy-lime:        #1a7a3e;
+  --vy-lime-600:    #B3EF22;
+  --vy-lime-700:    #145c2e;
+  --vy-lime-soft:   #E7FF96;
+  --vy-ink:         #0A0B0A;
+  --vy-ink-pure:    #000000;
+
+  --vy-bg-0:  #F5F6F2;
+  --vy-bg-1:  #FFFFFF;
+  --vy-bg-2:  #EDEFE8;
+  --vy-bg-3:  #E2E5DC;
+
+  --vy-fg-0:  #0A0B0A;
+  --vy-fg-1:  #2B2D28;
+  --vy-fg-2:  #5C5F58;
+  --vy-fg-3:  #8E918A;
+
+  --vy-line-0: #E2E5DC;
+  --vy-line-1: #D2D6CB;
+  --vy-line-2: #B9BEB1;
+
+  --vy-success: #7EE787;
+  --vy-warn:    #F2C94C;
+  --vy-danger:  #FF6A55;
+  --vy-info:    #7BD3F7;
+
+  // Vyaris type stack as runtime CSS vars (for inline-style usage).
+  --vy-font-display: 'Barlow', 'Helvetica Neue', Arial, sans-serif;
+  --vy-font-body:    'Manrope', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+  --vy-font-mono:    'JetBrains Mono', 'SF Mono', Menlo, monospace;
+
+  --vy-tr-eyebrow:   0.18em;
+  --vy-fs-eyebrow:   12px;
+
+  --vy-sh-glow:  0 0 0 1px var(--vy-lime), 0 0 24px -4px rgba(200, 255, 61, 0.45);
+  --vy-sh-focus: 0 0 0 2px #FFFFFF, 0 0 0 4px var(--vy-lime);
+  --vy-sh-flat:  0 0 0 1px var(--vy-line-1);
+}

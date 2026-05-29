@@ -1,0 +1,15 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 200 200" fill="none" stroke="currentColor" stroke-width="14" stroke-linecap="round" stroke-linejoin="round">
+  
+  
+  <path d="M100 100 C 60 90, 35 65, 45 45 C 60 25, 90 45, 100 100 Z"></path>
+  
+  <path d="M100 100 C 140 90, 165 65, 155 45 C 140 25, 110 45, 100 100 Z"></path>
+  
+  <path d="M100 100 C 60 110, 35 135, 45 155 C 60 175, 90 155, 100 100 Z"></path>
+  
+  <path d="M100 100 C 140 110, 165 135, 155 155 C 140 175, 110 155, 100 100 Z"></path>
+  
+  <path d="M40 30 L 160 170"></path>
+  <path d="M160 30 L 40 170"></path>
+</svg>

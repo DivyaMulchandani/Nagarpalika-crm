@@ -1,0 +1,10 @@
+{
+  "permissions": {
+    "allow": [
+      "PowerShell(Get-ChildItem -Path \"d:\\\\Vyaris\\\\nagarpalika-v2\\\\Server\" -Force | Where-Object { $_.Name -ne 'node_modules' })",
+      "PowerShell(Get-ChildItem -Path \"d:\\\\Vyaris\\\\nagarpalika-v2\\\\Server\" -Recurse -Force | Where-Object { $_.FullPath -notmatch 'node_modules' } | Select-Object FullName | ConvertTo-Csv -NoTypeInformation | Select-Object -First 100)",
+      "PowerShell(Get-ChildItem -Path \"d:\\\\Vyaris\\\\nagarpalika-v2\\\\Server\\\\middlewares\" -File | ForEach-Object { $_.Name })",
+      "PowerShell(Get-ChildItem -Path \"d:\\\\Vyaris\\\\nagarpalika-v2\\\\Server\\\\routes\\\\v1\" -File | ForEach-Object { $_.Name })"
+    ]
+  }
+}
