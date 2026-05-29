@@ -21,7 +21,7 @@ const NoticeSchema = new mongoose.Schema(
     },
     type: {
       type: String,
-      enum: ["notice", "circular", "press", "recruitment", "tender"],
+      enum: ["notice", "circular", "press", "recruitment", "tender", "result", "general"],
       required: true,
     },
     publish_date: {

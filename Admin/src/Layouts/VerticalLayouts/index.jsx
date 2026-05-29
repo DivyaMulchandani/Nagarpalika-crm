@@ -57,34 +57,22 @@ const VerticalLayout = (props) => {
         // Find and expand parent menus for the current path
         if (menuData && menuData.length > 0) {
             const parentIds = findParentIds(menuData, path);
-            if (parentIds && parentIds.length > 0) {
-                setExpandedItems((prev) => {
-                    const newState = { ...prev };
+            setExpandedItems((prev) => {
+                const newState = { ...prev };
+                // First, close all items
+                Object.keys(prev).forEach((id) => {
+                    newState[id] = false;
+                });
+                // Then open only the parents for the current path
+                if (parentIds && parentIds.length > 0) {
                     parentIds.forEach((id) => {
                         newState[id] = true;
                     });
-                    return newState;
-                });
-            }
-        }
-
-        const initMenu = () => {
-            const pathName = path;
-            const ul = document.getElementById("navbar-nav");
-            const items = ul.getElementsByTagName("a");
-            let itemsArray = [...items];
-            removeActivation(itemsArray);
-            let matchingMenuItem = itemsArray.find((x) => {
-                return x.pathname === pathName;
+                }
+                return newState;
             });
-            if (matchingMenuItem) {
-                activateParentDropdown(matchingMenuItem);
-            }
-        };
-        if (props.layoutType === "vertical") {
-            initMenu();
         }
-    }, [path, props.layoutType, menuData, findParentIds]);
+    }, [path, menuData, findParentIds]);
 
     // Toggle expanded state (accordion behavior)
     const toggleItem = (itemId, siblingIds = []) => {
@@ -105,78 +93,21 @@ const VerticalLayout = (props) => {
         });
     };
 
-    function activateParentDropdown(item) {
-        item.classList.add("active");
-        let parentCollapseDiv = item.closest(".collapse.menu-dropdown");
-
-        if (parentCollapseDiv) {
-            parentCollapseDiv.classList.add("show");
-            parentCollapseDiv.parentElement.children[0].classList.add("active");
-            parentCollapseDiv.parentElement.children[0].setAttribute(
-                "aria-expanded",
-                "true"
-            );
-            if (
-                parentCollapseDiv.parentElement.closest(
-                    ".collapse.menu-dropdown"
-                )
-            ) {
-                parentCollapseDiv.parentElement
-                    .closest(".collapse")
-                    .classList.add("show");
-                if (
-                    parentCollapseDiv.parentElement.closest(".collapse")
-                        .previousElementSibling
-                )
-                    parentCollapseDiv.parentElement
-                        .closest(".collapse")
-                        .previousElementSibling.classList.add("active");
-                if (
-                    parentCollapseDiv.parentElement
-                        .closest(".collapse")
-                        .previousElementSibling.closest(".collapse")
-                ) {
-                    parentCollapseDiv.parentElement
-                        .closest(".collapse")
-                        .previousElementSibling.closest(".collapse")
-                        .classList.add("show");
-                    parentCollapseDiv.parentElement
-                        .closest(".collapse")
-                        .previousElementSibling.closest(".collapse")
-                        .previousElementSibling.classList.add("active");
-                }
-            }
-            return false;
-        }
-        return false;
-    }
-
-    const removeActivation = (items) => {
-        let actiItems = items.filter((x) => x.classList.contains("active"));
-        actiItems.forEach((item) => {
-            if (item.classList.contains("menu-link")) {
-                if (!item.classList.contains("active")) {
-                    item.setAttribute("aria-expanded", false);
-                }
-                if (item.nextElementSibling) {
-                    item.nextElementSibling.classList.remove("show");
-                }
-            }
-            if (item.classList.contains("nav-link")) {
-                if (item.nextElementSibling) {
-                    item.nextElementSibling.classList.remove("show");
-                }
-                item.setAttribute("aria-expanded", false);
-            }
-            item.classList.remove("active");
-        });
-    };
 
     const handleMenuItemClick = (menuId) => {
         if (menuId) {
             updateCurrentPagePermissions(menuId);
         }
     };
+
+    // Check if an item or any of its children match the current path
+    const isItemActive = useCallback((item) => {
+        if (item.url === path) return true;
+        if (item.children && item.children.length > 0) {
+            return item.children.some((child) => isItemActive(child));
+        }
+        return false;
+    }, [path]);
 
     // ─── COLLAPSED MODE: Flyout rendering ───
 
@@ -271,6 +202,8 @@ const VerticalLayout = (props) => {
     const renderMenuItem = (item, siblingIds = []) => {
         if (!item || !item.name) return null;
 
+        const isActive = isItemActive(item);
+
         if (item.isParent && item.children && item.children.length > 0) {
             const childSiblingIds = item.children
                 .filter((child) => child.isParent && child.children && child.children.length > 0)
@@ -279,7 +212,7 @@ const VerticalLayout = (props) => {
             return (
                 <li className="nav-item" key={item.id}>
                     <Link
-                        className="nav-link menu-link"
+                        className={`nav-link menu-link${isActive ? " active" : ""}`}
                         to="#"
                         data-bs-toggle="collapse"
                         onClick={() => toggleItem(item.id, siblingIds)}
@@ -305,7 +238,7 @@ const VerticalLayout = (props) => {
             return (
                 <li className="nav-item" key={item.id}>
                     <Link
-                        className="nav-link"
+                        className={`nav-link${isActive ? " active" : ""}`}
                         to={item.url}
                         onClick={() => handleMenuItemClick(item.id)}
                     >
@@ -320,10 +253,11 @@ const VerticalLayout = (props) => {
     const renderMenuGroup = (group, siblingGroupIds = []) => {
         if (group.isLink) {
             if (!group || !group.groupName || !group.url) return null;
+            const isActive = path === group.url;
             return (
                 <li className="nav-item" key={group.groupId}>
                     <Link
-                        className="nav-link menu-link"
+                        className={`nav-link menu-link${isActive ? " active" : ""}`}
                         to={group.url}
                         onClick={() => handleMenuItemClick(group.groupId)}
                     >
@@ -336,6 +270,7 @@ const VerticalLayout = (props) => {
 
         if (!group || !group.groupName || !group.menus) return null;
 
+        const isGroupActive = group.menus.some((menu) => isItemActive(menu));
         const menuSiblingIds = group.menus
             .filter((menu) => menu.isParent && menu.children && menu.children.length > 0)
             .map((menu) => menu.id);
@@ -343,7 +278,7 @@ const VerticalLayout = (props) => {
         return (
             <li className="nav-item" key={group.groupId}>
                 <Link
-                    className="nav-link menu-link"
+                    className={`nav-link menu-link${isGroupActive ? " active" : ""}`}
                     to="#"
                     data-bs-toggle="collapse"
                     onClick={() => toggleItem(group.groupId, siblingGroupIds)}

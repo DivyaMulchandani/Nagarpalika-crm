@@ -27,7 +27,7 @@ const NoticeForm = () => {
   const { id } = useParams();
   const navigate = useNavigate();
   const { adminData } = useContext(AuthContext);
-  const isEdit = Boolean(id);
+  const isEdit = id && id !== "new";
   const editor = useRef(null);
 
   const [form, setForm]         = useState(EMPTY);
@@ -37,6 +37,7 @@ const NoticeForm = () => {
   const [pdfFile, setPdfFile]   = useState(null);
   const [pdfUploading, setPdfUploading] = useState(false);
   const [savedId, setSavedId]   = useState(id || null);
+  const [existingPdf, setExistingPdf] = useState(null);
 
   useEffect(() => {
     if (!isEdit) return;
@@ -52,6 +53,7 @@ const NoticeForm = () => {
           body: n.body || "",
           status: n.status || "draft",
         });
+        setExistingPdf(n.pdf_path || null);
         setSavedId(id);
       })
       .catch(() => toast.error("Failed to load notice"))
@@ -90,8 +92,8 @@ const NoticeForm = () => {
         const newId = res.data.data?._id;
         setSavedId(newId);
         toast.success("Notice created");
-        navigate(`/notices/${newId}/edit`, { replace: true });
       }
+      navigate("/notices");
     } catch (err) {
       toast.error(err?.response?.data?.message || "Save failed");
     } finally {
@@ -112,7 +114,7 @@ const NoticeForm = () => {
     if (!pdfFile) return;
     if (!savedId) { toast.error("Save the notice first, then upload PDF"); return; }
     const fd = new FormData();
-    fd.append("pdf", pdfFile);
+    fd.append("file", pdfFile);
     setPdfUploading(true);
     try {
       await uploadNoticePdf(savedId, fd);
@@ -212,12 +214,27 @@ const NoticeForm = () => {
 
         {savedId && (
           <Card>
-            <CardHeader><h6 className="mb-0">Upload PDF Attachment</h6></CardHeader>
+            <CardHeader><h6 className="mb-0">PDF Attachment</h6></CardHeader>
             <CardBody>
+              {existingPdf && (
+                <div className="mb-3 p-2 bg-light border rounded">
+                  <div className="d-flex gap-2 align-items-center">
+                    <i className="ri-file-pdf-line" style={{ fontSize: 20, color: "#d9534f" }}></i>
+                    <div className="flex-grow-1">
+                      <div className="small text-muted">Current PDF:</div>
+                      <div className="text-truncate">{existingPdf}</div>
+                    </div>
+                    <Button size="sm" color="info" href={`/api/v1/notices/${savedId}/pdf`} target="_blank">
+                      Download
+                    </Button>
+                  </div>
+                </div>
+              )}
               <div className="d-flex gap-2 align-items-end">
                 <Input type="file" accept=".pdf,application/pdf" onChange={(e) => setPdfFile(e.target.files[0])} style={{ maxWidth: 300 }} />
                 <Button color="primary" onClick={handlePdfUpload} disabled={!pdfFile || pdfUploading}>
-                  {pdfUploading && <span className="spinner-border spinner-border-sm me-1"></span>}Upload PDF
+                  {pdfUploading && <span className="spinner-border spinner-border-sm me-1"></span>}
+                  {existingPdf ? "Replace PDF" : "Upload PDF"}
                 </Button>
               </div>
             </CardBody>
