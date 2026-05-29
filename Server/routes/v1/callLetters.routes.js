@@ -3,6 +3,7 @@ import multer from "multer";
 import { authMiddleware } from "../../middlewares/authMiddleware.js";
 import {
   checkEligibility,
+  listCallLetters,
   downloadCallLetter,
   patchCallLetter,
   uploadRollNumbers,
@@ -17,6 +18,7 @@ const csvUpload = multer({
 });
 
 // ── Public ────────────────────────────────────────────────────────────────────
+router.post("/call-letters/list", listCallLetters);
 router.post("/call-letters/check", checkEligibility);
 
 // ── Token-gated download (no session) ────────────────────────────────────────

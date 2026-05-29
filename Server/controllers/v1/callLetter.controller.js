@@ -204,6 +204,82 @@ export const downloadCallLetter = async (req, res) => {
   }
 };
 
+// Returns all enabled+available call letters for a registration_id+dob pair
+export const listCallLetters = async (req, res) => {
+  const start = Date.now();
+  const respond = (status, body) => {
+    const wait = Math.max(0, DELAY_MS - (Date.now() - start));
+    setTimeout(() => res.status(status).json(body), wait);
+  };
+
+  try {
+    const { registration_id, dob } = req.body;
+    if (!registration_id || !dob)
+      return respond(422, {
+        isOk: false,
+        status: 422,
+        message: "registration_id and dob are required",
+      });
+
+    const candidate = await Candidate.findOne({
+      registration_id,
+      dob: new Date(dob),
+    }).select("registration_id");
+    if (!candidate) return respond(200, { isOk: true, status: 200, data: [] });
+
+    const now = new Date();
+    const callLetters = await CallLetter.find({
+      registration_id,
+      enabled: true,
+      $or: [{ available_from: null }, { available_from: { $lte: now } }],
+    }).lean();
+
+    if (!callLetters.length)
+      return respond(200, { isOk: true, status: 200, data: [] });
+
+    const advtNos = callLetters.map((cl) => cl.advt_no);
+    const [apps, advertisements] = await Promise.all([
+      Application.find({ registration_id, advt_no: { $in: advtNos } }).lean(),
+      Advertisement.find({ advt_no: { $in: advtNos } })
+        .select("advt_no post_title")
+        .lean(),
+    ]);
+
+    const appByAdvt = Object.fromEntries(apps.map((a) => [a.advt_no, a]));
+    const advtByNo = Object.fromEntries(
+      advertisements.map((a) => [a.advt_no, a]),
+    );
+
+    const refNos = apps.map((a) => a.application_ref_no);
+    const paidFees = await FeePayment.find({
+      application_ref_no: { $in: refNos },
+      status: "paid",
+    })
+      .select("application_ref_no")
+      .lean();
+    const paidRefs = new Set(paidFees.map((f) => f.application_ref_no));
+
+    const results = callLetters
+      .filter((cl) => {
+        const app = appByAdvt[cl.advt_no];
+        return app && paidRefs.has(app.application_ref_no);
+      })
+      .map((cl) => ({
+        advt_no: cl.advt_no,
+        post_title: advtByNo[cl.advt_no]?.post_title || cl.advt_no,
+        roll_number: cl.roll_number,
+        exam_date: cl.exam_date,
+        exam_time: cl.exam_time,
+        venue: cl.venue,
+        enabled: true,
+      }));
+
+    return respond(200, { isOk: true, status: 200, data: results });
+  } catch (error) {
+    return respond(500, { isOk: false, status: 500, message: error.message });
+  }
+};
+
 // ── Admin ─────────────────────────────────────────────────────────────────────
 
 export const patchCallLetter = async (req, res) => {

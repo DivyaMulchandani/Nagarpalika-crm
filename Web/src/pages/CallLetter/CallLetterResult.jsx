@@ -1,16 +1,60 @@
+import { useState } from 'react'
 import { useLocation, useNavigate } from 'react-router-dom'
+import { post } from '../../api/index'
 
-const fmtDate = (d) => d ? new Date(d).toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' }) : '—'
+const BASE = import.meta.env.VITE_API_URL || ''
+
+const fmtDate = (d) =>
+  d ? new Date(d).toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' }) : '—'
 
 export default function CallLetterResult() {
   const { state } = useLocation()
   const navigate  = useNavigate()
   const results   = state?.results || []
   const regId     = state?.regId   || ''
+  const dob       = state?.dob     || ''
+  const [downloading, setDownloading] = useState({})
+  const [dlError, setDlError] = useState({})
 
   if (!state) {
     navigate('/callletter', { replace: true })
     return null
+  }
+
+  const handleDownload = async (advt_no) => {
+    setDownloading((p) => ({ ...p, [advt_no]: true }))
+    setDlError((p) => ({ ...p, [advt_no]: null }))
+    try {
+      const checkRes = await post('/api/v1/call-letters/check', { registration_id: regId, dob, advt_no })
+      if (!checkRes.eligible) {
+        setDlError((p) => ({ ...p, [advt_no]: 'Not eligible for download' }))
+        return
+      }
+      const pdfRes = await fetch(`${BASE}/api/v1/call-letters/${encodeURIComponent(advt_no)}/download`, {
+        method: 'POST',
+        credentials: 'include',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ token: checkRes.token }),
+      })
+      if (!pdfRes.ok) {
+        const err = await pdfRes.json().catch(() => ({}))
+        setDlError((p) => ({ ...p, [advt_no]: err.message || 'Download failed' }))
+        return
+      }
+      const blob = await pdfRes.blob()
+      const url  = URL.createObjectURL(blob)
+      const a    = document.createElement('a')
+      a.href     = url
+      a.download = `admit-card-${regId}-${advt_no.replace(/\//g, '-')}.pdf`
+      document.body.appendChild(a)
+      a.click()
+      document.body.removeChild(a)
+      URL.revokeObjectURL(url)
+    } catch (err) {
+      setDlError((p) => ({ ...p, [advt_no]: err.message || 'Download failed' }))
+    } finally {
+      setDownloading((p) => ({ ...p, [advt_no]: false }))
+    }
   }
 
   return (
@@ -46,7 +90,7 @@ export default function CallLetterResult() {
                 <th style={{ width: 90 }}>Time</th>
                 <th>Venue</th>
                 <th style={{ width: 130 }}>Roll No.</th>
-                <th style={{ width: 100 }}>Download</th>
+                <th style={{ width: 110 }}>Download</th>
               </tr>
             </thead>
             <tbody>
@@ -60,10 +104,17 @@ export default function CallLetterResult() {
                   <td style={{ fontSize: 12 }}>{r.venue || '—'}</td>
                   <td style={{ fontFamily: 'var(--font-mono)', fontWeight: 700 }}>{r.roll_number || '—'}</td>
                   <td>
-                    {r.enabled
-                      ? <a href={`/api/v1/call-letters/${encodeURIComponent(r.advt_no)}/download?registration_id=${regId}`} target="_blank" rel="noreferrer" style={{ color: 'var(--ojas-saffron-deep)', fontWeight: 700 }}>PDF ▶</a>
-                      : <span style={{ color: 'var(--ojas-ink-3)', fontSize: 12 }}>Not available</span>
-                    }
+                    <button
+                      className="btn primary"
+                      style={{ padding: '4px 10px', fontSize: 12 }}
+                      disabled={!!downloading[r.advt_no]}
+                      onClick={() => handleDownload(r.advt_no)}
+                    >
+                      {downloading[r.advt_no] ? '…' : 'PDF ▶'}
+                    </button>
+                    {dlError[r.advt_no] && (
+                      <div style={{ color: 'var(--ojas-red)', fontSize: 11, marginTop: 2 }}>{dlError[r.advt_no]}</div>
+                    )}
                   </td>
                 </tr>
               ))}

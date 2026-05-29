@@ -68,29 +68,33 @@ const CandidateProfile = () => {
                   <Field label="Full Name" value={c.name} />
                   <Field label="Father / Husband Name" value={c.father_husband_name} />
                   <Field label="Date of Birth" value={fmtDate(c.dob)} />
-                  <Field label="Gender" value={c.gender?.label} />
-                  <Field label="Category" value={c.category?.label} />
-                  <Field label="Nationality" value={c.nationality} />
-                  <Field label="Religion" value={c.religion} />
-                  <Field label="Marital Status" value={c.marital_status?.label} />
+                  <Field label="Gender" value={c.gender} />
+                  <Field label="Category" value={c.category} />
+                  <Field label="Marital Status" value={c.marital_status} />
                 </Row>
               </TabPane>
               <TabPane tabId="2">
                 <Row>
-                  <Field label="Mobile" value={c.mobile} />
-                  <Field label="Email" value={c.email} />
+                  <Col md={6} className="mb-3">
+                    <div style={{ fontSize: 11, color: "#888", marginBottom: 2 }}>Mobile</div>
+                    <div style={{ fontWeight: 500 }}>{c.mobile || "—"}</div>
+                  </Col>
+                  <Col md={6} className="mb-3">
+                    <div style={{ fontSize: 11, color: "#888", marginBottom: 2 }}>Email</div>
+                    <div style={{ fontWeight: 500 }}>{c.email || "—"}</div>
+                  </Col>
                   <Col md={6} className="mb-3">
                     <div style={{ fontSize: 11, color: "#888", marginBottom: 2 }}>Permanent Address</div>
                     <div style={{ fontWeight: 500 }}>
-                      {[c.permanent_address?.line1, c.permanent_address?.line2, c.permanent_address?.city, c.permanent_address?.state, c.permanent_address?.pincode].filter(Boolean).join(", ") || "—"}
+                      {[c.address_permanent?.line1, c.address_permanent?.line2, c.address_permanent?.taluka, c.address_permanent?.district, c.address_permanent?.pincode].filter(Boolean).join(", ") || "—"}
                     </div>
                   </Col>
                   <Col md={6} className="mb-3">
                     <div style={{ fontSize: 11, color: "#888", marginBottom: 2 }}>Current Address</div>
                     <div style={{ fontWeight: 500 }}>
-                      {c.same_as_permanent
+                      {c.address_current?.same_as_permanent
                         ? "Same as permanent"
-                        : [c.current_address?.line1, c.current_address?.line2, c.current_address?.city, c.current_address?.state, c.current_address?.pincode].filter(Boolean).join(", ") || "—"}
+                        : [c.address_current?.line1, c.address_current?.line2, c.address_current?.taluka, c.address_current?.district, c.address_current?.pincode].filter(Boolean).join(", ") || "—"}
                     </div>
                   </Col>
                 </Row>
@@ -100,24 +104,24 @@ const CandidateProfile = () => {
                   <Col md={3} className="mb-3">
                     <div style={{ fontSize: 11, color: "#888", marginBottom: 4 }}>Photo</div>
                     {c.photo_path
-                      ? <img src={`/api/v1/candidates/${id}/photo`} alt="candidate" style={{ maxWidth: 120, border: "1px solid #ddd", borderRadius: 4 }} />
+                      ? <img src={`${import.meta.env.VITE_API_URL || ""}/${c.photo_path}`} alt="candidate" style={{ maxWidth: 120, border: "1px solid #ddd", borderRadius: 4 }} />
                       : <span className="text-muted">Not uploaded</span>}
                   </Col>
                   <Col md={3} className="mb-3">
                     <div style={{ fontSize: 11, color: "#888", marginBottom: 4 }}>Signature</div>
                     {c.signature_path
-                      ? <img src={`/api/v1/candidates/${id}/signature`} alt="signature" style={{ maxWidth: 120, border: "1px solid #ddd", borderRadius: 4 }} />
+                      ? <img src={`${import.meta.env.VITE_API_URL || ""}/${c.signature_path}`} alt="signature" style={{ maxWidth: 120, border: "1px solid #ddd", borderRadius: 4 }} />
                       : <span className="text-muted">Not uploaded</span>}
                   </Col>
                 </Row>
               </TabPane>
               <TabPane tabId="4">
                 <Row>
-                  <Field label="PH Status" value={c.is_ph ? "Yes" : "No"} />
-                  <Field label="PH Type" value={c.ph_type?.label} />
+                  <Field label="PH Status" value={c.ph_status ? "Yes" : "No"} />
+                  <Field label="PH Type" value={c.ph_type} />
                   <Field label="PH Percentage" value={c.ph_percentage ? `${c.ph_percentage}%` : null} />
-                  <Field label="Ex-Serviceman" value={c.is_ex_serviceman ? "Yes" : "No"} />
-                  <Field label="Qualification" value={c.qualification?.label} />
+                  <Field label="Ex-Serviceman" value={c.ex_serviceman ? "Yes" : "No"} />
+                  <Field label="Qualification" value={c.qualification} />
                   <Col md={12} className="mb-3">
                     <div style={{ fontSize: 11, color: "#888", marginBottom: 4 }}>Languages</div>
                     {c.languages?.length ? (
@@ -127,9 +131,9 @@ const CandidateProfile = () => {
                           {c.languages.map((l, i) => (
                             <tr key={i}>
                               <td>{l.language}</td>
-                              <td>{l.can_read ? "✓" : "—"}</td>
-                              <td>{l.can_write ? "✓" : "—"}</td>
-                              <td>{l.can_speak ? "✓" : "—"}</td>
+                              <td>{l.read ? "✓" : "—"}</td>
+                              <td>{l.write ? "✓" : "—"}</td>
+                              <td>{l.speak ? "✓" : "—"}</td>
                             </tr>
                           ))}
                         </tbody>

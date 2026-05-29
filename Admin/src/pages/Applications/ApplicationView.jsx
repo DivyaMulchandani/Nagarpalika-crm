@@ -41,13 +41,21 @@ const ApplicationView = () => {
         <BreadCrumb maintitle="Recruitment" title="Application Detail" pageTitle="Applications" />
         <Card className="mb-3">
           <CardHeader><h6 className="mb-0">Candidate</h6></CardHeader>
-          <CardBody><Row>
-            <Field label="Name" value={c?.name} />
-            <Field label="Registration ID" value={c?.registration_id} mono />
-            <Field label="Category" value={c?.category?.label} />
-            <Field label="Mobile" value={c?.mobile} />
-            <Field label="Email" value={c?.email} />
-          </Row></CardBody>
+          <CardBody>
+            {!c ? (
+              <div className="alert alert-warning py-2 mb-0">
+                Candidate record not found for registration ID <strong>{app?.registration_id}</strong>
+              </div>
+            ) : (
+              <Row>
+                <Field label="Name" value={c.name} />
+                <Field label="Registration ID" value={c.registration_id} mono />
+                <Field label="Category" value={c.category} />
+                <Field label="Mobile" value={c.mobile} />
+                <Field label="Email" value={c.email} />
+              </Row>
+            )}
+          </CardBody>
         </Card>
         <Card className="mb-3">
           <CardHeader className="d-flex align-items-center justify-content-between">

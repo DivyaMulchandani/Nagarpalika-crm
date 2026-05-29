@@ -41,7 +41,7 @@ a:visited { color: var(--fg-link-visited); }
   align-items: center;
   gap: 16px;
 }
-.brand-bar img { height: 54px; flex: 0 0 auto; }
+.brand-bar img { height: 54px; flex: 0 0 auto; filter: brightness(0) invert(1); }
 .brand-title {
   font: 700 20px/1.1 var(--font-sans);
   min-width: 0;
@@ -570,6 +570,21 @@ ol.ojas li { padding-left: 4px; }
   box-shadow: inset 0 0 0 1px var(--ojas-navy);
 }
 .form-field textarea { resize: vertical; min-height: 80px; }
+
+/* step indicator */
+.step-indicator {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin-bottom: 24px;
+  overflow-x: auto;
+  scrollbar-width: none;
+  -ms-overflow-style: none;
+}
+.step-indicator::-webkit-scrollbar { display: none; }
+.step-dot { width: 28px; height: 28px; font-size: 12px; }
+.step-connector { min-width: 8px; }
+
 .form-actions {
   grid-column: 1 / -1;
   display: flex;
@@ -844,4 +859,7 @@ table.ojas { min-width: 540px; }
   .vm-list li { grid-template-columns: 56px 1fr; gap: 6px; padding: 8px 8px; }
   .box-title > span { max-width: 100%; overflow-wrap: break-word; word-break: break-word; }
   .container { padding: 8px 8px; }
+  .step-dot { width: 22px; height: 22px; font-size: 10px; }
+  .step-connector { min-width: 4px; }
+  .step-indicator { justify-content: flex-start; margin-bottom: 16px; }
 }

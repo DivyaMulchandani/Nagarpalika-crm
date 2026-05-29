@@ -1,5 +1,6 @@
 import express from "express";
 import { authMiddleware } from "../../middlewares/authMiddleware.js";
+import { createSecureImageUpload } from "../../middlewares/secureUpload.js";
 import {
   loginCandidate,
   logoutCandidate,
@@ -35,8 +36,22 @@ router.post("/candidates/auth/password/reset", resetCandidatePassword);
 // ── Registration (multi-step) ─────────────────────────────────────────────────
 router.post("/candidates/register/init", initRegistration);
 router.post("/candidates/register/step", saveStep);
-router.post("/candidates/register/photo", uploadPhoto);
-router.post("/candidates/register/signature", uploadSignature);
+router.post(
+  "/candidates/register/photo",
+  createSecureImageUpload({
+    fieldName: "photo",
+    destination: "uploads/candidates",
+  }),
+  uploadPhoto,
+);
+router.post(
+  "/candidates/register/signature",
+  createSecureImageUpload({
+    fieldName: "signature",
+    destination: "uploads/candidates",
+  }),
+  uploadSignature,
+);
 router.post("/candidates/register/submit", submitRegistration);
 router.get("/candidates/register/resume", resumeRegistration);
 

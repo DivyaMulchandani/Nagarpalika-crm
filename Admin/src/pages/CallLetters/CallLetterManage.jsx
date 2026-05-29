@@ -41,7 +41,7 @@ const CallLetterManage = () => {
   const handleCsvUpload = () => {
     if (!csvFile) return;
     const fd = new FormData();
-    fd.append("csv", csvFile);
+    fd.append("file", csvFile);
     setUploadLoading(true);
     setUploadErrors([]);
     setUploadResult(null);

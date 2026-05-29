@@ -97,7 +97,7 @@ export default function FeeStatus() {
                     <td style={{ fontSize: 12 }}>{fmtDate(r.paid_at)}</td>
                     <td>
                       {r.status === 'paid'
-                        ? <a href={`/api/v1/fee-payments/${r.payment_id}/receipt`} target="_blank" rel="noreferrer" style={{ color: 'var(--ojas-saffron-deep)', fontWeight: 700 }}>Receipt ▶</a>
+                        ? <a href={`${import.meta.env.VITE_API_URL || ''}/api/v1/fee-payments/${r.payment_id}/receipt`} target="_blank" rel="noreferrer" style={{ color: 'var(--ojas-saffron-deep)', fontWeight: 700 }}>Receipt ▶</a>
                         : r.status === 'pending'
                           ? <button className="btn primary" style={{ fontSize: 12, padding: '4px 10px' }} onClick={() => handlePay(r.advt_no)} disabled={paying === r.advt_no}>{paying === r.advt_no ? 'Opening…' : 'Pay Now'}</button>
                           : '—'
