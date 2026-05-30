@@ -81,7 +81,7 @@ export default function Notices() {
                   <td><span className={`tag ${n.type}`}>{TYPE_LABEL[n.type] || n.type}</span></td>
                   <td>
                     {n.pdf_path
-                      ? <a href={`/api/v1/notices/${n._id}/pdf`} target="_blank" rel="noreferrer">PDF ▶</a>
+                      ? <a href={`${import.meta.env.VITE_API_URL || ''}/api/v1/notices/${n._id}/pdf`} target="_blank" rel="noreferrer">PDF ▶</a>
                       : <span style={{ color: 'var(--ojas-ink-3)' }}>—</span>
                     }
                   </td>

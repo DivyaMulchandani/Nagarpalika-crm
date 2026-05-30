@@ -7,8 +7,9 @@ async function request(path, options = {}) {
     ...options,
   });
   if (res.status === 401) {
-    window.location.href = "/login";
-    return null;
+    const isPublicPath = path.startsWith('/api/v1/otp/') || path.startsWith('/api/v1/candidates/register/');
+    if (!isPublicPath) window.location.href = "/login";
+    throw new Error("Session expired. Please log in.");
   }
   const json = await res.json();
   if (!res.ok) throw new Error(json?.message || res.statusText);

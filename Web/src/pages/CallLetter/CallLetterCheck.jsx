@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { get } from '../../api/index'
+import { post } from '../../api/index'
 
 export default function CallLetterCheck() {
   const navigate = useNavigate()
@@ -15,8 +15,8 @@ export default function CallLetterCheck() {
     setError(null)
     setLoading(true)
     try {
-      const res = await get('/api/v1/call-letters/check', { registration_id: regId.trim(), dob })
-      navigate('/callletter/result', { state: { results: res.data || [], regId: regId.trim() } })
+      const res = await post('/api/v1/call-letters/list', { registration_id: regId.trim(), dob })
+      navigate('/callletter/result', { state: { results: res.data || [], regId: regId.trim(), dob } })
     } catch (err) {
       setError(err.message || 'No call letters found for this registration.')
     } finally {

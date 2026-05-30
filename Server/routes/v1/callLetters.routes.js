@@ -3,7 +3,9 @@ import multer from "multer";
 import { authMiddleware } from "../../middlewares/authMiddleware.js";
 import {
   checkEligibility,
+  listCallLetters,
   downloadCallLetter,
+  getCallLetterSettings,
   patchCallLetter,
   uploadRollNumbers,
   previewCallLetter,
@@ -17,12 +19,18 @@ const csvUpload = multer({
 });
 
 // ── Public ────────────────────────────────────────────────────────────────────
+router.post("/call-letters/list", listCallLetters);
 router.post("/call-letters/check", checkEligibility);
 
 // ── Token-gated download (no session) ────────────────────────────────────────
 router.post("/call-letters/:advt_no/download", downloadCallLetter);
 
 // ── Admin ─────────────────────────────────────────────────────────────────────
+router.get(
+  "/call-letters/:advt_no",
+  authMiddleware(["ADMIN", "EMPLOYEE"]),
+  getCallLetterSettings,
+);
 router.patch(
   "/call-letters/:advt_no",
   authMiddleware(["ADMIN", "EMPLOYEE"]),
@@ -34,7 +42,7 @@ router.post(
   csvUpload.single("file"),
   uploadRollNumbers,
 );
-router.get(
+router.post(
   "/call-letters/:advt_no/preview",
   authMiddleware(["ADMIN", "EMPLOYEE"]),
   previewCallLetter,

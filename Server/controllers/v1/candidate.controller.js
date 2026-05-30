@@ -15,23 +15,19 @@ export const registerCandidate = async (req, res) => {
   try {
     const { aadhaar, name, password, ...rest } = req.body;
     if (!aadhaar || !name || !password)
-      return res
-        .status(422)
-        .json({
-          isOk: false,
-          status: 422,
-          message: "aadhaar, name, and password are required",
-        });
+      return res.status(422).json({
+        isOk: false,
+        status: 422,
+        message: "aadhaar, name, and password are required",
+      });
 
     const aadhaar_hash = hashAadhaar(aadhaar);
     if (await Candidate.findOne({ aadhaar_hash }))
-      return res
-        .status(409)
-        .json({
-          isOk: false,
-          status: 409,
-          message: "Aadhaar already registered",
-        });
+      return res.status(409).json({
+        isOk: false,
+        status: 409,
+        message: "Aadhaar already registered",
+      });
 
     const hashed = await bcrypt.hash(password, 12);
     const candidate = new Candidate({
@@ -59,13 +55,11 @@ export const loginCandidate = async (req, res) => {
   try {
     const { registration_id, password } = req.body;
     if (!registration_id || !password)
-      return res
-        .status(422)
-        .json({
-          isOk: false,
-          status: 422,
-          message: "registration_id and password are required",
-        });
+      return res.status(422).json({
+        isOk: false,
+        status: 422,
+        message: "registration_id and password are required",
+      });
 
     const candidate = await Candidate.findOne({ registration_id });
     if (!candidate)
@@ -78,13 +72,11 @@ export const loginCandidate = async (req, res) => {
       const remaining = Math.ceil(
         (candidate.lockout_until - Date.now()) / 60000,
       );
-      return res
-        .status(403)
-        .json({
-          isOk: false,
-          status: 403,
-          message: `Account locked. Try again in ${remaining} minute(s).`,
-        });
+      return res.status(403).json({
+        isOk: false,
+        status: 403,
+        message: `Account locked. Try again in ${remaining} minute(s).`,
+      });
     }
 
     const match = await bcrypt.compare(password, candidate.password);
@@ -161,32 +153,26 @@ export const resetCandidatePassword = async (req, res) => {
   try {
     const { registration_id, otp_token, new_password } = req.body;
     if (!registration_id || !otp_token || !new_password)
-      return res
-        .status(422)
-        .json({
-          isOk: false,
-          status: 422,
-          message: "registration_id, otp_token, and new_password required",
-        });
+      return res.status(422).json({
+        isOk: false,
+        status: 422,
+        message: "registration_id, otp_token, and new_password required",
+      });
 
     if (new_password.length < 8)
-      return res
-        .status(422)
-        .json({
-          isOk: false,
-          status: 422,
-          message: "Password must be at least 8 characters",
-        });
+      return res.status(422).json({
+        isOk: false,
+        status: 422,
+        message: "Password must be at least 8 characters",
+      });
 
     // otp_token is a one-time token set in session by verifyCandidateOtp
     if (!req.session.otpVerified || req.session.otpVerified !== registration_id)
-      return res
-        .status(401)
-        .json({
-          isOk: false,
-          status: 401,
-          message: "OTP verification required first",
-        });
+      return res.status(401).json({
+        isOk: false,
+        status: 401,
+        message: "OTP verification required first",
+      });
 
     const candidate = await Candidate.findOne({ registration_id });
     if (!candidate)
@@ -215,12 +201,9 @@ export const resetCandidatePassword = async (req, res) => {
 
 export const getMyProfile = async (req, res) => {
   try {
-    const candidate = await Candidate.findById(req.user.id)
-      .select("-password -aadhaar_hash -login_attempts -lockout_until")
-      .populate(
-        "gender category marital_status ph_type qualification",
-        "label code",
-      );
+    const candidate = await Candidate.findById(req.user.id).select(
+      "-password -aadhaar_hash -login_attempts -lockout_until",
+    );
     if (!candidate)
       return res
         .status(404)
@@ -264,13 +247,11 @@ export const editCandidate = async (req, res) => {
     ];
     const attempted_locked = LOCKED.filter((f) => f in req.body);
     if (attempted_locked.length)
-      return res
-        .status(422)
-        .json({
-          isOk: false,
-          status: 422,
-          message: `Cannot edit locked fields: ${attempted_locked.join(", ")}`,
-        });
+      return res.status(422).json({
+        isOk: false,
+        status: 422,
+        message: `Cannot edit locked fields: ${attempted_locked.join(", ")}`,
+      });
 
     const EDITABLE = [
       "address_current",
@@ -295,14 +276,12 @@ export const editCandidate = async (req, res) => {
       lockout_until: _lu,
       ...safe
     } = candidate.toObject();
-    return res
-      .status(200)
-      .json({
-        isOk: true,
-        status: 200,
-        message: "Profile updated",
-        data: safe,
-      });
+    return res.status(200).json({
+      isOk: true,
+      status: 200,
+      message: "Profile updated",
+      data: safe,
+    });
   } catch (error) {
     return res
       .status(500)
@@ -338,13 +317,11 @@ export const findCandidate = async (req, res) => {
   try {
     const { aadhaar, mobile, dob } = req.body;
     if ((!aadhaar && !mobile) || !dob)
-      return res
-        .status(422)
-        .json({
-          isOk: false,
-          status: 422,
-          message: "Provide (aadhaar or mobile) and dob",
-        });
+      return res.status(422).json({
+        isOk: false,
+        status: 422,
+        message: "Provide (aadhaar or mobile) and dob",
+      });
 
     let candidate = null;
     if (aadhaar) {
@@ -377,12 +354,9 @@ export const findCandidate = async (req, res) => {
 
 export const getCandidateById = async (req, res) => {
   try {
-    const candidate = await Candidate.findById(req.params.id)
-      .select("-password -aadhaar_hash -login_attempts -lockout_until")
-      .populate(
-        "gender category marital_status ph_type qualification",
-        "label code",
-      );
+    const candidate = await Candidate.findById(req.params.id).select(
+      "-password -aadhaar_hash -login_attempts -lockout_until",
+    );
     if (!candidate)
       return res
         .status(404)
@@ -466,14 +440,12 @@ export const exportCandidates = async (req, res) => {
       .lean();
 
     // Return JSON — CSV conversion deferred to Phase 7 admin panel
-    return res
-      .status(200)
-      .json({
-        isOk: true,
-        status: 200,
-        count: candidates.length,
-        data: candidates,
-      });
+    return res.status(200).json({
+      isOk: true,
+      status: 200,
+      count: candidates.length,
+      data: candidates,
+    });
   } catch (error) {
     return res
       .status(500)

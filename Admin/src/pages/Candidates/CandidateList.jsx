@@ -64,7 +64,7 @@ const CandidateList = () => {
   const columns = [
     { name: "Reg ID", selector: (r) => r.registration_id, sortField: "registration_id", sortable: true, width: "160px" },
     { name: "Name", selector: (r) => r.name, sortField: "name", sortable: true, grow: 2 },
-    { name: "Category", selector: (r) => r.category?.label || "—", width: "110px" },
+    { name: "Category", selector: (r) => r.category || "—", width: "110px" },
     { name: "Mobile", selector: (r) => r.mobile, width: "130px" },
     {
       name: "OTR Status",

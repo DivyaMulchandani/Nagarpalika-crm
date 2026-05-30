@@ -279,10 +279,6 @@ export const getApplicationForAdmin = async (req, res) => {
     const [candidate, advt] = await Promise.all([
       Candidate.findOne({ registration_id: app.registration_id })
         .select("-password -aadhaar_hash -login_attempts -lockout_until")
-        .populate(
-          "gender category marital_status ph_type qualification",
-          "label code",
-        )
         .lean(),
       Advertisement.findOne({ advt_no: app.advt_no })
         .populate("department", "name")

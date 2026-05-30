@@ -67,8 +67,11 @@ export const saveStep = async (req, res) => {
         message: "step and data are required",
       });
 
-    req.session.candidateStep.step = step;
-    Object.assign(req.session.candidateStep.data, data);
+    req.session.candidateStep = {
+      ...req.session.candidateStep,
+      step,
+      data: { ...req.session.candidateStep.data, ...data },
+    };
 
     return res
       .status(200)

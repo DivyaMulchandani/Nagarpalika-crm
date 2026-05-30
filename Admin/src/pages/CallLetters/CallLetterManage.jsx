@@ -1,7 +1,7 @@
-import React, { useState, useContext } from "react";
+import React, { useState, useEffect, useContext } from "react";
 import { Card, CardBody, CardHeader, Col, Container, Row, Button, Input, Label, Table, Badge } from "reactstrap";
 import { useParams, useNavigate } from "react-router-dom";
-import { patchCallLetter, uploadRollNumbers, getCallLetterPreviewUrl } from "../../api/callLetters.api";
+import { getCallLetterSettings, patchCallLetter, uploadRollNumbers, previewCallLetterPdf } from "../../api/callLetters.api";
 import BreadCrumb from "../../Components/Common/BreadCrumb";
 import { toast } from "react-toastify";
 import { AuthContext } from "../../context/AuthContext";
@@ -23,6 +23,22 @@ const CallLetterManage = () => {
   const [uploadLoading, setUploadLoading] = useState(false);
   const [uploadErrors, setUploadErrors] = useState([]);
   const [uploadResult, setUploadResult] = useState(null);
+  const [previewLoading, setPreviewLoading] = useState(false);
+  const [rollNumberCount, setRollNumberCount] = useState(null);
+
+  useEffect(() => {
+    getCallLetterSettings(decodedAdvtNo).then((r) => {
+      const { settings: s, rollNumberCount: count } = r.data.data || {};
+      setRollNumberCount(count ?? 0);
+      if (!s) return;
+      if (s.available_from) setAvailableFrom(new Date(s.available_from).toISOString().slice(0, 16));
+      if (s.exam_date)      setExamDate(new Date(s.exam_date).toISOString().slice(0, 10));
+      if (s.exam_time)      setExamTime(s.exam_time);
+      if (s.venue)          setVenue(s.venue);
+      if (s.reporting_instructions) setReportingInstructions(s.reporting_instructions);
+      if (s.enabled !== undefined)  setEnabled(!!s.enabled);
+    }).catch(() => {});
+  }, [decodedAdvtNo]);
 
   const handlePatch = () => {
     setPatchLoading(true);
@@ -41,12 +57,12 @@ const CallLetterManage = () => {
   const handleCsvUpload = () => {
     if (!csvFile) return;
     const fd = new FormData();
-    fd.append("csv", csvFile);
+    fd.append("file", csvFile);
     setUploadLoading(true);
     setUploadErrors([]);
     setUploadResult(null);
     uploadRollNumbers(decodedAdvtNo, fd)
-      .then((r) => { setUploadResult(r.data.data); toast.success("Roll numbers uploaded"); setCsvFile(null); })
+      .then((r) => { setUploadResult(r.data.data); toast.success("Roll numbers uploaded"); setCsvFile(null); setRollNumberCount((c) => (c ?? 0) + (r.data.data?.upserted ?? 0)); })
       .catch((err) => {
         const errors = err?.response?.data?.errors || [];
         setUploadErrors(errors);
@@ -55,7 +71,23 @@ const CallLetterManage = () => {
       .finally(() => setUploadLoading(false));
   };
 
-  const previewUrl = getCallLetterPreviewUrl(decodedAdvtNo);
+  const handlePreview = () => {
+    setPreviewLoading(true);
+    const overrides = {};
+    if (examDate)               overrides.exam_date               = examDate;
+    if (examTime)               overrides.exam_time               = examTime;
+    if (venue)                  overrides.venue                   = venue;
+    if (reportingInstructions)  overrides.reporting_instructions  = reportingInstructions;
+    previewCallLetterPdf(decodedAdvtNo, overrides)
+      .then((r) => {
+        const url = URL.createObjectURL(new Blob([r.data], { type: "application/pdf" }));
+        window.open(url, "_blank");
+        setTimeout(() => URL.revokeObjectURL(url), 60000);
+      })
+      .catch(() => toast.error("Preview failed"))
+      .finally(() => setPreviewLoading(false));
+  };
+
   document.title = `Manage Call Letters — ${decodedAdvtNo} | ${adminData?.companyName}`;
 
   return (
@@ -72,6 +104,13 @@ const CallLetterManage = () => {
                 {uploadLoading && <span className="spinner-border spinner-border-sm me-1"></span>}Upload
               </Button>
             </div>
+            {rollNumberCount !== null && (
+              <p className="mt-2 mb-0 text-muted" style={{ fontSize: 13 }}>
+                {rollNumberCount > 0
+                  ? `✓ ${rollNumberCount} roll number${rollNumberCount !== 1 ? "s" : ""} currently uploaded`
+                  : "No roll numbers uploaded yet"}
+              </p>
+            )}
             {uploadResult && <p className="mt-2 mb-0 text-success" style={{ fontSize: 13 }}>✓ Upserted: {uploadResult.upserted}, Modified: {uploadResult.modified}</p>}
             {uploadErrors.length > 0 && (
               <div className="mt-2">
@@ -110,9 +149,12 @@ const CallLetterManage = () => {
               <Button color="success" onClick={handlePatch} disabled={patchLoading}>
                 {patchLoading && <span className="spinner-border spinner-border-sm me-1"></span>}Save Settings
               </Button>
-              <a href={previewUrl} target="_blank" rel="noreferrer" className="btn btn-outline-primary">
-                <i className="ri-file-pdf-line me-1"></i>Preview PDF
-              </a>
+              <Button color="outline-primary" onClick={handlePreview} disabled={previewLoading}>
+                {previewLoading
+                  ? <span className="spinner-border spinner-border-sm me-1"></span>
+                  : <i className="ri-file-pdf-line me-1"></i>}
+                Preview PDF
+              </Button>
             </div>
           </CardBody>
         </Card>

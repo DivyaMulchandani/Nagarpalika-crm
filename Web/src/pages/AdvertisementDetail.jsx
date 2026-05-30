@@ -265,7 +265,7 @@ export default function AdvertisementDetail() {
       <div className="action-bar">
         {!isClosed && (
           <a
-            href={`/apply/${encodeURIComponent(advt.advt_no)}`}
+            href={`/apply/${advt._id}`}
             style={{
               background: 'var(--ojas-navy)',
               color: '#fff',

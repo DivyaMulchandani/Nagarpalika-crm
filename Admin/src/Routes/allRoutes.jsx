@@ -38,6 +38,7 @@ import EmployeeRoles from "../pages/Setup/EmployeeRoles";
 import RoleMaster from "../pages/Master/RoleMaster";
 import RoleMasterForm from "../pages/Master/RoleMasterForm";
 import WhatsAppMessages from "../pages/WhatsApp/WhatsAppMessages";
+import HelpQueryList from "../pages/HelpQueries/HelpQueryList";
 
 const authProtectedRoutes = [
     { path: "/profile",         component: <UserProfile /> },
@@ -98,6 +99,9 @@ const authProtectedRoutes = [
 
     // Notifications
     { path: "/whatsapp", component: <WhatsAppMessages /> },
+
+    // Support
+    { path: "/help-queries", component: <HelpQueryList /> },
 
     // Recruitment — Advertisements
     { path: "/advertisements",           component: <AdvertisementList /> },

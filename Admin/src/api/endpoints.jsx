@@ -149,7 +149,7 @@ export const ENDPOINTS = {
 
     APPLICATIONS: {
         BASE:    `${V1}/applications`,
-        BY_REF:  (ref) => `${V1}/applications/${ref}`,
+        BY_REF:  (ref) => `${V1}/applications/admin/${ref}`,
         LIST:    `${V1}/applications/list`,
         SEARCH:  `${V1}/applications/search`,
         EXPORT:  `${V1}/applications/export`,
@@ -178,6 +178,11 @@ export const ENDPOINTS = {
         STATUS:  (id) => `${V1}/notices/${id}/status`,
         PDF:     (id) => `${V1}/notices/${id}/pdf`,
         SEARCH:  `${V1}/notices/search`,
+    },
+
+    HELP_QUERIES: {
+        BASE:   `${V1}/help/queries`,
+        STATUS: (id) => `${V1}/help/queries/${id}/status`,
     },
 };
 

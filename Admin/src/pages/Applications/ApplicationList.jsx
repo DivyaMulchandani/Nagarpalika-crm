@@ -10,12 +10,7 @@ import { toast } from "react-toastify";
 import { AuthContext } from "../../context/AuthContext";
 import { MenuContext } from "../../context/MenuContext";
 
-const FEE_STATUS_OPTIONS = [
-  { value: "pending", label: "Pending" },
-  { value: "paid",    label: "Paid" },
-];
-const feeColor   = { pending: "warning", paid: "success" };
-const appColor   = { submitted: "primary", under_review: "info", selected: "success", rejected: "danger" };
+const appColor = { submitted: "primary", under_review: "info", selected: "success", rejected: "danger" };
 
 const ApplicationList = () => {
   const { adminData } = useContext(AuthContext);
@@ -31,7 +26,6 @@ const ApplicationList = () => {
   const [sortDir, setSortDir] = useState();
   const [query, setQuery] = useState("");
   const [advtFilter, setAdvtFilter] = useState(null);
-  const [feeFilter, setFeeFilter] = useState(null);
   const [advtOptions, setAdvtOptions] = useState([]);
   const [exporting, setExporting] = useState(false);
 
@@ -59,21 +53,31 @@ const ApplicationList = () => {
       setData([]);
     }
     setLoading(false);
-  }, [pageNo, perPage, column, sortDir, query, advtFilter, feeFilter]);
+  }, [pageNo, perPage, column, sortDir, query, advtFilter]);
 
   React.useEffect(() => { fetchData(); }, [fetchData]);
 
   const columns = [
-    { name: "App Ref No", selector: (r) => r.application_ref_no, sortField: "application_ref_no", sortable: true, width: "170px" },
-    { name: "Reg ID", selector: (r) => r.registration_id, width: "150px" },
-    { name: "Advt No", selector: (r) => r.advt_no, width: "130px" },
+    {
+      name: "App Ref No",
+      cell: (r) => (
+        <span title={r.application_ref_no} style={{ fontFamily: "monospace", fontSize: 12, cursor: "default" }}>
+          {r.application_ref_no?.slice(0, 8)}…
+        </span>
+      ),
+      sortField: "application_ref_no",
+      sortable: true,
+      grow: 1,
+    },
+    { name: "Reg ID", selector: (r) => r.registration_id, grow: 1.5 },
+    { name: "Advt No", selector: (r) => r.advt_no, grow: 1 },
     {
       name: "Status",
-      cell: (r) => <Badge color={appColor[r.status] || "secondary"}>{r.status}</Badge>,
-      width: "120px",
+      cell: (r) => <Badge color={appColor[r.status] || "secondary"}>{r.status?.replace(/_/g, " ")}</Badge>,
+      grow: 1,
       center: true,
     },
-    { name: "Submitted At", selector: (r) => new Date(r.submitted_at || r.createdAt).toLocaleDateString("en-IN"), width: "130px" },
+    { name: "Submitted At", selector: (r) => new Date(r.submitted_at || r.createdAt).toLocaleDateString("en-IN"), grow: 1 },
     {
       name: "Actions",
       cell: (r) => currentPagePermissions.read
@@ -97,9 +101,6 @@ const ApplicationList = () => {
                   <input className="form-control form-control-sm" style={{ width: 220 }} placeholder="Search ref no / reg ID..." value={query} onChange={(e) => { setQuery(e.target.value); setPageNo(1); }} />
                   <div style={{ width: 260 }}>
                     <Select options={advtOptions} value={advtFilter} onChange={(v) => { setAdvtFilter(v); setPageNo(1); }} placeholder="Advertisement" isClearable isSearchable />
-                  </div>
-                  <div style={{ width: 150 }}>
-                    <Select options={FEE_STATUS_OPTIONS} value={feeFilter} onChange={(v) => { setFeeFilter(v); setPageNo(1); }} placeholder="Fee Status" isClearable isSearchable />
                   </div>
                 </div>
                 {currentPagePermissions.write && (
