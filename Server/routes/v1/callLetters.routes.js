@@ -5,6 +5,7 @@ import {
   checkEligibility,
   listCallLetters,
   downloadCallLetter,
+  getCallLetterSettings,
   patchCallLetter,
   uploadRollNumbers,
   previewCallLetter,
@@ -25,6 +26,11 @@ router.post("/call-letters/check", checkEligibility);
 router.post("/call-letters/:advt_no/download", downloadCallLetter);
 
 // ── Admin ─────────────────────────────────────────────────────────────────────
+router.get(
+  "/call-letters/:advt_no",
+  authMiddleware(["ADMIN", "EMPLOYEE"]),
+  getCallLetterSettings,
+);
 router.patch(
   "/call-letters/:advt_no",
   authMiddleware(["ADMIN", "EMPLOYEE"]),
@@ -36,7 +42,7 @@ router.post(
   csvUpload.single("file"),
   uploadRollNumbers,
 );
-router.get(
+router.post(
   "/call-letters/:advt_no/preview",
   authMiddleware(["ADMIN", "EMPLOYEE"]),
   previewCallLetter,

@@ -282,6 +282,30 @@ export const listCallLetters = async (req, res) => {
 
 // ── Admin ─────────────────────────────────────────────────────────────────────
 
+export const getCallLetterSettings = async (req, res) => {
+  try {
+    const { advt_no } = req.params;
+    const [settings, rollNumberCount] = await Promise.all([
+      CallLetter.findOne({ registration_id: "__settings__", advt_no }).lean(),
+      CallLetter.countDocuments({
+        advt_no,
+        registration_id: { $ne: "__settings__" },
+      }),
+    ]);
+    return res
+      .status(200)
+      .json({
+        isOk: true,
+        status: 200,
+        data: { settings: settings || null, rollNumberCount },
+      });
+  } catch (error) {
+    return res
+      .status(500)
+      .json({ isOk: false, status: 500, message: error.message });
+  }
+};
+
 export const patchCallLetter = async (req, res) => {
   try {
     const { advt_no } = req.params;
@@ -304,13 +328,27 @@ export const patchCallLetter = async (req, res) => {
     if (reporting_instructions !== undefined)
       update.reporting_instructions = reporting_instructions;
 
-    const result = await CallLetter.updateMany({ advt_no }, { $set: update });
+    // Always persist settings to a sentinel record so preview/upload can read them
+    await CallLetter.updateOne(
+      { registration_id: "__settings__", advt_no },
+      { $set: update },
+      { upsert: true },
+    );
+    // Apply to all real candidate records too
+    const result = await CallLetter.updateMany(
+      { advt_no, registration_id: { $ne: "__settings__" } },
+      { $set: update },
+    );
 
     // Fire-and-forget bulk notification when call letters are enabled
     if (update.enabled === true) {
       setImmediate(async () => {
         try {
-          const callLetters = await CallLetter.find({ advt_no, enabled: true })
+          const callLetters = await CallLetter.find({
+            advt_no,
+            enabled: true,
+            registration_id: { $ne: "__settings__" },
+          })
             .select("registration_id")
             .lean();
           for (const cl of callLetters) {
@@ -473,15 +511,33 @@ export const uploadRollNumbers = async (req, res) => {
 export const previewCallLetter = async (req, res) => {
   try {
     const { advt_no } = req.params;
-    const advt = await Advertisement.findOne({ advt_no }).lean();
+    const { exam_date, exam_time, venue, reporting_instructions } =
+      req.body || {};
+    const hasOverride =
+      exam_date || exam_time || venue || reporting_instructions;
+
+    const [advt, existingCl] = await Promise.all([
+      Advertisement.findOne({ advt_no }).lean(),
+      hasOverride
+        ? Promise.resolve(null)
+        : CallLetter.findOne({
+            registration_id: "__settings__",
+            advt_no,
+          }).lean(),
+    ]);
 
     const sampleCl = {
       advt_no,
       roll_number: "SAMPLE-001",
-      exam_date: new Date(),
-      exam_time: "10:00 AM",
-      venue: "[Venue to be announced]",
-      reporting_instructions: "[Reporting instructions to be added]",
+      exam_date: exam_date
+        ? new Date(exam_date)
+        : existingCl?.exam_date || new Date(),
+      exam_time: exam_time || existingCl?.exam_time || "10:00 AM",
+      venue: venue || existingCl?.venue || "[Venue to be announced]",
+      reporting_instructions:
+        reporting_instructions ||
+        existingCl?.reporting_instructions ||
+        "[Reporting instructions to be added]",
     };
     const sampleCandidate = {
       name: "Sample Candidate",
