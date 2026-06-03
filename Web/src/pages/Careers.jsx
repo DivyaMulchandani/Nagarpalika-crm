@@ -5,16 +5,8 @@ import { get } from '../api/index'
 const fmtDate = (d) => d ? new Date(d).toLocaleDateString('en-IN', { day: '2-digit', month: '2-digit', year: 'numeric' }) : '—'
 const isClosingSoon = (d) => { if (!d) return false; const diff = new Date(d) - Date.now(); return diff > 0 && diff < 7 * 86400 * 1000 }
 
-const FILTERS = [
-  { k: 'all', i: 'car.filter.all', l: 'All' },
-  { k: 'I',   i: 'car.filter.1',   l: 'Class I' },
-  { k: 'II',  i: 'car.filter.2',   l: 'Class II' },
-  { k: 'III', i: 'car.filter.3',   l: 'Class III' },
-]
-
 export default function Careers() {
   const { t } = useLang()
-  const [filter, setFilter]   = useState('all')
   const [jobs, setJobs]       = useState([])
   const [loading, setLoading] = useState(true)
   const [error, setError]     = useState(null)
@@ -26,13 +18,7 @@ export default function Careers() {
       .finally(() => setLoading(false))
   }, [])
 
-  const visible = filter === 'all' ? jobs : jobs.filter(j => j.class === filter)
-  const counts  = {
-    all: jobs.length,
-    I:   jobs.filter(j => j.class === 'I').length,
-    II:  jobs.filter(j => j.class === 'II').length,
-    III: jobs.filter(j => j.class === 'III').length,
-  }
+  const visible = jobs
 
   return (
     <>
@@ -46,19 +32,6 @@ export default function Careers() {
         <span>{t('car.notice.body')}</span>
       </div>
 
-      <div className="filter-row">
-        <span className="label">{t('car.filter.label')}</span>
-        {FILTERS.map(f => (
-          <button
-            key={f.k}
-            className={`chip${filter === f.k ? ' active' : ''}`}
-            onClick={() => setFilter(f.k)}
-          >
-            <span>{t(f.i) || f.l}</span>
-            <span className="count">({counts[f.k] ?? 0})</span>
-          </button>
-        ))}
-      </div>
 
       <div className="box">
         <div className="box-title">

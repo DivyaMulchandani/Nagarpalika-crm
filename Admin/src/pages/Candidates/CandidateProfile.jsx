@@ -14,6 +14,61 @@ const Field = ({ label, value }) => (
   </Col>
 );
 
+const CertViewer = ({ label, path }) => {
+  const API = import.meta.env.VITE_API_URL || "";
+  const url = path ? `${API}/${path}` : null;
+  const isPdf = path?.toLowerCase().endsWith(".pdf");
+  const [blobUrl, setBlobUrl] = useState(null);
+
+  useEffect(() => {
+    if (!url || !isPdf) return;
+    let objectUrl;
+    fetch(url, { credentials: "include" })
+      .then(r => r.blob())
+      .then(blob => { objectUrl = URL.createObjectURL(blob); setBlobUrl(objectUrl); })
+      .catch(() => {});
+    return () => { if (objectUrl) URL.revokeObjectURL(objectUrl); };
+  }, [url, isPdf]);
+
+  return (
+    <Col md={3} className="mb-3">
+      <div style={{ fontSize: 11, color: "#888", marginBottom: 4 }}>{label}</div>
+      {url ? (
+        <>
+          {isPdf ? (
+            <>
+              {blobUrl ? (
+                <a href={url} target="_blank" rel="noreferrer" style={{ textDecoration: "none", display: "block", cursor: "pointer" }}>
+                  <div style={{ width: 120, height: 120, overflow: "hidden", border: "1px solid #ddd", borderRadius: 4 }}>
+                    <iframe
+                      src={blobUrl}
+                      title={label}
+                      style={{ width: "calc(100% + 20px)", height: "100%", border: "none", display: "block", pointerEvents: "none" }}
+                    />
+                  </div>
+                </a>
+              ) : (
+                <div style={{ width: 120, height: 120, border: "1px solid #ddd", borderRadius: 4, background: "#fafafa", display: "flex", alignItems: "center", justifyContent: "center" }}>
+                  <span style={{ fontSize: 11, color: "#999" }}>Loading…</span>
+                </div>
+              )}
+              <a href={url} target="_blank" rel="noreferrer" className="btn btn-sm btn-outline-primary mt-1" style={{ fontSize: 11 }}>
+                View PDF
+              </a>
+            </>
+          ) : (
+            <a href={url} target="_blank" rel="noreferrer">
+              <img src={url} alt={label} style={{ maxWidth: 120, border: "1px solid #ddd", borderRadius: 4, display: "block" }} />
+            </a>
+          )}
+        </>
+      ) : (
+        <span className="text-muted">Not uploaded</span>
+      )}
+    </Col>
+  );
+};
+
 const CandidateProfile = () => {
   const { id } = useParams();
   const navigate = useNavigate();
@@ -70,6 +125,7 @@ const CandidateProfile = () => {
                   <Field label="Date of Birth" value={fmtDate(c.dob)} />
                   <Field label="Gender" value={c.gender} />
                   <Field label="Category" value={c.category} />
+                  {c.caste_cert_no && <Field label="Caste Certificate No." value={c.caste_cert_no} />}
                   <Field label="Marital Status" value={c.marital_status} />
                 </Row>
               </TabPane>
@@ -101,18 +157,10 @@ const CandidateProfile = () => {
               </TabPane>
               <TabPane tabId="3">
                 <Row>
-                  <Col md={3} className="mb-3">
-                    <div style={{ fontSize: 11, color: "#888", marginBottom: 4 }}>Photo</div>
-                    {c.photo_path
-                      ? <img src={`${import.meta.env.VITE_API_URL || ""}/${c.photo_path}`} alt="candidate" style={{ maxWidth: 120, border: "1px solid #ddd", borderRadius: 4 }} />
-                      : <span className="text-muted">Not uploaded</span>}
-                  </Col>
-                  <Col md={3} className="mb-3">
-                    <div style={{ fontSize: 11, color: "#888", marginBottom: 4 }}>Signature</div>
-                    {c.signature_path
-                      ? <img src={`${import.meta.env.VITE_API_URL || ""}/${c.signature_path}`} alt="signature" style={{ maxWidth: 120, border: "1px solid #ddd", borderRadius: 4 }} />
-                      : <span className="text-muted">Not uploaded</span>}
-                  </Col>
+                  <CertViewer label="Photo" path={c.photo_path} />
+                  <CertViewer label="Signature" path={c.signature_path} />
+                  {c.caste_cert_path && <CertViewer label="Caste Certificate" path={c.caste_cert_path} />}
+                  {c.ph_status && <CertViewer label="UDID Certificate" path={c.udid_cert_path} />}
                 </Row>
               </TabPane>
               <TabPane tabId="4">

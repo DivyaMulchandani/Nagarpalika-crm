@@ -64,6 +64,9 @@ const CandidateSchema = new mongoose.Schema(
     mother_tongue: { type: String, trim: true },
     photo_path: { type: String },
     signature_path: { type: String },
+    caste_cert_no: { type: String, trim: true },
+    caste_cert_path: { type: String },
+    udid_cert_path: { type: String },
     password: { type: String, required: true },
     otr_status: {
       type: String,

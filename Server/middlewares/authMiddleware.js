@@ -1,4 +1,4 @@
-const ADMIN_TIMEOUT_MS = 15 * 60 * 1000;
+const ADMIN_TIMEOUT_MS = 8 * 60 * 60 * 1000;
 const CANDIDATE_TIMEOUT_MS = 30 * 60 * 1000;
 const ADMIN_ROLES = new Set(["ADMIN", "EMPLOYEE", "DEPT_ADMIN"]);
 
@@ -15,13 +15,11 @@ export const authMiddleware = (roles) => {
 
     if (!sessionUser.id || !sessionUser.role) {
       res.clearCookie("sessionId");
-      return res
-        .status(401)
-        .json({
-          isOk: false,
-          status: 401,
-          message: "Session invalid or expired",
-        });
+      return res.status(401).json({
+        isOk: false,
+        status: 401,
+        message: "Session invalid or expired",
+      });
     }
 
     // Session inactivity timeout
@@ -35,13 +33,11 @@ export const authMiddleware = (roles) => {
         if (err) console.error("[SESSION] Destroy error:", err.message);
       });
       res.clearCookie("sessionId");
-      return res
-        .status(401)
-        .json({
-          isOk: false,
-          status: 401,
-          message: "Session expired due to inactivity",
-        });
+      return res.status(401).json({
+        isOk: false,
+        status: 401,
+        message: "Session expired due to inactivity",
+      });
     }
     req.session.lastActivity = Date.now();
 

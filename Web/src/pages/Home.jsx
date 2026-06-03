@@ -232,17 +232,19 @@ export default function Home() {
               <span>{t('home.ql.title')}</span>
               <span className="guj">{t('home.ql.guj')}</span>
             </div>
-            <div className="box-body" style={{ padding: 0 }}>
-              <ul className="ojas">
-                <li><Link to="/careers">Apply Online</Link></li>
-                <li><a href="#">Know Confirmation Number</a></li>
-                <li><a href="#">Forgot Password?</a></li>
-                <li><Link to="/callletter">Call Letter Download</Link></li>
-                <li><a href="#">Answer Key</a></li>
-                <li><Link to="/results">Result</Link></li>
-                <li><a href="#">RTI Portal</a></li>
-                <li><a href="#">Help Manual (PDF)</a></li>
-              </ul>
+            <div className="box-body ql-grid">
+              {[
+                { label: 'How to Register',          to: '/registration' },
+                { label: 'How to Apply',             to: '/careers' },
+                { label: 'Apply',                    to: '/registration/find' },
+                { label: 'Admit Card / Call Letter', to: '/callletter' },
+                { label: 'Results',                  to: '/results' },
+                { label: 'Help / Query',             to: '/contact' },
+              ].map(({ label, to }) => (
+                <Link key={label} to={to} className="ql-btn">
+                  <span className="ql-arrow">▶</span>{label}
+                </Link>
+              ))}
             </div>
           </div>
 

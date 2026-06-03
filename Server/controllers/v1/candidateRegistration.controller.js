@@ -213,6 +213,66 @@ export const submitRegistration = async (req, res) => {
   }
 };
 
+export const uploadCasteCert = async (req, res) => {
+  try {
+    if (!req.session.candidateStep)
+      return res
+        .status(400)
+        .json({
+          isOk: false,
+          status: 400,
+          message: "No registration in progress",
+        });
+    if (!req.file)
+      return res
+        .status(422)
+        .json({
+          isOk: false,
+          status: 422,
+          message: "Caste certificate file required",
+        });
+
+    req.session.candidateStep.data.caste_cert_path = req.file.path;
+    return res
+      .status(200)
+      .json({ isOk: true, status: 200, message: "Caste certificate uploaded" });
+  } catch (error) {
+    return res
+      .status(500)
+      .json({ isOk: false, status: 500, message: error.message });
+  }
+};
+
+export const uploadUdidCert = async (req, res) => {
+  try {
+    if (!req.session.candidateStep)
+      return res
+        .status(400)
+        .json({
+          isOk: false,
+          status: 400,
+          message: "No registration in progress",
+        });
+    if (!req.file)
+      return res
+        .status(422)
+        .json({
+          isOk: false,
+          status: 422,
+          message: "UDID certificate file required",
+        });
+
+    req.session.candidateStep.data.udid_cert_path = req.file.path;
+    return res
+      .status(200)
+      .json({ isOk: true, status: 200, message: "UDID certificate uploaded" });
+  } catch (error) {
+    return res
+      .status(500)
+      .json({ isOk: false, status: 500, message: error.message });
+  }
+};
+
 // Resume — returns session data without exposing aadhaar_hash
 export const resumeRegistration = async (req, res) => {
   try {

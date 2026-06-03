@@ -1,4 +1,4 @@
-import React, { useContext } from 'react';
+import React from 'react';
 import { Routes, Route } from "react-router-dom";
 
 //Layouts
@@ -8,18 +8,13 @@ import VerticalLayout from "../Layouts/index";
 //routes
 import { authProtectedRoutes, publicRoutes } from "./allRoutes";
 import { AuthProtected } from './AuthProtected';
-import { AuthContext } from '../context/AuthContext';
-// import LoadingScreen from '../Components/Common/LoadingScreen';
 
 const Index = () => {
-
-    const { adminData, setAdminData } = useContext(AuthContext);
-
     return (
         <React.Fragment>
             <Routes>
                 <Route>
-                    {!adminData && publicRoutes.map((route, idx) => (
+                    {publicRoutes.map((route, idx) => (
                         <Route
                             path={route.path}
                             element={
@@ -34,7 +29,7 @@ const Index = () => {
                 </Route>
 
                 <Route>
-                    {adminData && authProtectedRoutes.map((route, idx) => (
+                    {authProtectedRoutes.map((route, idx) => (
                         <Route
                             path={route.path}
                             element={
