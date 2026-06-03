@@ -1,6 +1,9 @@
 import express from "express";
 import { authMiddleware } from "../../middlewares/authMiddleware.js";
-import { createSecureImageUpload } from "../../middlewares/secureUpload.js";
+import {
+  createSecureImageUpload,
+  createSecureUpload,
+} from "../../middlewares/secureUpload.js";
 import {
   loginCandidate,
   logoutCandidate,
@@ -18,6 +21,8 @@ import {
   saveStep,
   uploadPhoto,
   uploadSignature,
+  uploadCasteCert,
+  uploadUdidCert,
   submitRegistration,
   resumeRegistration,
 } from "../../controllers/v1/candidateRegistration.controller.js";
@@ -51,6 +56,22 @@ router.post(
     destination: "uploads/candidates",
   }),
   uploadSignature,
+);
+router.post(
+  "/candidates/register/caste-cert",
+  createSecureUpload({
+    fieldName: "caste_cert",
+    destination: "uploads/candidates",
+  }),
+  uploadCasteCert,
+);
+router.post(
+  "/candidates/register/udid-cert",
+  createSecureUpload({
+    fieldName: "udid_cert",
+    destination: "uploads/candidates",
+  }),
+  uploadUdidCert,
 );
 router.post("/candidates/register/submit", submitRegistration);
 router.get("/candidates/register/resume", resumeRegistration);

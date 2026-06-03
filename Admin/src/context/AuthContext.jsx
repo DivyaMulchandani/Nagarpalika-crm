@@ -16,26 +16,12 @@ const AuthProvider = ({ children }) => {
 
     // Fetch admin/user data using the session (no ID needed)
     const getAdmin = useCallback(() => {
-        // const storedRole = localStorage.getItem("role");
-
-        // // Don't fetch if no role (user is logged out)
-        // if (!storedRole) {
-        //     setLoading(false);
-        //     setAdminData(null);
-        //     return;
-        // }
-
         setLoading(true);
         getCurrentUserDetails()
             .then((res) => {
-                console.log("Admin data fetched successfully", res.data.data);
                 setAdminData(res.data.data);
-                // setRole(res.data.data.role);
-                // localStorage.setItem("role", res.data.data.role);
             })
             .catch((error) => {
-                console.log("error", error);
-                // Only navigate to login if we get an auth error
                 if (error.response?.status === 401 || error.response?.status === 403) {
                     localStorage.removeItem("role");
                     setAdminData(null);
@@ -52,16 +38,21 @@ const AuthProvider = ({ children }) => {
     const verifyUserSession = useCallback(async () => {
         try {
             const res = await verifySession();
-            console.log(res);
             if (res.data.isOk) {
                 setRole(res.data.data.role);
                 localStorage.setItem("role", res.data.data.role);
                 setIsSessionVerified(true);
                 getAdmin();
+            } else {
+                localStorage.removeItem("role");
+                setAdminData(null);
+                setRole(null);
+                setIsSessionVerified(true);
+                setLoading(false);
+                navigate("/");
             }
         } catch (error) {
-            console.log("Session verification failed:", error);
-            // Session is invalid, clear localStorage and redirect
+            // Session is invalid — clear state and redirect to login
             localStorage.removeItem("role");
             setAdminData(null);
             setRole(null);
@@ -75,6 +66,19 @@ const AuthProvider = ({ children }) => {
     useEffect(() => {
         verifyUserSession();
     }, [verifyUserSession]);
+
+    // Heartbeat: ping server every 30 minutes so the session stays alive
+    useEffect(() => {
+        if (!role) return;
+        const interval = setInterval(async () => {
+            try {
+                await verifySession();
+            } catch {
+                // Session expired — the 401 interceptor will handle redirect
+            }
+        }, 30 * 60 * 1000);
+        return () => clearInterval(interval);
+    }, [role]);
 
     return (
         <AuthContext.Provider value={{ adminData, setAdminData, getAdmin, role, setRole, loading, setLoading, isSessionVerified }}>

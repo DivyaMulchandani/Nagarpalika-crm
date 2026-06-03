@@ -3,14 +3,12 @@ import { useLang } from '../context/LangContext'
 import SiteMarquee from './SiteMarquee'
 
 const NAV = [
-  { path: '/',           key: 'nav.home',       fallback: 'HOME' },
-  { path: '/about',      key: 'nav.about',      fallback: 'ABOUT' },
-  { path: '/careers',      key: 'nav.careers',      fallback: 'CAREERS / ભરતી' },
-  { path: '/registration',  key: 'nav.registration',  fallback: 'REGISTRATION' },
-  { path: '/notices',      key: 'nav.notices',      fallback: 'NOTICES' },
-  { path: '/results',    key: 'nav.results',    fallback: 'RESULT' },
-  { path: '/callletter', key: 'nav.callletter', fallback: 'CALL LETTER' },
-  { path: '/contact',    key: 'nav.contact',    fallback: 'CONTACT' },
+  { path: '/',                  key: 'nav.home',         fallback: 'HOME' },
+  { path: '/careers',           key: 'nav.careers',      fallback: 'CAREERS / ભરતી' },
+  { path: '/registration',      key: 'nav.registration', fallback: 'REGISTRATION' },
+  { path: '/callletter',        key: 'nav.callletter',   fallback: 'CALL LETTER' },
+  { path: '/contact',           key: 'nav.contact',      fallback: 'CONTACT' },
+  { path: '/registration/find', key: 'nav.login', fallback: 'Login', pill: true },
 ]
 
 export default function Header() {
@@ -58,15 +56,21 @@ export default function Header() {
       </div>
 
       <nav className="nav-row">
-        {NAV.map(({ path, key, fallback }) => (
-          <Link
-            key={path}
-            to={path}
-            className={(path === '/' ? pathname === '/' : pathname.startsWith(path)) ? 'active' : ''}
-          >
-            {t(key) || fallback}
-          </Link>
-        ))}
+        {NAV.map(({ path, key, fallback, pill }) => {
+          const isActive = path === '/'
+            ? pathname === '/'
+            : pathname.startsWith(path) &&
+              !NAV.some(other => other.path !== path && other.path.startsWith(path) && pathname.startsWith(other.path))
+          return (
+            <Link
+              key={path}
+              to={path}
+              className={[pill ? 'nav-login-pill' : '', isActive && !pill ? 'active' : ''].filter(Boolean).join(' ') || undefined}
+            >
+              {t(key) || fallback}
+            </Link>
+          )
+        })}
       </nav>
 
       <SiteMarquee />

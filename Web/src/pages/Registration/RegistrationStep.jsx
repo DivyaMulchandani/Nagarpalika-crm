@@ -9,6 +9,17 @@ const API_BASE = import.meta.env.VITE_API_URL || "";
 const TOTAL_STEPS = 10;
 const CATEGORIES = ["General", "OBC", "SC", "ST", "EWS"];
 const GENDERS = ["Male", "Female", "Other"];
+const CERT_REQUIRED_CATS = new Set(["OBC", "SC", "ST", "EWS"]);
+const QUALIFICATIONS = [
+  "10th",
+  "12th",
+  "Diploma",
+  "BE Graduate",
+  "BTech Graduate",
+  "BBA/BCom Graduate",
+  "Post Graduate",
+  "Others",
+];
 
 function FieldError({ msg }) {
   return msg ? (
@@ -297,59 +308,34 @@ export default function RegistrationStep() {
         );
 
       /* ── Step 3: Personal ── */
-      case 3:
+      case 3: {
+        const needsCasteCert = CERT_REQUIRED_CATS.has(data.category);
         return (
           <>
             <h2 style={{ fontSize: 16, marginBottom: 12 }}>
-              Step 3: Personal Details
+              Step 3: Personal Details / વ્યક્તિગત વિગતો
             </h2>
             <div className="form-row">
-              {[
-                ["name_en", "Full Name (English) *"],
-                ["father_husband_name", "Father's / Husband's Name *"],
-              ].map(([f, label]) => (
-                <div className="form-field" key={f}>
-                  <label>{label}</label>
-                  <input type="text" value={data[f] || ""} onChange={set(f)} />
-                  <FieldError msg={errors[f]} />
-                </div>
-              ))}
               <div className="form-field">
-                <label>Full Name (Gujarati)</label>
+                <label>Full Name (English) / પૂરું નામ (અંગ્રેજી) *</label>
                 <input
                   type="text"
-                  value={data._name_gu_raw || ""}
-                  placeholder="type phonetically e.g. yaksh patel"
-                  onChange={(e) => {
-                    const raw = e.target.value;
-                    setData((p) => ({
-                      ...p,
-                      _name_gu_raw: raw,
-                      name_gu: transliterateToGujarati(raw),
-                    }));
-                  }}
+                  value={data.name_en || ""}
+                  onChange={set("name_en")}
                 />
-                {data.name_gu && (
-                  <div
-                    style={{
-                      marginTop: 4,
-                      padding: "4px 8px",
-                      background: "var(--ojas-cream)",
-                      border: "1px solid var(--ojas-border)",
-                      borderRadius: 3,
-                      fontFamily: "var(--font-guj)",
-                      fontSize: 15,
-                    }}
-                  >
-                    {data.name_gu}
-                  </div>
-                )}
-                <span style={{ fontSize: 11, color: "var(--ojas-ink-3)" }}>
-                  Type in English — preview shows Gujarati conversion
-                </span>
+                <FieldError msg={errors.name_en} />
               </div>
               <div className="form-field">
-                <label>Date of Birth *</label>
+                <label>Father's / Husband's Name / પિતા / પતિનું નામ *</label>
+                <input
+                  type="text"
+                  value={data.father_husband_name || ""}
+                  onChange={set("father_husband_name")}
+                />
+                <FieldError msg={errors.father_husband_name} />
+              </div>
+              <div className="form-field">
+                <label>Date of Birth / જન્મ તારીખ *</label>
                 <input
                   type="date"
                   value={data.dob || ""}
@@ -358,7 +344,7 @@ export default function RegistrationStep() {
                 <FieldError msg={errors.dob} />
               </div>
               <div className="form-field">
-                <label>Gender *</label>
+                <label>Gender / લિંગ *</label>
                 <select value={data.gender || ""} onChange={set("gender")}>
                   <option value="">Select…</option>
                   {GENDERS.map((g) => (
@@ -368,7 +354,7 @@ export default function RegistrationStep() {
                 <FieldError msg={errors.gender} />
               </div>
               <div className="form-field">
-                <label>Category *</label>
+                <label>Category / શ્રેણી *</label>
                 <select value={data.category || ""} onChange={set("category")}>
                   <option value="">Select…</option>
                   {CATEGORIES.map((c) => (
@@ -377,6 +363,61 @@ export default function RegistrationStep() {
                 </select>
                 <FieldError msg={errors.category} />
               </div>
+              {needsCasteCert && (
+                <>
+                  <div className="form-field">
+                    <label>Caste Certificate / જ્ઞાતિ પ્રમાણ પત્ર *</label>
+                    <input
+                      type="file"
+                      accept="image/*,application/pdf"
+                      onChange={(e) => {
+                        const file = e.target.files[0];
+                        setData((p) => ({
+                          ...p,
+                          casteCertFile: file,
+                          casteCertPreview: file
+                            ? URL.createObjectURL(file)
+                            : null,
+                          casteCertIsPdf: file?.type === "application/pdf",
+                        }));
+                      }}
+                    />
+                    <FieldError msg={errors.casteCertFile} />
+                    {data.casteCertPreview &&
+                      (data.casteCertIsPdf ? (
+                        <div
+                          style={{
+                            marginTop: 6,
+                            fontSize: 12,
+                            color: "var(--ojas-ink-3)",
+                          }}
+                        >
+                          📄 {data.casteCertFile?.name}
+                          <a
+                            href={data.casteCertPreview}
+                            target="_blank"
+                            rel="noreferrer"
+                            style={{ marginLeft: 8 }}
+                          >
+                            View PDF
+                          </a>
+                        </div>
+                      ) : (
+                        <img
+                          src={data.casteCertPreview}
+                          alt="Caste certificate preview"
+                          style={{
+                            display: "block",
+                            marginTop: 8,
+                            maxHeight: 140,
+                            maxWidth: "100%",
+                            border: "1px solid var(--ojas-line)",
+                          }}
+                        />
+                      ))}
+                  </div>
+                </>
+              )}
               <FieldError msg={errors._} />
               <div className="form-actions">
                 <button className="btn" onClick={() => back(2)}>
@@ -385,20 +426,58 @@ export default function RegistrationStep() {
                 <button
                   className="btn primary"
                   disabled={loading}
-                  onClick={() => {
+                  onClick={async () => {
                     const e = {};
                     if (!data.name_en?.trim()) e.name_en = "Required";
-                    if (!data.father_husband_name?.trim()) e.father_husband_name = "Required";
+                    if (!data.father_husband_name?.trim())
+                      e.father_husband_name = "Required";
                     if (!data.dob) e.dob = "Required";
                     if (!data.gender) e.gender = "Required";
                     if (!data.category) e.category = "Required";
+                    if (needsCasteCert) {
+                      if (!data.casteCertFile)
+                        e.casteCertFile =
+                          "Please upload your caste certificate.";
+                    }
                     if (Object.keys(e).length) {
                       setErrors(e);
                       return;
                     }
+
+                    if (needsCasteCert && data.casteCertFile) {
+                      setErrors({});
+                      setLoading(true);
+                      const fd = new FormData();
+                      fd.append("caste_cert", data.casteCertFile);
+                      try {
+                        const res = await fetch(
+                          `${API_BASE}/api/v1/candidates/register/caste-cert`,
+                          {
+                            method: "POST",
+                            credentials: "include",
+                            body: fd,
+                          },
+                        );
+                        if (!res.ok) {
+                          const json = await res.json().catch(() => ({}));
+                          setErrors({
+                            casteCertFile: json?.message || "Upload failed.",
+                          });
+                          setLoading(false);
+                          return;
+                        }
+                      } catch (err) {
+                        setErrors({
+                          casteCertFile: err.message || "Upload failed.",
+                        });
+                        setLoading(false);
+                        return;
+                      }
+                      setLoading(false);
+                    }
+
                     saveStep({
                       name_en: data.name_en,
-                      name_gu: data.name_gu,
                       father_husband_name: data.father_husband_name,
                       dob: data.dob,
                       gender: data.gender,
@@ -412,6 +491,7 @@ export default function RegistrationStep() {
             </div>
           </>
         );
+      }
 
       /* ── Step 4: Communication ── */
       case 4:
@@ -494,7 +574,9 @@ export default function RegistrationStep() {
                       address_permanent: { line1: data.permanent_address },
                       address_current: {
                         same_as_permanent: !!data.same_address,
-                        ...(data.same_address ? {} : { line1: data.current_address }),
+                        ...(data.same_address
+                          ? {}
+                          : { line1: data.current_address }),
                       },
                       email: data.email,
                     });
@@ -508,15 +590,19 @@ export default function RegistrationStep() {
         );
 
       /* ── Step 5: Other ── */
-      case 5:
+      case 5: {
+        const isOthersQual = data.qualification === "Others";
+        const finalQual = isOthersQual
+          ? data.qualification_other
+          : data.qualification;
         return (
           <>
             <h2 style={{ fontSize: 16, marginBottom: 12 }}>
-              Step 5: Other Details
+              Step 5: Other Details / અન્ય વિગતો
             </h2>
             <div className="form-row">
               <div className="form-field">
-                <label>Marital Status</label>
+                <label>Marital Status / વૈવાહિક સ્થિતિ</label>
                 <select
                   value={data.marital_status || ""}
                   onChange={set("marital_status")}
@@ -528,15 +614,32 @@ export default function RegistrationStep() {
                 </select>
               </div>
               <div className="form-field">
-                <label>Highest Qualification *</label>
-                <input
-                  type="text"
+                <label>
+                  Highest Qualification / સર્વોચ્ચ શૈક્ષણિક લાયકાત *
+                </label>
+                <select
                   value={data.qualification || ""}
                   onChange={set("qualification")}
-                  placeholder="e.g. B.E. Civil"
-                />
+                >
+                  <option value="">Select…</option>
+                  {QUALIFICATIONS.map((q) => (
+                    <option key={q}>{q}</option>
+                  ))}
+                </select>
                 <FieldError msg={errors.qualification} />
               </div>
+              {isOthersQual && (
+                <div className="form-field">
+                  <label>Specify Qualification / લાયકાત સ્પષ્ટ કરો *</label>
+                  <input
+                    type="text"
+                    value={data.qualification_other || ""}
+                    onChange={set("qualification_other")}
+                    placeholder="Enter your qualification"
+                  />
+                  <FieldError msg={errors.qualification_other} />
+                </div>
+              )}
               <div className="form-field">
                 <label style={{ display: "flex", gap: 8 }}>
                   <input
@@ -546,9 +649,64 @@ export default function RegistrationStep() {
                       setData((p) => ({ ...p, ph_status: e.target.checked }))
                     }
                   />
-                  Physically Handicapped (PH)
+                  Physically Handicapped (PH) / શારીરિક અક્ષમ
                 </label>
               </div>
+              {data.ph_status && (
+                <>
+                  <div className="form-field">
+                    <label>UDID Certificate / UDID પ્રમાણ પત્ર *</label>
+                    <input
+                      type="file"
+                      accept="image/*,application/pdf"
+                      onChange={(e) => {
+                        const file = e.target.files[0];
+                        setData((p) => ({
+                          ...p,
+                          udidCertFile: file,
+                          udidCertPreview: file
+                            ? URL.createObjectURL(file)
+                            : null,
+                          udidCertIsPdf: file?.type === "application/pdf",
+                        }));
+                      }}
+                    />
+                    <FieldError msg={errors.udidCertFile} />
+                    {data.udidCertPreview &&
+                      (data.udidCertIsPdf ? (
+                        <div
+                          style={{
+                            marginTop: 6,
+                            fontSize: 12,
+                            color: "var(--ojas-ink-3)",
+                          }}
+                        >
+                          📄 {data.udidCertFile?.name}
+                          <a
+                            href={data.udidCertPreview}
+                            target="_blank"
+                            rel="noreferrer"
+                            style={{ marginLeft: 8 }}
+                          >
+                            View PDF
+                          </a>
+                        </div>
+                      ) : (
+                        <img
+                          src={data.udidCertPreview}
+                          alt="UDID certificate preview"
+                          style={{
+                            display: "block",
+                            marginTop: 8,
+                            maxHeight: 140,
+                            maxWidth: "100%",
+                            border: "1px solid var(--ojas-line)",
+                          }}
+                        />
+                      ))}
+                  </div>
+                </>
+              )}
               <div className="form-field">
                 <label style={{ display: "flex", gap: 8 }}>
                   <input
@@ -561,7 +719,7 @@ export default function RegistrationStep() {
                       }))
                     }
                   />
-                  Ex-Serviceman
+                  Ex-Serviceman / ભૂતપૂર્વ સૈનિક
                 </label>
               </div>
               <FieldError msg={errors._} />
@@ -572,14 +730,55 @@ export default function RegistrationStep() {
                 <button
                   className="btn primary"
                   disabled={loading}
-                  onClick={() => {
-                    if (!data.qualification?.trim()) {
-                      setErrors({ qualification: "Required" });
+                  onClick={async () => {
+                    const e = {};
+                    if (!data.qualification) e.qualification = "Required";
+                    if (isOthersQual && !data.qualification_other?.trim())
+                      e.qualification_other = "Required";
+                    if (data.ph_status) {
+                      if (!data.udidCertFile)
+                        e.udidCertFile = "Please upload your UDID certificate.";
+                    }
+                    if (Object.keys(e).length) {
+                      setErrors(e);
                       return;
                     }
+
+                    if (data.ph_status && data.udidCertFile) {
+                      setErrors({});
+                      setLoading(true);
+                      const fd = new FormData();
+                      fd.append("udid_cert", data.udidCertFile);
+                      try {
+                        const res = await fetch(
+                          `${API_BASE}/api/v1/candidates/register/udid-cert`,
+                          {
+                            method: "POST",
+                            credentials: "include",
+                            body: fd,
+                          },
+                        );
+                        if (!res.ok) {
+                          const json = await res.json().catch(() => ({}));
+                          setErrors({
+                            udidCertFile: json?.message || "Upload failed.",
+                          });
+                          setLoading(false);
+                          return;
+                        }
+                      } catch (err) {
+                        setErrors({
+                          udidCertFile: err.message || "Upload failed.",
+                        });
+                        setLoading(false);
+                        return;
+                      }
+                      setLoading(false);
+                    }
+
                     saveStep({
                       marital_status: data.marital_status,
-                      qualification: data.qualification,
+                      qualification: finalQual,
                       ph_status: !!data.ph_status,
                       ex_serviceman: !!data.ex_serviceman,
                     });
@@ -591,6 +790,7 @@ export default function RegistrationStep() {
             </div>
           </>
         );
+      }
 
       /* ── Step 6: Languages ── */
       case 6: {
