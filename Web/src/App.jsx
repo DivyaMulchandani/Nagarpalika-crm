@@ -56,8 +56,8 @@ export default function App() {
           <Route path="/registration/apply/step/:step" element={<Layout><RegistrationStep /></Layout>} />
           <Route path="/registration/find"             element={<Layout><FindRegistration /></Layout>} />
 
-          <Route path="/advertisement/:id"              element={<Layout><AdvertisementDetail /></Layout>} />
-          <Route path="/apply/:id"                      element={<Layout><ApplyDirect /></Layout>} />
+          <Route path="/advertisement/:slug"             element={<Layout><AdvertisementDetail /></Layout>} />
+          <Route path="/apply/:slug"                    element={<Layout><ApplyDirect /></Layout>} />
 
           <Route path="/application"                   element={<Layout><ApplicationEntry /></Layout>} />
           <Route path="/application/apply"             element={<Layout><ApplicationForm /></Layout>} />

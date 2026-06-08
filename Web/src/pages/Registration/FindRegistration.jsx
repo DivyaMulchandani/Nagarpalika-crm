@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { useNavigate, useSearchParams } from 'react-router-dom'
+import { useNavigate, useSearchParams, Link } from 'react-router-dom'
 import { post } from '../../api/index'
 
 const DEV = import.meta.env.DEV
@@ -154,7 +154,7 @@ export default function FindRegistration() {
 
             <div style={{ marginTop: 16, fontSize: 13, borderTop: '1px solid var(--ojas-line)', paddingTop: 12 }}>
               Not registered yet?{' '}
-              <a href="/registration/apply/step/1" style={{ color: 'var(--ojas-saffron-deep)', fontWeight: 700 }}>Register Now (OTR) ▶</a>
+              <Link to="/registration/apply/step/1" style={{ color: 'var(--ojas-saffron-deep)', fontWeight: 700 }}>Register Now (OTR) ▶</Link>
             </div>
           </div>
         </div>

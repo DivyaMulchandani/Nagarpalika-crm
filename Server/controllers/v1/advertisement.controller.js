@@ -1,5 +1,6 @@
 import path from "path";
 import fs from "fs";
+import mongoose from "mongoose";
 import Advertisement from "../../models/Advertisement.js";
 
 const UPLOADS_ROOT = path.resolve("uploads");
@@ -141,7 +142,11 @@ export const getAdvertisementPdf = async (req, res) => {
 
 export const getAdvertisementById = async (req, res) => {
   try {
-    const adv = await Advertisement.findById(req.params.id).populate(
+    const { id } = req.params;
+    const query = mongoose.Types.ObjectId.isValid(id)
+      ? { _id: id }
+      : { slug: id };
+    const adv = await Advertisement.findOne(query).populate(
       "department",
       "departmentName departmentCode",
     );

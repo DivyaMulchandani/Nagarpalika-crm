@@ -7,6 +7,11 @@ const AdvertisementSchema = new mongoose.Schema(
       type: String,
       unique: true,
     },
+    slug: {
+      type: String,
+      unique: true,
+      sparse: true,
+    },
     post_title: {
       en: { type: String, required: true, trim: true },
       gu: { type: String, trim: true },
@@ -66,6 +71,14 @@ const AdvertisementSchema = new mongoose.Schema(
   { timestamps: true },
 );
 
+const toSlug = (str) =>
+  str
+    .toLowerCase()
+    .trim()
+    .replace(/[^a-z0-9\s-]/g, "")
+    .replace(/[\s]+/g, "-")
+    .replace(/-+/g, "-");
+
 AdvertisementSchema.pre("save", async function (next) {
   if (!this.advt_no) {
     const counter = await Counter.findOneAndUpdate(
@@ -75,6 +88,13 @@ AdvertisementSchema.pre("save", async function (next) {
     );
     const year = new Date().getFullYear();
     this.advt_no = `ADV/${year}/${String(counter.seq).padStart(4, "0")}`;
+  }
+  if (!this.slug && this.post_title?.en) {
+    const base = toSlug(this.post_title.en);
+    const seq = this.advt_no
+      ? this.advt_no.replace(/\//g, "-").toLowerCase()
+      : String(Date.now());
+    this.slug = `${base}-${seq}`;
   }
   if (this.vacancies) {
     const v = this.vacancies;

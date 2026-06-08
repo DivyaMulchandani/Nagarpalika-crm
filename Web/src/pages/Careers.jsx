@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react'
+import { Link } from 'react-router-dom'
 import { useLang } from '../context/LangContext'
 import { get } from '../api/index'
 
@@ -67,7 +68,7 @@ export default function Careers() {
                     <td>{i + 1}</td>
                     <td style={{ fontFamily: 'var(--font-mono)', fontSize: 11.5 }}>{j.advt_no}</td>
                     <td>
-                      <a href={`/advertisement/${j._id}`} style={{ fontWeight: 600, color: 'var(--ojas-navy)', textDecoration: 'none' }}>{j.post_title?.en}</a>
+                      <Link to={`/advertisement/${j.slug || j._id}`} style={{ fontWeight: 600, color: 'var(--ojas-navy)', textDecoration: 'none' }}>{j.post_title?.en}</Link>
                       {j.post_title?.gu && <div style={{ fontSize: 11, fontFamily: 'var(--font-guj)', color: 'var(--ojas-ink-3)', marginTop: 2 }}>{j.post_title.gu}</div>}
                       {j.department?.departmentName && <div style={{ fontSize: 11, color: 'var(--ojas-ink-3)', marginTop: 2 }}>{j.department.departmentName}</div>}
                       {j.pay_scale && <div style={{ fontSize: 11, color: 'var(--ojas-ink-2)', marginTop: 2 }}>Pay: {j.pay_scale}</div>}
@@ -84,10 +85,10 @@ export default function Careers() {
                       )}
                     </td>
                     <td style={{ textAlign: 'center' }}>
-                      <a href={`/advertisement/${j._id}`} style={{ color: 'var(--ojas-navy)', fontWeight: 700, fontSize: 13 }} title="View Details">🔍</a>
+                      <Link to={`/advertisement/${j.slug || j._id}`} style={{ color: 'var(--ojas-navy)', fontWeight: 700, fontSize: 13 }} title="View Details">🔍</Link>
                     </td>
                     <td>
-                      {j.status !== 'Closed' && <a href={`/apply/${j._id}`} style={{ color: 'var(--ojas-saffron-deep)', fontWeight: 700 }}>{t('car.apply')}</a>}
+                      {j.status !== 'Closed' && <Link to={`/apply/${j.slug || j._id}`} style={{ color: 'var(--ojas-saffron-deep)', fontWeight: 700 }}>{t('car.apply')}</Link>}
                     </td>
                   </tr>
                 )
