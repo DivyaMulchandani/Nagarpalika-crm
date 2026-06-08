@@ -46,6 +46,7 @@ router.post(
   createSecureImageUpload({
     fieldName: "photo",
     destination: "uploads/candidates",
+    maxSize: 2 * 1024 * 1024,
   }),
   uploadPhoto,
 );
@@ -54,6 +55,7 @@ router.post(
   createSecureImageUpload({
     fieldName: "signature",
     destination: "uploads/candidates",
+    maxSize: 2 * 1024 * 1024,
   }),
   uploadSignature,
 );

@@ -31,6 +31,13 @@ export const sendCandidateOtp = async (req, res) => {
         .status(422)
         .json({ isOk: false, status: 422, message: "mobile is required" });
 
+    if (await Candidate.findOne({ mobile }))
+      return res.status(409).json({
+        isOk: false,
+        status: 409,
+        message: "Mobile number already registered",
+      });
+
     if (!checkOtpRate(mobile))
       return res.status(429).json({
         isOk: false,
