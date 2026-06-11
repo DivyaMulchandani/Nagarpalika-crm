@@ -13,7 +13,7 @@ export default function ApplicationEntry() {
 
   useEffect(() => {
     Promise.all([
-      get('/api/v1/applications/my').catch(() => null),
+      get('/api/v1/applications/me').catch(() => null),
       get('/api/v1/advertisements', { limit: 50 }).catch(() => ({ data: [] })),
     ]).then(([appsRes, advtRes]) => {
       setMyApps(appsRes?.data ?? null)

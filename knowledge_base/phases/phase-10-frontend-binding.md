@@ -347,7 +347,7 @@ Log gaps here as they are found — create inline with the frontend milestone th
 |-----|------------|---------|
 | Advertisement list (id + title only, for filter dropdowns) | Applications list, Fee Payments list | `GET /api/v1/advertisements?fields=_id,advt_no,post_title.en` |
 | Per-advertisement application stats | Advertisement view page | `GET /api/v1/advertisements/:id/stats` |
-| Candidate's own application list | Web Application entry | `GET /api/v1/applications/my` (candidate session) |
+| Candidate's own application list | Web Application entry | `GET /api/v1/applications/me` (candidate session) |
 | MasterData by type | All category/gender/qualification dropdowns | `GET /api/v1/master-data?type=X` (verify exists from Phase 1) |
 
 ---
