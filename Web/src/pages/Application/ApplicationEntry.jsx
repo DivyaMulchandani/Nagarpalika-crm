@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react'
-import { useNavigate } from 'react-router-dom'
+import { useNavigate, Link } from 'react-router-dom'
 import { get } from '../../api/index'
 
 const fmtDate = (d) => d ? new Date(d).toLocaleDateString('en-IN') : '—'
@@ -13,7 +13,7 @@ export default function ApplicationEntry() {
 
   useEffect(() => {
     Promise.all([
-      get('/api/v1/applications/my').catch(() => null),
+      get('/api/v1/applications/me').catch(() => null),
       get('/api/v1/advertisements', { limit: 50 }).catch(() => ({ data: [] })),
     ]).then(([appsRes, advtRes]) => {
       setMyApps(appsRes?.data ?? null)
@@ -29,7 +29,7 @@ export default function ApplicationEntry() {
         <div className="page-heading"><h1>Apply Online</h1></div>
         <div className="notice warn">
           <div className="title">Login Required</div>
-          Please <a href="/registration/find" style={{ color: 'var(--ojas-saffron-deep)', fontWeight: 700 }}>login with your Registration ID</a> to apply for a post.
+          Please <Link to="/registration/find" style={{ color: 'var(--ojas-saffron-deep)', fontWeight: 700 }}>login with your Registration ID</Link> to apply for a post.
         </div>
       </>
     )

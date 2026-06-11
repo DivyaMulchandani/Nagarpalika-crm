@@ -143,7 +143,7 @@ export default function Home() {
                             </span>
                           </td>
                           <td>
-                            <Link to={`/apply/${a._id}`} style={{ color: 'var(--ojas-saffron-deep)', fontWeight: 700 }}>Apply ▶</Link>
+                            <Link to={`/apply/${a.slug || a._id}`} style={{ color: 'var(--ojas-saffron-deep)', fontWeight: 700 }}>Apply ▶</Link>
                           </td>
                         </tr>
                       )

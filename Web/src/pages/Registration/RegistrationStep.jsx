@@ -29,12 +29,36 @@ function FieldError({ msg }) {
   ) : null;
 }
 
+const SESSION_KEY = "otr_form_data";
+const NON_SERIALIZABLE = new Set([
+  "casteCertFile", "casteCertPreview", "casteCertIsPdf",
+  "photoFile", "photoPreview",
+  "sigFile", "sigPreview",
+  "udidCertFile", "udidCertPreview", "udidCertIsPdf",
+]);
+
+function loadPersistedData() {
+  try {
+    const raw = sessionStorage.getItem(SESSION_KEY);
+    return raw ? JSON.parse(raw) : {};
+  } catch {
+    return {};
+  }
+}
+
+function persistData(data) {
+  const serializable = Object.fromEntries(
+    Object.entries(data).filter(([k]) => !NON_SERIALIZABLE.has(k))
+  );
+  sessionStorage.setItem(SESSION_KEY, JSON.stringify(serializable));
+}
+
 export default function RegistrationStep() {
   const { step: stepStr } = useParams();
   const navigate = useNavigate();
   const step = Math.max(1, Math.min(parseInt(stepStr) || 1, TOTAL_STEPS));
 
-  const [data, setData] = useState({});
+  const [data, setData] = useState(() => loadPersistedData());
   const [otp, setOtp] = useState("");
   const [otpSent, setOtpSent] = useState(false);
   const [loading, setLoading] = useState(false);
@@ -44,6 +68,10 @@ export default function RegistrationStep() {
 
   const photoRef = useRef();
   const sigRef = useRef();
+
+  useEffect(() => {
+    persistData(data);
+  }, [data]);
 
   const set = (field) => (e) =>
     setData((p) => ({ ...p, [field]: e.target.value }));
@@ -55,7 +83,6 @@ export default function RegistrationStep() {
     if (step <= 2) return;
     get("/api/v1/candidates/register/resume")
       .then((res) => {
-        // Restore any previously saved fields into local state
         if (res?.data?.data) setData((p) => ({ ...p, ...res.data.data }));
       })
       .catch(() => setSessionMissing(true));
@@ -131,34 +158,60 @@ export default function RegistrationStep() {
               className="notice info"
               style={{ maxHeight: 300, overflowY: "auto", fontSize: 13 }}
             >
-              <div className="title">Read Before Proceeding</div>
-              <ol style={{ paddingLeft: 20, lineHeight: 1.9 }}>
-                <li>
-                  One Time Registration (OTR) is done once. Details cannot be
-                  changed without a formal request.
+              <div className="title">
+                <span style={{ fontFamily: "var(--font-guj)", fontSize: 15 }}>
+                  આગળ વધતા પહેલાં વાંચો
+                </span>
+                <br />
+                <span style={{ fontSize: 12 }}>(Read Before Proceeding)</span>
+              </div>
+              <ol style={{ paddingLeft: 20, lineHeight: 1.6 }}>
+                <li style={{ marginBottom: 6 }}>
+                  <span style={{ fontFamily: "var(--font-guj)", fontSize: 14 }}>
+                    એક વખત નોંધણી (OTR) એક જ વખત થાય છે. ઔપચારિક વિનંતી વિના વિગતો બદલી શકાતી નથી.
+                  </span>
+                  <br />
+                  <span style={{ fontSize: 12 }}>
+                    (One Time Registration (OTR) is done once. Details cannot be changed without a formal request.)
+                  </span>
                 </li>
-                <li>Keep your Aadhaar card, mobile number, and email ready.</li>
-                <li>
-                  Photo: JPEG/PNG, max 100 KB, white background, clear face.
+                <li style={{ marginBottom: 6 }}>
+                  <span style={{ fontFamily: "var(--font-guj)", fontSize: 14 }}>
+                    તમારું આધાર કાર્ડ, મોબાઇલ નંબર અને ઇ-મેઇલ તૈયાર રાખો.
+                  </span>
+                  <br />
+                  <span style={{ fontSize: 12 }}>
+                    (Keep your Aadhaar card, mobile number, and email ready.)
+                  </span>
                 </li>
-                <li>
-                  Signature: JPEG only, max 20 KB, black/blue ink on white
-                  paper.
+                <li style={{ marginBottom: 6 }}>
+                  <span style={{ fontFamily: "var(--font-guj)", fontSize: 14 }}>
+                    ફોટો: JPEG/PNG, મહત્તમ 2 MB, સફેદ પૃષ્ઠભૂ, સ્પષ્ટ ચહેરો.
+                  </span>
+                  <br />
+                  <span style={{ fontSize: 12 }}>
+                    (Photo: JPEG/PNG, max 2 MB, white background, clear face.)
+                  </span>
                 </li>
-                <li>
-                  OTR does <strong>NOT</strong> mean your application for any
-                  post is accepted.
+                <li style={{ marginBottom: 6 }}>
+                  <span style={{ fontFamily: "var(--font-guj)", fontSize: 14 }}>
+                    સહી: માત્ર JPEG, મહત્તમ 2 MB, સફેદ કાગળ પર કાળી/વાદળી શાહી.
+                  </span>
+                  <br />
+                  <span style={{ fontSize: 12 }}>
+                    (Signature: JPEG only, max 2 MB, black/blue ink on white paper.)
+                  </span>
+                </li>
+                <li style={{ marginBottom: 6 }}>
+                  <span style={{ fontFamily: "var(--font-guj)", fontSize: 14 }}>
+                    OTR નો અર્થ એ નથી કે કોઈ પણ જગ્યા માટેની તમારી અરજી સ્વીકારાઈ ગઈ છે.
+                  </span>
+                  <br />
+                  <span style={{ fontSize: 12 }}>
+                    (OTR does <strong>NOT</strong> mean your application for any post is accepted.)
+                  </span>
                 </li>
               </ol>
-              <p
-                style={{
-                  fontFamily: "var(--font-guj)",
-                  fontSize: 12,
-                  marginTop: 8,
-                }}
-              >
-                OTR નો અર્થ એ નથી કે તમારી અરજી સ્વીકારાઈ ગઈ છે.
-              </p>
             </div>
             <label
               style={{
@@ -251,7 +304,11 @@ export default function RegistrationStep() {
                           setOtp(res.data.dev_otp);
                         setOtpSent(true);
                       } catch (err) {
-                        setErrors({ _: err.message || "Failed to send OTP." });
+                        const msg = err.message || "Failed to send OTP.";
+                        if (msg.toLowerCase().includes("mobile") && msg.toLowerCase().includes("registered"))
+                          setErrors({ mobile: "This mobile number is already registered. Please login instead." });
+                        else
+                          setErrors({ _: msg });
                       } finally {
                         setLoading(false);
                       }
@@ -292,7 +349,11 @@ export default function RegistrationStep() {
                           });
                           go(3);
                         } catch (err) {
-                          setErrors({ _: err.message || "Invalid OTP." });
+                          const msg = err.message || "Invalid OTP.";
+                          if (msg.toLowerCase().includes("aadhaar") && msg.toLowerCase().includes("registered"))
+                            setErrors({ aadhaar: "This Aadhaar is already registered. Please login instead." });
+                          else
+                            setErrors({ _: msg });
                         } finally {
                           setLoading(false);
                         }
@@ -340,6 +401,8 @@ export default function RegistrationStep() {
                   type="date"
                   value={data.dob || ""}
                   onChange={set("dob")}
+                  min={`${new Date().getFullYear() - 100}-01-01`}
+                  max={`${new Date().getFullYear() + 100}-12-31`}
                 />
                 <FieldError msg={errors.dob} />
               </div>
@@ -365,7 +428,7 @@ export default function RegistrationStep() {
               </div>
               {needsCasteCert && (
                 <>
-                  <div className="form-field">
+                  <div className="form-field" style={{ gridColumn: "1/-1" }}>
                     <label>Caste Certificate / જ્ઞાતિ પ્રમાણ પત્ર *</label>
                     <input
                       type="file"
@@ -382,6 +445,11 @@ export default function RegistrationStep() {
                         }));
                       }}
                     />
+                    {data.casteCertFile?.name && (
+                      <p style={{ fontSize: 12, margin: "4px 0 0", color: "var(--ojas-ink-3)" }}>
+                        📎 {data.casteCertFile.name}
+                      </p>
+                    )}
                     <FieldError msg={errors.casteCertFile} />
                     {data.casteCertPreview &&
                       (data.casteCertIsPdf ? (
@@ -408,9 +476,10 @@ export default function RegistrationStep() {
                           alt="Caste certificate preview"
                           style={{
                             display: "block",
-                            marginTop: 8,
-                            maxHeight: 140,
-                            maxWidth: "100%",
+                            marginTop: 10,
+                            maxHeight: 160,
+                            maxWidth: 160,
+                            objectFit: "contain",
                             border: "1px solid var(--ojas-line)",
                           }}
                         />
@@ -654,7 +723,7 @@ export default function RegistrationStep() {
               </div>
               {data.ph_status && (
                 <>
-                  <div className="form-field">
+                  <div className="form-field" style={{ gridColumn: "1/-1" }}>
                     <label>UDID Certificate / UDID પ્રમાણ પત્ર *</label>
                     <input
                       type="file"
@@ -671,6 +740,11 @@ export default function RegistrationStep() {
                         }));
                       }}
                     />
+                    {data.udidCertFile?.name && (
+                      <p style={{ fontSize: 12, margin: "4px 0 0", color: "var(--ojas-ink-3)" }}>
+                        📎 {data.udidCertFile.name}
+                      </p>
+                    )}
                     <FieldError msg={errors.udidCertFile} />
                     {data.udidCertPreview &&
                       (data.udidCertIsPdf ? (
@@ -697,9 +771,10 @@ export default function RegistrationStep() {
                           alt="UDID certificate preview"
                           style={{
                             display: "block",
-                            marginTop: 8,
-                            maxHeight: 140,
-                            maxWidth: "100%",
+                            marginTop: 10,
+                            maxHeight: 160,
+                            maxWidth: 160,
+                            objectFit: "contain",
                             border: "1px solid var(--ojas-line)",
                           }}
                         />
@@ -902,7 +977,7 @@ export default function RegistrationStep() {
               Step 7: Upload Photo
             </h2>
             <div className="notice info" style={{ fontSize: 12 }}>
-              JPEG/PNG · Max 100 KB · White background · Clear face visible
+              JPEG/PNG · Max 2 MB · White background · Clear face visible
             </div>
             <div style={{ marginTop: 12 }}>
               <input
@@ -945,7 +1020,7 @@ export default function RegistrationStep() {
                     "/api/v1/candidates/register/photo",
                     "photo",
                     data.photoFile,
-                    100,
+                    2048,
                   )
                 }
               >
@@ -963,7 +1038,7 @@ export default function RegistrationStep() {
               Step 8: Upload Signature
             </h2>
             <div className="notice info" style={{ fontSize: 12 }}>
-              JPEG only · Max 20 KB · Black/blue ink on white paper
+              JPEG only · Max 2 MB · Black/blue ink on white paper
             </div>
             <div style={{ marginTop: 12 }}>
               <input
@@ -1006,7 +1081,7 @@ export default function RegistrationStep() {
                     "/api/v1/candidates/register/signature",
                     "signature",
                     data.sigFile,
-                    20,
+                    2048,
                   )
                 }
               >
@@ -1142,6 +1217,7 @@ export default function RegistrationStep() {
                           name: data.name_en || data.name_gu || "Candidate",
                           password: crypto.randomUUID() + crypto.randomUUID(),
                         });
+                        sessionStorage.removeItem(SESSION_KEY);
                         setRegId("sent");
                       } catch (err) {
                         setErrors({

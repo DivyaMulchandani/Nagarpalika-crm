@@ -34,7 +34,8 @@ function InfoRow({ label, value, highlight }) {
 }
 
 export default function AdvertisementDetail() {
-  const { id }    = useParams()
+  const { slug }  = useParams()
+  const id        = slug
   const navigate  = useNavigate()
   const [advt, setAdvt]     = useState(null)
   const [status, setStatus] = useState('loading')
@@ -264,8 +265,8 @@ export default function AdvertisementDetail() {
       {/* ── Actions ── */}
       <div className="action-bar">
         {!isClosed && (
-          <a
-            href={`/apply/${advt._id}`}
+          <Link
+            to={`/apply/${advt.slug || advt._id}`}
             style={{
               background: 'var(--ojas-navy)',
               color: '#fff',
@@ -278,7 +279,7 @@ export default function AdvertisementDetail() {
             }}
           >
             Apply Online →
-          </a>
+          </Link>
         )}
         {advt.pdf_path && (
           <a

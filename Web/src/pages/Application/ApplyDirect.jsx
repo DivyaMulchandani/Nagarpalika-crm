@@ -131,7 +131,7 @@ function OtpLogin({ onSuccess }) {
 
         <div style={{ marginTop: 16, fontSize: 13, borderTop: '1px solid var(--ojas-line)', paddingTop: 12 }}>
           Not registered?{' '}
-          <a href="/registration/apply/step/1" style={{ color: 'var(--ojas-saffron-deep)', fontWeight: 700 }}>Register Now (OTR) ▶</a>
+          <Link to="/registration/apply/step/1" style={{ color: 'var(--ojas-saffron-deep)', fontWeight: 700 }}>Register Now (OTR) ▶</Link>
         </div>
       </div>
     </div>
@@ -293,7 +293,8 @@ function AlreadyAppliedPanel({ advt, myApp, navigate }) {
 // Main Component
 // ─────────────────────────────────────────────────────────────
 export default function ApplyDirect() {
-  const { id }    = useParams()
+  const { slug }  = useParams()
+  const id        = slug
   const navigate  = useNavigate()
 
   // screen: 'loading' | 'not_found' | 'closed' | 'error' | 'login' | 'form' | 'already_applied' | 'success'
