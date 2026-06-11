@@ -15,6 +15,8 @@ const NEWS_TAG_MAP = {
 const VM_TAG_LABELS = { new: 'NEW', urgent: 'URGENT', rel: 'RELEASE' }
 
 const fmtDate = (d) => d ? new Date(d).toLocaleDateString('en-IN', { day: '2-digit', month: '2-digit', year: 'numeric' }) : ''
+// vacancies is a single number; legacy records may still hold {total, ...}
+const vacCount = (v) => (typeof v === 'object' ? v?.total : v)
 const fmtDayMo = (d) => {
   if (!d) return { day: '—', mo: '' }
   const dt = new Date(d)
@@ -57,7 +59,7 @@ export default function Home() {
   }, [])
 
   // Compute facts from live data
-  const totalPosts     = ads.reduce((s, a) => s + (a.vacancies?.total || 0), 0)
+  const totalPosts     = ads.reduce((s, a) => s + (Number(vacCount(a.vacancies)) || 0), 0)
   const activeAdvts    = ads.length
   const soonDates      = ads.map(a => a.end_date).filter(Boolean).sort()
   const nextLastDate   = soonDates[0] ? (() => { const d = new Date(soonDates[0]); return `${String(d.getDate()).padStart(2,'0')}/${String(d.getMonth()+1).padStart(2,'0')}` })() : '—'
@@ -135,7 +137,7 @@ export default function Home() {
                             )}
                           </td>
                           <td style={{ fontWeight: 700 }}>{a.class}</td>
-                          <td style={{ textAlign: 'center', fontWeight: 700, color: 'var(--ojas-navy)' }}>{a.vacancies?.total ?? '—'}</td>
+                          <td style={{ textAlign: 'center', fontWeight: 700, color: 'var(--ojas-navy)' }}>{vacCount(a.vacancies) ?? '—'}</td>
                           <td style={{ color: closing ? 'var(--ojas-red)' : 'inherit', fontWeight: closing ? 700 : 400 }}>{fmtDate(a.end_date)}</td>
                           <td>
                             <span className={`badge ${closing ? 'urgent' : 'active'}`}>

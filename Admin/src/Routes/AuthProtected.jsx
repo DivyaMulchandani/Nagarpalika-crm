@@ -3,9 +3,12 @@ import { Navigate, Route } from "react-router-dom";
 import { AuthContext } from "../context/AuthContext";
 
 const AuthProtected = (props) => {
-    const { role, isSessionVerified, loading } = useContext(AuthContext);
+    const { role, isSessionVerified } = useContext(AuthContext);
 
-    if (!isSessionVerified || loading) {
+    // Only the one-time session verification blocks the whole app.
+    // The global "loading" flag (profile refetches etc.) must NOT blank
+    // the panel — each page renders its own API-specific loaders.
+    if (!isSessionVerified) {
         return (
             <div className="d-flex justify-content-center align-items-center" style={{ minHeight: "100vh" }}>
                 <div className="spinner-border text-primary" role="status">

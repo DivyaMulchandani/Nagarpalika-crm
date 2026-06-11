@@ -1,5 +1,7 @@
-import { Link, useLocation } from 'react-router-dom'
+import { useState, useEffect } from 'react'
+import { Link, useLocation, useNavigate } from 'react-router-dom'
 import { useLang } from '../context/LangContext'
+import { useAuth } from '../context/AuthContext'
 import SiteMarquee from './SiteMarquee'
 
 const NAV = [
@@ -8,12 +10,57 @@ const NAV = [
   { path: '/registration',      key: 'nav.registration', fallback: 'REGISTRATION' },
   { path: '/callletter',        key: 'nav.callletter',   fallback: 'CALL LETTER' },
   { path: '/contact',           key: 'nav.contact',      fallback: 'CONTACT' },
-  { path: '/registration/find', key: 'nav.login', fallback: 'Login', pill: true },
 ]
+
+// ── Font size controls (A− / A / A+), persisted in localStorage ──────────────
+const FONT_SCALE_KEY = 'ojas-font-scale'
+const FONT_MIN = 0.85
+const FONT_MAX = 1.3
+const FONT_STEP = 0.1
+
+function readFontScale() {
+  try {
+    const v = parseFloat(localStorage.getItem(FONT_SCALE_KEY))
+    if (!Number.isNaN(v) && v >= FONT_MIN && v <= FONT_MAX) return v
+  } catch { /* localStorage unavailable */ }
+  return 1
+}
+
+function applyFontScale(scale) {
+  // zoom scales the px-based OJAS stylesheet uniformly
+  document.body.style.zoom = scale === 1 ? '' : String(scale)
+}
+
+function FontSizeControls() {
+  const [scale, setScale] = useState(readFontScale)
+
+  useEffect(() => {
+    applyFontScale(scale)
+    try { localStorage.setItem(FONT_SCALE_KEY, String(scale)) } catch { /* ignore */ }
+  }, [scale])
+
+  const step = (dir) =>
+    setScale((s) => Math.min(FONT_MAX, Math.max(FONT_MIN, Math.round((s + dir * FONT_STEP) * 100) / 100)))
+
+  return (
+    <div className="font-controls" role="group" aria-label="Font size">
+      <button type="button" onClick={() => step(-1)} disabled={scale <= FONT_MIN} title="Decrease font size" aria-label="Decrease font size">A−</button>
+      <button type="button" onClick={() => setScale(1)} title="Reset font size" aria-label="Reset font size">A</button>
+      <button type="button" onClick={() => step(1)} disabled={scale >= FONT_MAX} title="Increase font size" aria-label="Increase font size">A+</button>
+    </div>
+  )
+}
 
 export default function Header() {
   const { lang, setLang, t } = useLang()
   const { pathname } = useLocation()
+  const { user, logout } = useAuth()
+  const navigate = useNavigate()
+
+  const handleLogout = async () => {
+    await logout()
+    navigate('/', { replace: true })
+  }
 
   return (
     <>
@@ -34,11 +81,7 @@ export default function Header() {
           </div>
         </div>
         <div className="brand-utility">
-          <a href="#main">{t('util.skip')}</a>
-          <span className="sep">|</span>
-          <a href="#">{t('util.screen')}</a>
-          <span className="sep">|</span>
-          <a href="#">{t('util.az')}</a>
+          <FontSizeControls />
           <span className="sep">|</span>
           <div className="lang-toggle" role="group" aria-label="Language">
             {[['en', 'EN'], ['hi', 'हिं'], ['gu', 'ગુ']].map(([code, label]) => (
@@ -56,7 +99,7 @@ export default function Header() {
       </div>
 
       <nav className="nav-row">
-        {NAV.map(({ path, key, fallback, pill }) => {
+        {NAV.filter(({ path }) => !(user && path === '/registration')).map(({ path, key, fallback }) => {
           const isActive = path === '/'
             ? pathname === '/'
             : pathname.startsWith(path) &&
@@ -65,12 +108,24 @@ export default function Header() {
             <Link
               key={path}
               to={path}
-              className={[pill ? 'nav-login-pill' : '', isActive && !pill ? 'active' : ''].filter(Boolean).join(' ') || undefined}
+              className={isActive ? 'active' : undefined}
             >
               {t(key) || fallback}
             </Link>
           )
         })}
+        {user ? (
+          <span className="nav-user">
+            <Link to="/application" className="nav-login-pill" title="My applications">
+              {user.name ? user.name.split(' ')[0] : user.registration_id}
+            </Link>
+            <button type="button" className="nav-logout" onClick={handleLogout}>Logout</button>
+          </span>
+        ) : (
+          <Link to="/registration/find" className="nav-login-pill">
+            {t('nav.login') || 'Login'}
+          </Link>
+        )}
       </nav>
 
       <SiteMarquee />

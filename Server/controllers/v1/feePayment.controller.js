@@ -300,6 +300,9 @@ export const listFeePayments = async (req, res) => {
     const [total, data] = await Promise.all([
       FeePayment.countDocuments(filter),
       FeePayment.find(filter)
+        .select(
+          "payment_id registration_id advt_no amount status paid_at gateway_txn_id createdAt",
+        )
         .sort({ [sorton || "createdAt"]: sortdir === "asc" ? 1 : -1 })
         .skip(Number(skip))
         .limit(limit)

@@ -11,23 +11,97 @@ const EDITABLE_FIELDS = [
   "additional_fields",
 ];
 
+// ── Strict input validation (public-facing API can be called directly) ───────
+const ADVT_NO_RE = /^[A-Z]{2,6}\/\d{4}\/\d{1,8}$/;
+
+const validateSubmissionInput = (body) => {
+  const {
+    advt_no,
+    exam_centre,
+    declaration_accepted,
+    experience_years,
+    additional_fields,
+  } = body || {};
+
+  if (typeof advt_no !== "string" || !ADVT_NO_RE.test(advt_no.trim()))
+    return "A valid advt_no is required";
+  if (
+    exam_centre !== undefined &&
+    (typeof exam_centre !== "string" || exam_centre.length > 120)
+  )
+    return "exam_centre must be a string of at most 120 characters";
+  if (
+    declaration_accepted !== undefined &&
+    typeof declaration_accepted !== "boolean"
+  )
+    return "declaration_accepted must be a boolean";
+  if (
+    experience_years !== undefined &&
+    (typeof experience_years !== "number" ||
+      Number.isNaN(experience_years) ||
+      experience_years < 0 ||
+      experience_years > 60)
+  )
+    return "experience_years must be a number between 0 and 60";
+  if (additional_fields !== undefined) {
+    if (
+      typeof additional_fields !== "object" ||
+      additional_fields === null ||
+      Array.isArray(additional_fields)
+    )
+      return "additional_fields must be an object";
+    if (JSON.stringify(additional_fields).length > 5000)
+      return "additional_fields is too large";
+  }
+  return null;
+};
+
+// Strip HTML/script characters from free-text values
+const sanitizeText = (v) =>
+  typeof v === "string" ? v.trim().replace(/[<>]/g, "").slice(0, 500) : v;
+
+// The deadline is midnight at the END of end_date's day: an ad ending
+// 2026-06-06 accepts applications until 2026-06-06 23:59:59.999.
+const deadlinePassed = (end_date) => {
+  if (!end_date) return false;
+  const deadline = new Date(end_date);
+  deadline.setHours(23, 59, 59, 999);
+  return new Date() > deadline;
+};
+
+// Fields the admin list/search tables actually render
+const ADMIN_APP_PROJECTION = {
+  application_ref_no: 1,
+  registration_id: 1,
+  advt_no: 1,
+  status: 1,
+  submitted_at: 1,
+  createdAt: 1,
+};
+
+// Fields a candidate is allowed to see about their own application
+const CANDIDATE_APP_PROJECTION =
+  "application_ref_no registration_id advt_no status submitted_at exam_centre declaration_accepted experience_years createdAt";
+
 // ── Candidate ─────────────────────────────────────────────────────────────────
 
 export const submitApplication = async (req, res) => {
   try {
     const registration_id = req.user.registration_id;
+
+    const validationError = validateSubmissionInput(req.body);
+    if (validationError)
+      return res
+        .status(422)
+        .json({ isOk: false, status: 422, message: validationError });
+
     const {
-      advt_no,
       exam_centre,
       declaration_accepted,
       experience_years,
       additional_fields,
     } = req.body;
-
-    if (!advt_no)
-      return res
-        .status(422)
-        .json({ isOk: false, status: 422, message: "advt_no is required" });
+    const advt_no = req.body.advt_no.trim();
 
     const advt = await Advertisement.findOne({ advt_no });
     if (!advt)
@@ -40,30 +114,63 @@ export const submitApplication = async (req, res) => {
         status: 400,
         message: "Advertisement is not open for applications",
       });
-    if (advt.end_date && new Date() > advt.end_date)
+    if (deadlinePassed(advt.end_date))
       return res.status(400).json({
         isOk: false,
         status: 400,
         message: "Application deadline has passed",
       });
 
-    const existing = await Application.findOne({ registration_id, advt_no });
+    // Idempotency: if an application already exists, return its reference
+    // instead of failing — repeated submits never create duplicates.
+    const existing = await Application.findOne({ registration_id, advt_no })
+      .select(CANDIDATE_APP_PROJECTION)
+      .lean();
     if (existing)
-      return res.status(409).json({
-        isOk: false,
-        status: 409,
+      return res.status(200).json({
+        isOk: true,
+        status: 200,
         message: "Already applied for this advertisement",
+        data: {
+          application_ref_no: existing.application_ref_no,
+          advt_no: existing.advt_no,
+          status: existing.status,
+          submitted_at: existing.submitted_at,
+        },
       });
 
     const app = new Application({
       registration_id,
       advt_no,
-      exam_centre,
+      exam_centre: sanitizeText(exam_centre),
       declaration_accepted,
       experience_years,
       additional_fields,
     });
-    await app.save();
+    try {
+      await app.save();
+    } catch (err) {
+      // Race-condition safety: two concurrent submits hit the unique
+      // (registration_id, advt_no) index — return the winner's reference.
+      if (err?.code === 11000) {
+        const winner = await Application.findOne({ registration_id, advt_no })
+          .select(CANDIDATE_APP_PROJECTION)
+          .lean();
+        if (winner)
+          return res.status(200).json({
+            isOk: true,
+            status: 200,
+            message: "Already applied for this advertisement",
+            data: {
+              application_ref_no: winner.application_ref_no,
+              advt_no: winner.advt_no,
+              status: winner.status,
+              submitted_at: winner.submitted_at,
+            },
+          });
+      }
+      throw err;
+    }
 
     // Fire-and-forget: application confirmation email
     Candidate.findOne({ registration_id })
@@ -105,7 +212,9 @@ export const getMyApplication = async (req, res) => {
   try {
     const app = await Application.findOne({
       application_ref_no: req.params.ref,
-    });
+    })
+      .select(CANDIDATE_APP_PROJECTION)
+      .lean();
     if (!app)
       return res
         .status(404)
@@ -115,7 +224,26 @@ export const getMyApplication = async (req, res) => {
         .status(403)
         .json({ isOk: false, status: 403, message: "Access denied" });
 
-    return res.status(200).json({ isOk: true, status: 200, data: app });
+    // Candidate + advertisement summaries so the printout shows full details
+    const [candidate, advertisement] = await Promise.all([
+      Candidate.findOne({ registration_id: app.registration_id })
+        .select(
+          "registration_id name father_husband_name dob gender category mobile email",
+        )
+        .lean(),
+      Advertisement.findOne({ advt_no: app.advt_no })
+        .select(
+          "advt_no post_title class pay_scale application_fee end_date department",
+        )
+        .populate("department", "departmentName")
+        .lean(),
+    ]);
+
+    return res.status(200).json({
+      isOk: true,
+      status: 200,
+      data: { ...app, candidate, advertisement },
+    });
   } catch (error) {
     return res
       .status(500)
@@ -138,7 +266,7 @@ export const editApplication = async (req, res) => {
         .json({ isOk: false, status: 403, message: "Access denied" });
 
     const advt = await Advertisement.findOne({ advt_no: app.advt_no });
-    if (!advt || (advt.end_date && new Date() > advt.end_date))
+    if (!advt || deadlinePassed(advt.end_date))
       return res.status(400).json({
         isOk: false,
         status: 400,
@@ -175,7 +303,10 @@ export const getMyApplications = async (req, res) => {
   try {
     const list = await Application.find({
       registration_id: req.user.registration_id,
-    }).sort({ createdAt: -1 });
+    })
+      .select(CANDIDATE_APP_PROJECTION)
+      .sort({ createdAt: -1 })
+      .lean();
     return res.status(200).json({ isOk: true, status: 200, data: list });
   } catch (error) {
     return res
@@ -252,6 +383,7 @@ export const listApplications = async (req, res) => {
     const [total, data] = await Promise.all([
       Application.countDocuments(filter),
       Application.find(filter)
+        .select(ADMIN_APP_PROJECTION)
         .sort({ [sorton || "createdAt"]: sortdir === "asc" ? 1 : -1 })
         .skip(Number(skip))
         .limit(limit)
@@ -372,6 +504,7 @@ export const searchApplications = async (req, res) => {
       });
     }
     pipeline.push({ $match: matchCond });
+    pipeline.push({ $project: ADMIN_APP_PROJECTION });
     pipeline.push({
       $sort: { [sorton || "createdAt"]: sortdir === "asc" ? 1 : -1 },
     });

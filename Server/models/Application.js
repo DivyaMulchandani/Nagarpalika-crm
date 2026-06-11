@@ -1,12 +1,11 @@
 import mongoose from "mongoose";
-import { v4 as uuidv4 } from "uuid";
+import Counter from "./Counter.js";
 
 const ApplicationSchema = new mongoose.Schema(
   {
     application_ref_no: {
       type: String,
       unique: true,
-      default: uuidv4,
     },
     registration_id: {
       type: String,
@@ -50,5 +49,28 @@ const ApplicationSchema = new mongoose.Schema(
 );
 
 ApplicationSchema.index({ registration_id: 1, advt_no: 1 }, { unique: true });
+
+// Generated in the same style as Advertisement.advt_no (ADV/<year>/<seq>).
+// Counter key is year-scoped and distinct from the advt_no counter, so the
+// two sequences can never collide. Counter.findOneAndUpdate with $inc is a
+// single atomic MongoDB operation, so concurrent saves each receive a unique
+// seq. The unique indexes on application_ref_no and on
+// (registration_id, advt_no) are the final safety net against duplicates.
+ApplicationSchema.pre("save", async function (next) {
+  if (!this.application_ref_no) {
+    try {
+      const year = new Date().getFullYear();
+      const counter = await Counter.findOneAndUpdate(
+        { key: `application_ref_no:${year}` },
+        { $inc: { seq: 1 } },
+        { upsert: true, new: true },
+      );
+      this.application_ref_no = `APP/${year}/${String(counter.seq).padStart(6, "0")}`;
+    } catch (err) {
+      return next(err);
+    }
+  }
+  next();
+});
 
 export default mongoose.model("Application", ApplicationSchema);

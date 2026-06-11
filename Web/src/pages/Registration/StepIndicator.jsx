@@ -1,4 +1,5 @@
 import { useRef, useEffect } from 'react'
+import { IconCheck } from '../../components/Icons'
 
 export default function StepIndicator({ total, current }) {
   const containerRef = useRef(null)
@@ -27,7 +28,7 @@ export default function StepIndicator({ total, current }) {
               background: done ? '#2a7a2a' : active ? 'var(--ojas-saffron-deep)' : 'var(--ojas-line)',
               color: done || active ? '#fff' : 'var(--ojas-ink-2)',
             }}>
-              {done ? '✓' : n}
+              {done ? <IconCheck /> : n}
             </div>
             {n < total && (
               <div className="step-connector" style={{ flex: 1, height: 2, background: done ? '#2a7a2a' : 'var(--ojas-line)' }} />

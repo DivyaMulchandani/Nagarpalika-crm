@@ -1,6 +1,8 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { useLocation, useNavigate } from 'react-router-dom'
+import { toast } from 'react-toastify'
 import { post } from '../../api/index'
+import { IconCheckCircle } from '../../components/Icons'
 
 export default function ApplicationForm() {
   const { state } = useLocation()
@@ -12,6 +14,23 @@ export default function ApplicationForm() {
   const [error, setError]     = useState(null)
   const [refNo, setRefNo]     = useState(null)
 
+  // Hard deadline: the form auto-exits the moment the advertisement's last
+  // day ends (midnight). The API enforces the same cut-off server-side.
+  useEffect(() => {
+    if (!advt?.end_date || refNo) return
+    const deadline = new Date(advt.end_date)
+    deadline.setHours(23, 59, 59, 999)
+    const check = () => {
+      if (Date.now() > deadline.getTime()) {
+        toast.error('The application deadline has passed. This form is now closed.')
+        navigate('/careers', { replace: true })
+      }
+    }
+    check()
+    const t = setInterval(check, 10000)
+    return () => clearInterval(t)
+  }, [advt, refNo, navigate])
+
   if (!advt) {
     navigate('/application', { replace: true })
     return null
@@ -22,10 +41,12 @@ export default function ApplicationForm() {
     setError(null)
     setLoading(true)
     try {
-      const res = await post('/api/v1/applications', { advt_no: advt.advt_no })
+      const res = await post('/api/v1/applications', { advt_no: advt.advt_no, declaration_accepted: true })
+      toast.success('Application submitted successfully.')
       setRefNo(res?.data?.application_ref_no)
     } catch (err) {
       setError(err.message || 'Submission failed. Please try again.')
+      toast.error(err.message || 'Submission failed. Please try again.')
     } finally {
       setLoading(false)
     }
@@ -36,7 +57,7 @@ export default function ApplicationForm() {
       <>
         <div className="page-heading"><h1>Application Submitted</h1></div>
         <div className="notice info" style={{ maxWidth: 520, margin: '32px auto', textAlign: 'center' }}>
-          <div className="title" style={{ color: '#2a7a2a', fontSize: 18 }}>✓ Application Received</div>
+          <div className="title" style={{ color: '#2a7a2a', fontSize: 18 }}><IconCheckCircle /> Application Received</div>
           <p style={{ marginTop: 8 }}>Your Application Reference Number is:</p>
           <p style={{ fontFamily: 'var(--font-mono)', fontSize: 22, fontWeight: 700, letterSpacing: 2, margin: '12px 0' }}>{refNo}</p>
           <p style={{ fontSize: 12, color: 'var(--ojas-ink-3)' }}>Note this number. You will need it to track your application and print the form.</p>
@@ -64,7 +85,7 @@ export default function ApplicationForm() {
               <tr><td style={{ width: 160, color: 'var(--ojas-ink-3)' }}>Post</td><td>{advt.post_title?.en}</td></tr>
               {advt.post_title?.gu && <tr><td style={{ color: 'var(--ojas-ink-3)' }}>Post (Gujarati)</td><td style={{ fontFamily: 'var(--font-guj)' }}>{advt.post_title.gu}</td></tr>}
               <tr><td style={{ color: 'var(--ojas-ink-3)' }}>Class</td><td>{advt.class}</td></tr>
-              <tr><td style={{ color: 'var(--ojas-ink-3)' }}>Total Posts</td><td>{advt.vacancies?.total ?? '—'}</td></tr>
+              <tr><td style={{ color: 'var(--ojas-ink-3)' }}>Total Posts</td><td>{(typeof advt.vacancies === 'object' ? advt.vacancies?.total : advt.vacancies) ?? '—'}</td></tr>
               <tr><td style={{ color: 'var(--ojas-ink-3)' }}>Application Fee</td><td>{advt.application_fee ? `₹${advt.application_fee}` : 'No fee'}</td></tr>
               {advt.pay_scale && <tr><td style={{ color: 'var(--ojas-ink-3)' }}>Pay Scale</td><td>{advt.pay_scale}</td></tr>}
               <tr><td style={{ color: 'var(--ojas-ink-3)' }}>Last Date</td><td>{advt.end_date ? new Date(advt.end_date).toLocaleDateString('en-IN') : '—'}</td></tr>

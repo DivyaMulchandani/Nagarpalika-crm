@@ -1,6 +1,9 @@
 import { useState, useEffect, useCallback } from 'react'
 import { useParams, useNavigate, Link } from 'react-router-dom'
+import { toast } from 'react-toastify'
 import { get, post } from '../../api/index'
+import { useAuth } from '../../context/AuthContext'
+import { IconGear, IconWarn, IconCheck, IconCheckCircle } from '../../components/Icons'
 
 const DEV = import.meta.env.DEV
 
@@ -26,6 +29,7 @@ function OtpLogin({ onSuccess }) {
       const res = await post('/api/v1/otp/candidates/login/send', { mobile })
       if (DEV && res?.data?.dev_otp) { setDevOtp(res.data.dev_otp); setOtp(res.data.dev_otp) }
       setStep('otp')
+      toast.info('OTP sent to your mobile number.')
     } catch (err) {
       setError(err.message || 'Failed to send OTP. Try again.')
     } finally { setLoading(false) }
@@ -37,9 +41,11 @@ function OtpLogin({ onSuccess }) {
     setError(null); setLoading(true)
     try {
       await post('/api/v1/otp/candidates/login/verify', { mobile, otp: otp.trim() })
+      toast.success('Login successful.')
       onSuccess()
     } catch (err) {
       setError(err.message || 'Invalid OTP. Please try again.')
+      toast.error(err.message || 'Invalid OTP. Please try again.')
     } finally { setLoading(false) }
   }
 
@@ -54,7 +60,7 @@ function OtpLogin({ onSuccess }) {
       <div className="box-body">
         {DEV && (
           <div className="notice warn" style={{ marginBottom: 12, fontSize: 12 }}>
-            <strong>⚙ DEV MODE</strong> — OTP auto-filled from server.
+            <strong><IconGear /> DEV MODE</strong> — OTP auto-filled from server.
           </div>
         )}
 
@@ -141,19 +147,37 @@ function OtpLogin({ onSuccess }) {
 // ─────────────────────────────────────────────────────────────
 // Application Form (shown after login)
 // ─────────────────────────────────────────────────────────────
-function ApplicationFormPanel({ advt, onSuccess }) {
+function ApplicationFormPanel({ advt, onSuccess, onDeadline }) {
   const [agreed, setAgreed]   = useState(false)
   const [loading, setLoading] = useState(false)
   const [error, setError]     = useState(null)
+
+  // Hard deadline: auto-exit the form at midnight of the last day.
+  useEffect(() => {
+    if (!advt?.end_date) return
+    const deadline = new Date(advt.end_date)
+    deadline.setHours(23, 59, 59, 999)
+    const check = () => {
+      if (Date.now() > deadline.getTime()) {
+        toast.error('The application deadline has passed. This form is now closed.')
+        onDeadline()
+      }
+    }
+    check()
+    const t = setInterval(check, 10000)
+    return () => clearInterval(t)
+  }, [advt, onDeadline])
 
   const handleSubmit = async () => {
     if (!agreed) { setError('Accept the declaration to continue.'); return }
     setError(null); setLoading(true)
     try {
-      const res = await post('/api/v1/applications', { advt_no: advt.advt_no })
+      const res = await post('/api/v1/applications', { advt_no: advt.advt_no, declaration_accepted: true })
+      toast.success('Application submitted successfully.')
       onSuccess(res?.data?.application_ref_no)
     } catch (err) {
       setError(err.message || 'Submission failed. Try again.')
+      toast.error(err.message || 'Submission failed. Try again.')
     } finally { setLoading(false) }
   }
 
@@ -173,7 +197,7 @@ function ApplicationFormPanel({ advt, onSuccess }) {
               advt.post_title?.gu ? ['Post (gu)', advt.post_title.gu] : null,
               ['Class', `Class ${advt.class}`],
               ['Department', advt.department?.departmentName],
-              ['Total Posts', advt.vacancies?.total],
+              ['Total Posts', typeof advt.vacancies === 'object' ? advt.vacancies?.total : advt.vacancies],
               ['Pay Scale', advt.pay_scale],
               ['Application Fee', advt.application_fee ? `₹ ${advt.application_fee}` : 'Free'],
               ['Last Date to Apply', fmtDate(advt.end_date)],
@@ -211,7 +235,7 @@ function ApplicationFormPanel({ advt, onSuccess }) {
 
         {error && (
           <div style={{ color: 'var(--ojas-red)', fontSize: 13, marginBottom: 14, padding: '8px 12px', background: '#fff3f3', border: '1px solid #f5c6cb', borderRadius: 3 }}>
-            ⚠ {error}
+            <IconWarn /> {error}
           </div>
         )}
 
@@ -233,7 +257,7 @@ function SuccessPanel({ refNo, advt, navigate }) {
   return (
     <div style={{ maxWidth: 560, margin: '0 auto' }}>
       <div className="notice info" style={{ textAlign: 'center', padding: '32px 24px' }}>
-        <div style={{ fontSize: 42, marginBottom: 8 }}>✅</div>
+        <div style={{ fontSize: 42, marginBottom: 8, color: '#2a7a2a' }}><IconCheckCircle /></div>
         <div className="title" style={{ color: '#2a7a2a', fontSize: 20, marginBottom: 8 }}>Application Submitted</div>
         <div style={{ fontSize: 13.5, color: 'var(--ojas-ink-2)', marginBottom: 20 }}>
           Your application for <strong>{advt.post_title?.en}</strong> ({advt.advt_no}) has been received.
@@ -266,7 +290,7 @@ function AlreadyAppliedPanel({ advt, myApp, navigate }) {
   return (
     <div style={{ maxWidth: 520, margin: '0 auto' }}>
       <div className="notice info">
-        <div className="title" style={{ color: '#2a7a2a' }}>Already Applied ✓</div>
+        <div className="title" style={{ color: '#2a7a2a' }}>Already Applied <IconCheck /></div>
         <p style={{ marginTop: 8, fontSize: 13.5 }}>
           You have already submitted an application for <strong>{advt.post_title?.en}</strong> ({advt.advt_no}).
         </p>
@@ -296,6 +320,7 @@ export default function ApplyDirect() {
   const { slug }  = useParams()
   const id        = slug
   const navigate  = useNavigate()
+  const { refresh } = useAuth()
 
   // screen: 'loading' | 'not_found' | 'closed' | 'error' | 'login' | 'form' | 'already_applied' | 'success'
   const [screen, setScreen]   = useState('loading')
@@ -307,7 +332,7 @@ export default function ApplyDirect() {
     setScreen('loading')
     Promise.all([
       get(`/api/v1/advertisements/${id}`),
-      get('/api/v1/applications/me').catch(() => null),
+      get('/api/v1/applications/me', undefined, { silent401: true }).catch(() => null),
     ]).then(([advtRes, authRes]) => {
       const a = advtRes?.data
       if (!a) { setScreen('not_found'); return }
@@ -332,8 +357,9 @@ export default function ApplyDirect() {
 
   useEffect(() => { loadData() }, [loadData])
 
-  // After OTP login succeeds, re-check auth + existing applications
-  const handleLoginSuccess = () => loadData()
+  // After OTP login succeeds, hydrate the auth context (header state)
+  // and re-check existing applications
+  const handleLoginSuccess = () => { refresh(); loadData() }
 
   const handleSubmitSuccess = (ref) => { setRefNo(ref); setScreen('success') }
 
@@ -441,7 +467,7 @@ export default function ApplyDirect() {
       )}
 
       {screen === 'form' && (
-        <ApplicationFormPanel advt={advt} onSuccess={handleSubmitSuccess} />
+        <ApplicationFormPanel advt={advt} onSuccess={handleSubmitSuccess} onDeadline={() => setScreen('closed')} />
       )}
     </>
   )

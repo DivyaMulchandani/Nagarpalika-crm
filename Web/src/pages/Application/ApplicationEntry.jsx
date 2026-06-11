@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react'
 import { useNavigate, Link } from 'react-router-dom'
 import { get } from '../../api/index'
+import { IconCheck } from '../../components/Icons'
 
 const fmtDate = (d) => d ? new Date(d).toLocaleDateString('en-IN') : '—'
 const statusColor = { submitted: '#2a7a2a', under_review: 'var(--ojas-saffron-deep)', shortlisted: 'var(--ojas-navy)', rejected: 'var(--ojas-red)', selected: '#2a7a2a' }
@@ -13,7 +14,7 @@ export default function ApplicationEntry() {
 
   useEffect(() => {
     Promise.all([
-      get('/api/v1/applications/me').catch(() => null),
+      get('/api/v1/applications/me', undefined, { silent401: true }).catch(() => null),
       get('/api/v1/advertisements', { limit: 50 }).catch(() => ({ data: [] })),
     ]).then(([appsRes, advtRes]) => {
       setMyApps(appsRes?.data ?? null)
@@ -100,7 +101,7 @@ export default function ApplicationEntry() {
                     <td style={{ fontSize: 12 }}>{fmtDate(a.end_date)}</td>
                     <td>
                       {alreadyApplied
-                        ? <span style={{ color: '#2a7a2a', fontSize: 12, fontWeight: 700 }}>Applied ✓</span>
+                        ? <span style={{ color: '#2a7a2a', fontSize: 12, fontWeight: 700 }}>Applied <IconCheck /></span>
                         : <button className="btn primary" style={{ fontSize: 12, padding: '4px 10px' }} onClick={() => navigate('/application/apply', { state: { advt: a } })}>Apply ▶</button>
                       }
                     </td>

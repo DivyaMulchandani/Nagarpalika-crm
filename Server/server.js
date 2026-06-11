@@ -21,6 +21,7 @@ import {
   publicApiLimiter,
 } from "./middlewares/securityHeaders.js";
 import { mongoSanitizer } from "./middlewares/inputValidator.js";
+import { startScheduler } from "./services/scheduler.service.js";
 
 // ES6 module equivalent of __dirname and __filename
 const __filename = fileURLToPath(import.meta.url);
@@ -116,6 +117,9 @@ app.use(
       "your-super-secret-key-change-in-production",
     resave: false,
     saveUninitialized: false,
+    // NOT rolling: candidate sessions have an ABSOLUTE 30-minute lifetime
+    // from login (enforced in authMiddleware), so the cookie expiry set at
+    // login must stay fixed — page refreshes don't extend the session.
     name: "sessionId",
     store: MongoStore.create({
       mongoUrl: process.env.DATABASE,
@@ -150,6 +154,7 @@ mongoose
   .then(() => {
     console.log("✅ DB connected");
     databasestatus = "Connected";
+    startScheduler();
   })
   .catch((err) => {
     console.error("❌ DB Connection Error =>", err);
