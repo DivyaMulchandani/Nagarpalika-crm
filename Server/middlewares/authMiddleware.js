@@ -22,24 +22,41 @@ export const authMiddleware = (roles) => {
       });
     }
 
-    // Session inactivity timeout
     const isAdminRole = ADMIN_ROLES.has(sessionUser.role);
-    const timeoutMs = isAdminRole ? ADMIN_TIMEOUT_MS : CANDIDATE_TIMEOUT_MS;
-    if (
-      req.session.lastActivity &&
-      Date.now() - req.session.lastActivity > timeoutMs
-    ) {
-      req.session.destroy((err) => {
-        if (err) console.error("[SESSION] Destroy error:", err.message);
-      });
-      res.clearCookie("sessionId");
-      return res.status(401).json({
-        isOk: false,
-        status: 401,
-        message: "Session expired due to inactivity",
-      });
+
+    if (isAdminRole) {
+      // Admins: inactivity timeout (8h)
+      if (
+        req.session.lastActivity &&
+        Date.now() - req.session.lastActivity > ADMIN_TIMEOUT_MS
+      ) {
+        req.session.destroy((err) => {
+          if (err) console.error("[SESSION] Destroy error:", err.message);
+        });
+        res.clearCookie("sessionId");
+        return res.status(401).json({
+          isOk: false,
+          status: 401,
+          message: "Session expired due to inactivity",
+        });
+      }
+      req.session.lastActivity = Date.now();
+    } else {
+      // Candidates: ABSOLUTE 30-minute session from login — activity and
+      // page refreshes do not extend it (the frontend timer mirrors this).
+      const loginAt = sessionUser.loginAt || sessionUser.lastActivity;
+      if (!loginAt || Date.now() - loginAt > CANDIDATE_TIMEOUT_MS) {
+        req.session.destroy((err) => {
+          if (err) console.error("[SESSION] Destroy error:", err.message);
+        });
+        res.clearCookie("sessionId");
+        return res.status(401).json({
+          isOk: false,
+          status: 401,
+          message: "Session expired. Please log in again.",
+        });
+      }
     }
-    req.session.lastActivity = Date.now();
 
     // Admin IP whitelist
     if (isAdminRole) {

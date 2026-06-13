@@ -111,9 +111,10 @@ export const loginCandidate = async (req, res) => {
       role: "CANDIDATE",
       registration_id: candidate.registration_id,
       name: candidate.name,
-      lastActivity: Date.now(),
+      loginAt: Date.now(),
     };
 
+    // Absolute 30-minute session from login — fixed expiry
     req.session.cookie.maxAge = INACTIVITY_MS;
 
     return res.status(200).json({
@@ -208,7 +209,17 @@ export const getMyProfile = async (req, res) => {
       return res
         .status(404)
         .json({ isOk: false, status: 404, message: "Not found" });
-    return res.status(200).json({ isOk: true, status: 200, data: candidate });
+    // Absolute session expiry (login time + 30 min) — the frontend timer
+    // seeds its countdown from this, so refreshes/activity never reset it.
+    const loginAt = req.session?.user?.loginAt;
+    return res.status(200).json({
+      isOk: true,
+      status: 200,
+      data: candidate,
+      session_expires_at: loginAt
+        ? new Date(loginAt + INACTIVITY_MS).toISOString()
+        : null,
+    });
   } catch (error) {
     return res
       .status(500)
@@ -395,12 +406,16 @@ export const searchCandidates = async (req, res) => {
       });
     }
     pipeline.push({ $match: matchCond });
+    // Project only what the admin candidate list renders
     pipeline.push({
       $project: {
-        password: 0,
-        aadhaar_hash: 0,
-        login_attempts: 0,
-        lockout_until: 0,
+        registration_id: 1,
+        name: 1,
+        mobile: 1,
+        email: 1,
+        category: 1,
+        otr_status: 1,
+        createdAt: 1,
       },
     });
     pipeline.push({

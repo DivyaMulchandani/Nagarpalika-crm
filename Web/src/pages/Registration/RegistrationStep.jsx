@@ -1,6 +1,7 @@
 import { useState, useRef, useEffect } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import StepIndicator from "./StepIndicator";
+import { IconPdf, IconCheckCircle } from "../../components/Icons";
 import { get, post } from "../../api/index";
 import { transliterateToGujarati } from "../../utils/gujaratiTransliterate";
 
@@ -75,6 +76,17 @@ export default function RegistrationStep() {
 
   const set = (field) => (e) =>
     setData((p) => ({ ...p, [field]: e.target.value }));
+  // Keyboard restrictions: digits-only / letters-only setters
+  const setDigits = (field, len) => (e) =>
+    setData((p) => ({
+      ...p,
+      [field]: e.target.value.replace(/\D/g, "").slice(0, len),
+    }));
+  const setName = (field) => (e) =>
+    setData((p) => ({
+      ...p,
+      [field]: e.target.value.replace(/[^A-Za-z\s.']/g, "").slice(0, 100),
+    }));
   const go = (n) => navigate(`/registration/apply/step/${n}`);
   const back = (n) => go(n);
 
@@ -257,9 +269,10 @@ export default function RegistrationStep() {
                 <label>Aadhaar Number *</label>
                 <input
                   type="text"
+                  inputMode="numeric"
                   maxLength={12}
                   value={data.aadhaar || ""}
-                  onChange={set("aadhaar")}
+                  onChange={setDigits("aadhaar", 12)}
                   placeholder="12-digit Aadhaar"
                 />
                 <FieldError msg={errors.aadhaar} />
@@ -268,9 +281,10 @@ export default function RegistrationStep() {
                 <label>Mobile Number *</label>
                 <input
                   type="tel"
+                  inputMode="numeric"
                   maxLength={10}
                   value={data.mobile || ""}
-                  onChange={set("mobile")}
+                  onChange={setDigits("mobile", 10)}
                   placeholder="10-digit mobile"
                 />
                 <FieldError msg={errors.mobile} />
@@ -323,9 +337,10 @@ export default function RegistrationStep() {
                     <label>OTP (sent to {data.mobile}) *</label>
                     <input
                       type="text"
+                      inputMode="numeric"
                       maxLength={6}
                       value={otp}
-                      onChange={(e) => setOtp(e.target.value)}
+                      onChange={(e) => setOtp(e.target.value.replace(/\D/g, "").slice(0, 6))}
                       placeholder="6-digit OTP"
                     />
                   </div>
@@ -382,7 +397,8 @@ export default function RegistrationStep() {
                 <input
                   type="text"
                   value={data.name_en || ""}
-                  onChange={set("name_en")}
+                  onChange={setName("name_en")}
+                  maxLength={100}
                 />
                 <FieldError msg={errors.name_en} />
               </div>
@@ -391,7 +407,8 @@ export default function RegistrationStep() {
                 <input
                   type="text"
                   value={data.father_husband_name || ""}
-                  onChange={set("father_husband_name")}
+                  onChange={setName("father_husband_name")}
+                  maxLength={100}
                 />
                 <FieldError msg={errors.father_husband_name} />
               </div>
@@ -402,7 +419,9 @@ export default function RegistrationStep() {
                   value={data.dob || ""}
                   onChange={set("dob")}
                   min={`${new Date().getFullYear() - 100}-01-01`}
-                  max={`${new Date().getFullYear() + 100}-12-31`}
+                  max={new Date(Date.now() - 18 * 365.25 * 86400 * 1000)
+                    .toISOString()
+                    .slice(0, 10)}
                 />
                 <FieldError msg={errors.dob} />
               </div>
@@ -460,7 +479,7 @@ export default function RegistrationStep() {
                             color: "var(--ojas-ink-3)",
                           }}
                         >
-                          📄 {data.casteCertFile?.name}
+                          <IconPdf /> {data.casteCertFile?.name}
                           <a
                             href={data.casteCertPreview}
                             target="_blank"
@@ -633,7 +652,7 @@ export default function RegistrationStep() {
                       e.permanent_address = "Required";
                     if (!data.same_address && !data.current_address?.trim())
                       e.current_address = "Required";
-                    if (!data.email?.includes("@"))
+                    if (!/^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/.test(data.email || ""))
                       e.email = "Valid email required";
                     if (Object.keys(e).length) {
                       setErrors(e);
@@ -755,7 +774,7 @@ export default function RegistrationStep() {
                             color: "var(--ojas-ink-3)",
                           }}
                         >
-                          📄 {data.udidCertFile?.name}
+                          <IconPdf /> {data.udidCertFile?.name}
                           <a
                             href={data.udidCertPreview}
                             target="_blank"
@@ -1167,7 +1186,7 @@ export default function RegistrationStep() {
                   className="title"
                   style={{ color: "#2a7a2a", fontSize: 18 }}
                 >
-                  ✓ Registration Submitted
+                  <IconCheckCircle /> Registration Submitted
                 </div>
                 <p style={{ marginTop: 8, fontSize: 13.5 }}>
                   Your Registration ID has been sent to your registered{" "}

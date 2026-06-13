@@ -22,14 +22,23 @@ const checkOtpRate = (target) => {
 
 const generateOtp = () => crypto.randomInt(100000, 999999).toString();
 
+const CANDIDATE_SESSION_MS = 30 * 60 * 1000; // keep in sync with authMiddleware
+const MOBILE_RE = /^[6-9]\d{9}$/;
+const OTP_RE = /^\d{6}$/;
+
+const isValidMobile = (m) => typeof m === "string" && MOBILE_RE.test(m);
+const isValidOtp = (o) => typeof o === "string" && OTP_RE.test(o);
+
 // Send OTP to candidate mobile (pre-registration — verified by phone number)
 export const sendCandidateOtp = async (req, res) => {
   try {
     const { mobile } = req.body;
-    if (!mobile)
-      return res
-        .status(422)
-        .json({ isOk: false, status: 422, message: "mobile is required" });
+    if (!isValidMobile(mobile))
+      return res.status(422).json({
+        isOk: false,
+        status: 422,
+        message: "A valid 10-digit mobile number is required",
+      });
 
     if (await Candidate.findOne({ mobile }))
       return res.status(409).json({
@@ -79,11 +88,11 @@ export const sendCandidateOtp = async (req, res) => {
 export const verifyCandidateOtp = async (req, res) => {
   try {
     const { mobile, otp } = req.body;
-    if (!mobile || !otp)
+    if (!isValidMobile(mobile) || !isValidOtp(otp))
       return res.status(422).json({
         isOk: false,
         status: 422,
-        message: "mobile and otp are required",
+        message: "A valid mobile number and 6-digit OTP are required",
       });
 
     const isDevBypass =
@@ -204,10 +213,12 @@ export const sendPasswordResetOtp = async (req, res) => {
 export const sendLoginOtp = async (req, res) => {
   try {
     const { mobile } = req.body;
-    if (!mobile)
-      return res
-        .status(422)
-        .json({ isOk: false, status: 422, message: "mobile is required" });
+    if (!isValidMobile(mobile))
+      return res.status(422).json({
+        isOk: false,
+        status: 422,
+        message: "A valid 10-digit mobile number is required",
+      });
 
     // Enumeration-safe: same response regardless of whether candidate exists
     const candidate = await Candidate.findOne({ mobile }).select("_id");
@@ -257,11 +268,11 @@ export const sendLoginOtp = async (req, res) => {
 export const verifyLoginOtp = async (req, res) => {
   try {
     const { mobile, otp } = req.body;
-    if (!mobile || !otp)
+    if (!isValidMobile(mobile) || !isValidOtp(otp))
       return res.status(422).json({
         isOk: false,
         status: 422,
-        message: "mobile and otp are required",
+        message: "A valid mobile number and 6-digit OTP are required",
       });
 
     // Dev bypass: accept "000000" in non-production
@@ -331,8 +342,12 @@ export const verifyLoginOtp = async (req, res) => {
       role: "CANDIDATE",
       registration_id: candidate.registration_id,
       name: candidate.name,
-      lastActivity: Date.now(),
+      loginAt: Date.now(),
     };
+
+    // Absolute 30-minute session from login — fixed expiry, not extended
+    // by activity or refreshes. Stored in MongoDB via connect-mongo.
+    req.session.cookie.maxAge = CANDIDATE_SESSION_MS;
 
     return res.status(200).json({
       isOk: true,

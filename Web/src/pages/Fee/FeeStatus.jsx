@@ -1,9 +1,12 @@
 import { useState } from 'react'
+import { Link } from 'react-router-dom'
+import { toast } from 'react-toastify'
 import { get, post } from '../../api/index'
 
 const statusColor = { pending: 'var(--ojas-saffron-deep)', paid: '#2a7a2a', failed: 'var(--ojas-red)' }
 const fmtDate = (d) => d ? new Date(d).toLocaleString('en-IN') : '—'
 const fmtRs   = (n) => n != null ? `₹${Number(n).toLocaleString('en-IN')}` : '—'
+const REG_ID_RE = /^[A-Z0-9/-]{4,30}$/
 
 export default function FeeStatus() {
   const [regId, setRegId]     = useState('')
@@ -12,9 +15,19 @@ export default function FeeStatus() {
   const [results, setResults] = useState(null)
   const [error, setError]     = useState(null)
 
+  // Keyboard restriction: uppercase letters, digits, / and - only
+  const handleRegIdChange = (e) => {
+    setRegId(e.target.value.toUpperCase().replace(/[^A-Z0-9/-]/g, '').slice(0, 30))
+    setError(null)
+  }
+
   const handleCheck = async (e) => {
     e.preventDefault()
-    if (!regId.trim()) { setError('Please enter your Registration ID.'); return }
+    if (!REG_ID_RE.test(regId.trim())) {
+      setError('Enter a valid Registration ID (letters, digits, / and - only).')
+      toast.warn('Enter a valid Registration ID.')
+      return
+    }
     setError(null)
     setLoading(true)
     try {
@@ -22,6 +35,7 @@ export default function FeeStatus() {
       setResults(res.data || [])
     } catch (err) {
       setError(err.message || 'Could not fetch fee status.')
+      toast.error(err.message || 'Could not fetch fee status.')
     } finally {
       setLoading(false)
     }
@@ -41,7 +55,7 @@ export default function FeeStatus() {
       })
       rzp.open()
     } catch (err) {
-      alert(err.message || 'Payment initiation failed.')
+      toast.error(err.message || 'Payment initiation failed.')
     } finally {
       setPaying(null)
     }
@@ -49,6 +63,8 @@ export default function FeeStatus() {
 
   return (
     <>
+      <Link to="/" className="btn-back">← Back to Home</Link>
+
       <div className="page-heading">
         <h1>Fee Payment Status</h1>
         <span className="guj">ફી ચૂકવણી સ્થિતિ</span>
@@ -61,7 +77,7 @@ export default function FeeStatus() {
             <div className="form-row">
               <div className="form-field">
                 <label>Registration ID *</label>
-                <input type="text" placeholder="e.g. OTR2026001234" value={regId} onChange={(e) => setRegId(e.target.value)} autoComplete="off" />
+                <input type="text" placeholder="e.g. OTR2026001234" value={regId} onChange={handleRegIdChange} maxLength={30} autoComplete="off" />
               </div>
               {error && <p style={{ color: 'var(--ojas-red)', fontSize: 13, margin: '4px 0 0' }}>{error}</p>}
               <div className="form-actions">

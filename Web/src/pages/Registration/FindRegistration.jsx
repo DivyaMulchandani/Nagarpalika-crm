@@ -1,13 +1,21 @@
 import { useState } from 'react'
 import { useNavigate, useSearchParams, Link } from 'react-router-dom'
+import { toast } from 'react-toastify'
 import { post } from '../../api/index'
+import { useAuth } from '../../context/AuthContext'
+import { IconGear } from '../../components/Icons'
 
 const DEV = import.meta.env.DEV
 
+// Only allow internal redirect targets — never off-site URLs
+const safeRedirect = (raw) =>
+  raw && raw.startsWith('/') && !raw.startsWith('//') ? raw : '/application'
+
 export default function FindRegistration() {
   const navigate = useNavigate()
+  const { refresh } = useAuth()
   const [searchParams] = useSearchParams()
-  const redirectTo = searchParams.get('redirect') || '/application'
+  const redirectTo = safeRedirect(searchParams.get('redirect'))
 
   const [step, setStep]       = useState('phone')   // 'phone' | 'otp'
   const [mobile, setMobile]   = useState('')
@@ -28,8 +36,10 @@ export default function FindRegistration() {
         setOtp(res.data.dev_otp)
       }
       setStep('otp')
+      toast.info('OTP sent to your mobile number.')
     } catch (err) {
       setError(err.message || 'Failed to send OTP. Try again.')
+      toast.error(err.message || 'Failed to send OTP. Try again.')
     } finally {
       setLoading(false)
     }
@@ -42,9 +52,12 @@ export default function FindRegistration() {
     setLoading(true)
     try {
       await post('/api/v1/otp/candidates/login/verify', { mobile: mobile.trim(), otp: otp.trim() })
+      await refresh() // hydrate auth context so header/protected routes update
+      toast.success('Login successful.')
       navigate(redirectTo, { replace: true })
     } catch (err) {
       setError(err.message || 'Invalid OTP. Please try again.')
+      toast.error(err.message || 'Invalid OTP. Please try again.')
     } finally {
       setLoading(false)
     }
@@ -52,6 +65,8 @@ export default function FindRegistration() {
 
   return (
     <>
+      <Link to="/" className="btn-back">← Back to Home</Link>
+
       <div className="page-heading">
         <h1>Candidate Login</h1>
         <span className="guj">ઉમેદવાર લૉગિન</span>
@@ -60,7 +75,7 @@ export default function FindRegistration() {
       <div style={{ maxWidth: 460, margin: '0 auto' }}>
         {DEV && (
           <div className="notice warn" style={{ marginBottom: 12, fontSize: 12 }}>
-            <strong>⚙ DEV MODE</strong> — OTP bypass active. Use <code>000000</code> or OTP is auto-filled from server response.
+            <strong><IconGear /> DEV MODE</strong> — OTP bypass active. Use <code>000000</code> or OTP is auto-filled from server response.
           </div>
         )}
 

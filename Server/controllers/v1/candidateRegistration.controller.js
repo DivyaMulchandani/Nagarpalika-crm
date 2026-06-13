@@ -67,10 +67,65 @@ export const saveStep = async (req, res) => {
         message: "step and data are required",
       });
 
+    const stepNum = Number(step);
+    if (!Number.isInteger(stepNum) || stepNum < 1 || stepNum > 10)
+      return res.status(422).json({
+        isOk: false,
+        status: 422,
+        message: "step must be an integer between 1 and 10",
+      });
+
+    if (typeof data !== "object" || Array.isArray(data))
+      return res
+        .status(422)
+        .json({ isOk: false, status: 422, message: "data must be an object" });
+
+    if (JSON.stringify(data).length > 20000)
+      return res
+        .status(422)
+        .json({ isOk: false, status: 422, message: "data payload too large" });
+
+    // Mass-assignment protection: session data is later spread into the
+    // Candidate document, so privileged/identity fields must never be
+    // settable through this endpoint.
+    const FORBIDDEN_KEYS = new Set([
+      "_id",
+      "registration_id",
+      "aadhaar_hash",
+      "password",
+      "otr_status",
+      "edit_window_expires_at",
+      "login_attempts",
+      "lockout_until",
+      "mobile",
+      "mobile_verified",
+      "email_verified",
+      "createdAt",
+      "updatedAt",
+      "__v",
+    ]);
+    const forbidden = Object.keys(data).filter(
+      (k) => FORBIDDEN_KEYS.has(k) || k.startsWith("$") || k.includes("."),
+    );
+    if (forbidden.length)
+      return res.status(422).json({
+        isOk: false,
+        status: 422,
+        message: `Fields not allowed: ${forbidden.join(", ")}`,
+      });
+
+    // Sanitize string values (strip HTML angle brackets, cap length)
+    const sanitized = Object.fromEntries(
+      Object.entries(data).map(([k, v]) => [
+        k,
+        typeof v === "string" ? v.replace(/[<>]/g, "").slice(0, 2000) : v,
+      ]),
+    );
+
     req.session.candidateStep = {
       ...req.session.candidateStep,
-      step,
-      data: { ...req.session.candidateStep.data, ...data },
+      step: stepNum,
+      data: { ...req.session.candidateStep.data, ...sanitized },
     };
 
     return res
@@ -216,21 +271,17 @@ export const submitRegistration = async (req, res) => {
 export const uploadCasteCert = async (req, res) => {
   try {
     if (!req.session.candidateStep)
-      return res
-        .status(400)
-        .json({
-          isOk: false,
-          status: 400,
-          message: "No registration in progress",
-        });
+      return res.status(400).json({
+        isOk: false,
+        status: 400,
+        message: "No registration in progress",
+      });
     if (!req.file)
-      return res
-        .status(422)
-        .json({
-          isOk: false,
-          status: 422,
-          message: "Caste certificate file required",
-        });
+      return res.status(422).json({
+        isOk: false,
+        status: 422,
+        message: "Caste certificate file required",
+      });
 
     req.session.candidateStep.data.caste_cert_path = req.file.path;
     return res
@@ -246,21 +297,17 @@ export const uploadCasteCert = async (req, res) => {
 export const uploadUdidCert = async (req, res) => {
   try {
     if (!req.session.candidateStep)
-      return res
-        .status(400)
-        .json({
-          isOk: false,
-          status: 400,
-          message: "No registration in progress",
-        });
+      return res.status(400).json({
+        isOk: false,
+        status: 400,
+        message: "No registration in progress",
+      });
     if (!req.file)
-      return res
-        .status(422)
-        .json({
-          isOk: false,
-          status: 422,
-          message: "UDID certificate file required",
-        });
+      return res.status(422).json({
+        isOk: false,
+        status: 422,
+        message: "UDID certificate file required",
+      });
 
     req.session.candidateStep.data.udid_cert_path = req.file.path;
     return res

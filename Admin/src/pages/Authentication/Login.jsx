@@ -222,7 +222,7 @@ const vyAuthStyles = `
 
 const Login = () => {
     const { fetchMenus } = useContext(MenuContext);
-    const { setAdminData } = useContext(AuthContext);
+    const { setAdminData, setRole } = useContext(AuthContext);
     const navigate = useNavigate();
     const [values, setValues] = useState(initialState);
     const [formErrors, setFormErrors] = useState({});
@@ -314,6 +314,10 @@ const Login = () => {
             });
             if (res.data?.isOk) {
                 localStorage.setItem("role", res.data.role);
+                // Update context state too — AuthProtected reads role from
+                // context, so without this the dashboard redirects straight
+                // back to login (the "login twice" bug).
+                setRole(res.data.role);
                 setAdminData({ ...res.data.data });
                 fetchMenus();
                 navigate("/dashboard");

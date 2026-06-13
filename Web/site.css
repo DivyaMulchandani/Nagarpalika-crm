@@ -106,7 +106,39 @@ a:visited { color: var(--fg-link-visited); }
   background: #fff !important;
   color: var(--ojas-saffron) !important;
   text-decoration: none !important;
-}/* ===== MARQUEE ===== */
+}
+.nav-user { display: inline-flex; align-items: center; gap: 8px; }
+.nav-logout {
+  background: transparent;
+  border: none;
+  color: #fff;
+  font: 700 11px/1 var(--font-sans);
+  text-transform: uppercase;
+  letter-spacing: .04em;
+  cursor: pointer;
+  text-decoration: underline;
+  padding: 2px 0;
+}
+.nav-logout:hover { color: var(--ojas-navy); }
+
+/* Font size controls (A− / A / A+) */
+.font-controls { display: inline-flex; gap: 2px; }
+.font-controls button {
+  background: transparent;
+  border: 1px solid var(--ojas-saffron-soft);
+  color: var(--ojas-saffron-soft);
+  font: 700 11px/1 var(--font-sans);
+  padding: 3px 7px;
+  cursor: pointer;
+  border-radius: 2px;
+}
+.font-controls button:hover:not(:disabled) {
+  background: var(--ojas-saffron-soft);
+  color: var(--ojas-navy);
+}
+.font-controls button:disabled { opacity: .4; cursor: default; }
+
+/* ===== MARQUEE ===== */
 .marquee {
   background: var(--bg-marquee);
   border-top: 1px solid var(--ojas-line);
@@ -597,6 +629,9 @@ ol.ojas li { padding-left: 4px; }
 .form-field input[type="email"],
 .form-field input[type="tel"],
 .form-field input[type="password"],
+.form-field input[type="date"],
+.form-field input[type="number"],
+.form-field input[type="time"],
 .form-field select,
 .form-field textarea {
   font: 400 13px/1.4 var(--font-ui);
@@ -606,6 +641,21 @@ ol.ojas li { padding-left: 4px; }
   color: var(--ojas-ink-1);
   border-radius: 0;
   width: 100%;
+}
+/* Native date picker — consistent height, visible calendar control */
+.form-field input[type="date"] {
+  appearance: none;
+  -webkit-appearance: none;
+  min-height: 33px;
+  cursor: pointer;
+}
+.form-field input[type="date"]::-webkit-calendar-picker-indicator {
+  cursor: pointer;
+  padding: 2px;
+  opacity: 0.75;
+}
+.form-field input[type="date"]::-webkit-calendar-picker-indicator:hover {
+  opacity: 1;
 }
 .form-field input:focus,
 .form-field select:focus,
@@ -907,4 +957,89 @@ table.ojas { min-width: 540px; }
   .step-dot { width: 22px; height: 22px; font-size: 10px; }
   .step-connector { min-width: 4px; }
   .step-indicator { justify-content: flex-start; margin-bottom: 16px; }
+}
+
+/* ===== BACK BUTTON ===== */
+.btn-back {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  background: var(--ojas-cream);
+  border: 1px solid var(--ojas-line);
+  color: var(--ojas-navy);
+  font: 700 12px/1 var(--font-ui);
+  padding: 7px 14px;
+  cursor: pointer;
+  border-radius: 2px;
+  text-decoration: none;
+  margin-bottom: 12px;
+}
+.btn-back:hover { background: var(--ojas-saffron-soft); }
+
+/* ===== REGIONAL OFFICES (Contact) — prevent content overflow ===== */
+.regional-table { table-layout: fixed; width: 100%; min-width: 0 !important; }
+.regional-table th:last-child,
+.regional-table td:last-child { width: 34%; white-space: normal; }
+.regional-table td {
+  word-break: break-word;
+  overflow-wrap: anywhere;
+  vertical-align: top;
+}
+
+/* ===== SESSION TIMER ===== */
+.session-timer {
+  position: fixed;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  z-index: 90;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  background: var(--ojas-navy);
+  color: #fff;
+  font: 600 12px/1 var(--font-ui);
+  padding: 8px 12px;
+  border-top: 2px solid var(--ojas-saffron);
+}
+.session-timer strong { font-feature-settings: "tnum" 1; }
+.session-timer.warning {
+  background: var(--ojas-red);
+  border-top-color: #fff;
+}
+
+/* ===== PRINT ===== */
+@media print {
+  /* Chrome/Edge honour body zoom in print — reset the A+/A- scale */
+  body { zoom: 1 !important; background: #fff; }
+
+  /* Hide everything that is not the document being printed */
+  .tricolor,
+  .brand-bar,
+  .nav-row,
+  .marquee,
+  .vmarquee,
+  .footer,
+  .Toastify,
+  .no-print {
+    display: none !important;
+  }
+
+  main.container {
+    max-width: 100%;
+    padding: 0;
+    margin: 0;
+  }
+
+  .print-area {
+    max-width: 100% !important;
+    margin: 0 !important;
+    box-shadow: none !important;
+  }
+  .print-area .box-title { background: #fff !important; color: #000 !important; border-bottom: 2px solid #000; }
+  .box { border: 1px solid #000; break-inside: avoid; }
+  table.ojas { min-width: 0 !important; }
+  table.ojas th, table.ojas td { border-color: #999 !important; }
+  a { text-decoration: none; color: inherit; }
 }

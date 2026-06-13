@@ -2,8 +2,11 @@ import { useState, useEffect } from 'react'
 import { Link } from 'react-router-dom'
 import { useLang } from '../context/LangContext'
 import { get } from '../api/index'
+import { IconPdf, IconSearch } from '../components/Icons'
 
 const fmtDate = (d) => d ? new Date(d).toLocaleDateString('en-IN', { day: '2-digit', month: '2-digit', year: 'numeric' }) : '—'
+// vacancies is a single number; legacy records may still hold {total, ...}
+const vacCount = (v) => (typeof v === 'object' ? v?.total : v)
 const isClosingSoon = (d) => { if (!d) return false; const diff = new Date(d) - Date.now(); return diff > 0 && diff < 7 * 86400 * 1000 }
 
 export default function Careers() {
@@ -75,17 +78,17 @@ export default function Careers() {
                       {j.note && <div style={{ fontSize: 11, color: 'var(--ojas-red)', marginTop: 4, fontStyle: 'italic' }}>Note: {j.note}</div>}
                     </td>
                     <td style={{ fontWeight: 700 }}>{j.class}</td>
-                    <td style={{ textAlign: 'center', fontWeight: 700, color: 'var(--ojas-navy)' }}>{j.vacancies?.total ?? '—'}</td>
+                    <td style={{ textAlign: 'center', fontWeight: 700, color: 'var(--ojas-navy)' }}>{vacCount(j.vacancies) ?? '—'}</td>
                     <td>{j.application_fee ? `₹${j.application_fee}` : 'Free'}</td>
                     <td style={{ color: closing ? 'var(--ojas-red)' : 'inherit', fontWeight: closing ? 700 : 400 }}>{fmtDate(j.end_date)}</td>
                     <td><span className={`badge ${j.status === 'Closed' ? 'closed' : closing ? 'urgent' : 'active'}`}>{j.status === 'Closed' ? 'Closed' : closing ? 'Closing Soon' : 'Active'}</span></td>
                     <td style={{ textAlign: 'center' }}>
                       {j.pdf_path && (
-                        <a href={`${import.meta.env.VITE_API_URL}/api/v1/advertisements/${j._id}/pdf`} target="_blank" rel="noreferrer" download style={{ color: 'var(--ojas-red)', fontWeight: 700, fontSize: 13 }} title="Download PDF">📄</a>
+                        <a href={`${import.meta.env.VITE_API_URL}/api/v1/advertisements/${j._id}/pdf`} target="_blank" rel="noreferrer" download style={{ color: 'var(--ojas-red)', fontWeight: 700, fontSize: 13 }} title="Download PDF"><IconPdf style={{ fontSize: 16 }} /></a>
                       )}
                     </td>
                     <td style={{ textAlign: 'center' }}>
-                      <Link to={`/advertisement/${j.slug || j._id}`} style={{ color: 'var(--ojas-navy)', fontWeight: 700, fontSize: 13 }} title="View Details">🔍</Link>
+                      <Link to={`/advertisement/${j.slug || j._id}`} style={{ color: 'var(--ojas-navy)', fontWeight: 700, fontSize: 13 }} title="View Details"><IconSearch style={{ fontSize: 16 }} /></Link>
                     </td>
                     <td>
                       {j.status !== 'Closed' && <Link to={`/apply/${j.slug || j._id}`} style={{ color: 'var(--ojas-saffron-deep)', fontWeight: 700 }}>{t('car.apply')}</Link>}

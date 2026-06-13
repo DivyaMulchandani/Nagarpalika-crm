@@ -27,14 +27,11 @@ const AdvertisementSchema = new mongoose.Schema(
       required: true,
     },
     pay_scale: { type: String, trim: true },
-    vacancies: {
-      total: { type: Number, default: 0 },
-      general: { type: Number, default: 0 },
-      obc: { type: Number, default: 0 },
-      sc: { type: Number, default: 0 },
-      st: { type: Number, default: 0 },
-      ews: { type: Number, default: 0 },
-    },
+    // Single total — category bifurcation (SC/ST/OBC/...) was removed.
+    // Mixed (not Number) so legacy documents holding the old {total, general,
+    // ...} object still load; normalizeVacancies() in the controller converts
+    // any incoming value to a plain number.
+    vacancies: { type: mongoose.Schema.Types.Mixed, default: 0 },
     age_limit: {
       min: { type: Number },
       max: { type: Number },
@@ -95,15 +92,6 @@ AdvertisementSchema.pre("save", async function (next) {
       ? this.advt_no.replace(/\//g, "-").toLowerCase()
       : String(Date.now());
     this.slug = `${base}-${seq}`;
-  }
-  if (this.vacancies) {
-    const v = this.vacancies;
-    this.vacancies.total =
-      (Number(v.general) || 0) +
-      (Number(v.obc) || 0) +
-      (Number(v.sc) || 0) +
-      (Number(v.st) || 0) +
-      (Number(v.ews) || 0);
   }
   next();
 });

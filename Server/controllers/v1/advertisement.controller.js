@@ -43,7 +43,7 @@ export const createAdvertisement = async (req, res) => {
       department,
       class: cls,
       pay_scale,
-      vacancies,
+      vacancies: normalizeVacancies(vacancies) ?? 0,
       age_limit,
       qualification,
       ph_description,
@@ -73,30 +73,75 @@ export const createAdvertisement = async (req, res) => {
   }
 };
 
+// Fields safe to expose to the public (no audit/internal/export data)
+const PUBLIC_ADVT_PROJECTION =
+  "advt_no slug post_title department class pay_scale vacancies age_limit " +
+  "qualification ph_description experience_required application_fee " +
+  "start_date end_date probation_period other_conditions note status pdf_path";
+
+const VALID_STATUSES = ["Draft", "Published", "Closed", "Archived"];
+
+// Vacancies is a single number now; accept legacy {total, ...} objects too.
+const normalizeVacancies = (v) => {
+  if (v === undefined || v === null) return undefined;
+  if (typeof v === "object") return Number(v.total) || 0;
+  const n = Number(v);
+  return Number.isFinite(n) && n >= 0 ? Math.floor(n) : 0;
+};
+const vacancyCount = (v) =>
+  typeof v === "object" ? Number(v?.total) || 0 : Number(v) || 0;
+
+// An advertisement ending on a date is open through that whole day —
+// the deadline is midnight at the END of end_date's day (local time).
+const startOfToday = () => {
+  const d = new Date();
+  d.setHours(0, 0, 0, 0);
+  return d;
+};
+
 export const listAdvertisements = async (req, res) => {
   try {
     const isAuthenticated = !!req.session?.user;
     const filter = {};
 
-    // Default to Published for unauthenticated callers
-    filter.status =
-      req.query.status || (isAuthenticated ? undefined : "Published");
-    if (!filter.status) delete filter.status;
+    if (isAuthenticated) {
+      if (req.query.status && VALID_STATUSES.includes(req.query.status))
+        filter.status = req.query.status;
+    } else {
+      // Public callers only ever see Published, non-expired advertisements —
+      // regardless of what they pass in the query string.
+      filter.status = "Published";
+      // end_date is inclusive: an ad ending today is open until midnight
+      filter.$or = [
+        { end_date: null },
+        { end_date: { $exists: false } },
+        { end_date: { $gte: startOfToday() } },
+      ];
+    }
 
-    if (req.query.class) filter.class = req.query.class;
-    if (req.query.dept) filter.department = req.query.dept;
+    if (req.query.class && /^(I|II|III|IV)$/.test(req.query.class))
+      filter.class = req.query.class;
+    if (req.query.dept && mongoose.Types.ObjectId.isValid(req.query.dept))
+      filter.department = req.query.dept;
 
     const limit = Math.min(parseInt(req.query.limit) || 20, 100);
     const page = Math.max(parseInt(req.query.page) || 1, 1);
     const skip = (page - 1) * limit;
 
+    const query = Advertisement.find(filter)
+      .populate("department", "departmentName departmentCode")
+      .sort({ end_date: 1 })
+      .skip(skip)
+      .limit(limit)
+      .select(
+        isAuthenticated
+          ? `${PUBLIC_ADVT_PROJECTION} createdAt updatedAt`
+          : PUBLIC_ADVT_PROJECTION,
+      );
+
     const [total, data] = await Promise.all([
       Advertisement.countDocuments(filter),
-      Advertisement.find(filter)
-        .populate("department", "departmentName departmentCode")
-        .sort({ end_date: 1 })
-        .skip(skip)
-        .limit(limit),
+      query,
     ]);
 
     return res.status(200).json({
@@ -143,13 +188,21 @@ export const getAdvertisementPdf = async (req, res) => {
 export const getAdvertisementById = async (req, res) => {
   try {
     const { id } = req.params;
+    const isAuthenticated = !!req.session?.user;
     const query = mongoose.Types.ObjectId.isValid(id)
       ? { _id: id }
       : { slug: id };
-    const adv = await Advertisement.findOne(query).populate(
+    // Public callers never see Drafts, and only the public projection
+    if (!isAuthenticated)
+      query.status = { $in: ["Published", "Closed", "Archived"] };
+
+    let find = Advertisement.findOne(query).populate(
       "department",
       "departmentName departmentCode",
     );
+    if (!isAuthenticated) find = find.select(PUBLIC_ADVT_PROJECTION);
+
+    const adv = await find;
     if (!adv)
       return res
         .status(404)
@@ -195,7 +248,11 @@ export const patchAdvertisement = async (req, res) => {
       "note",
     ];
     for (const key of ALLOWED) {
-      if (req.body[key] !== undefined) adv[key] = req.body[key];
+      if (req.body[key] !== undefined)
+        adv[key] =
+          key === "vacancies"
+            ? normalizeVacancies(req.body[key])
+            : req.body[key];
     }
     adv.markModified("vacancies");
     adv.updatedBy = req.user.id;
@@ -270,6 +327,21 @@ export const searchAdvertisements = async (req, res) => {
     pipeline.push({
       $sort: { [sorton || "createdAt"]: sortdir === "asc" ? 1 : -1 },
     });
+    // Project only what the admin list table renders
+    pipeline.push({
+      $project: {
+        advt_no: 1,
+        "post_title.en": 1,
+        "post_title.gu": 1,
+        "department._id": 1,
+        "department.departmentName": 1,
+        class: 1,
+        status: 1,
+        end_date: 1,
+        application_fee: 1,
+        createdAt: 1,
+      },
+    });
     pipeline.push({
       $facet: {
         stage1: [{ $group: { _id: null, count: { $sum: 1 } } }],
@@ -331,7 +403,7 @@ export const patchAdvertisementStatus = async (req, res) => {
       if (!adv.qualification?.trim()) missing.push("qualification");
       if (!adv.start_date) missing.push("start_date");
       if (!adv.end_date) missing.push("end_date");
-      if (!(adv.vacancies?.total > 0)) missing.push("vacancies.total");
+      if (!(vacancyCount(adv.vacancies) > 0)) missing.push("vacancies");
       if (missing.length)
         return res.status(422).json({
           isOk: false,

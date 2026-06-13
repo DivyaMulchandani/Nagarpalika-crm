@@ -42,6 +42,22 @@ const verifyToken = (token) => {
 const tokenHash = (token) =>
   crypto.createHash("sha256").update(token).digest("hex");
 
+// ── Strict input validation (these endpoints are public) ─────────────────────
+const REG_ID_RE = /^[A-Za-z0-9/-]{4,30}$/;
+const ADVT_NO_RE = /^[A-Z]{2,6}\/\d{4}\/\d{1,8}$/;
+
+const isValidRegId = (v) => typeof v === "string" && REG_ID_RE.test(v);
+const isValidAdvtNo = (v) => typeof v === "string" && ADVT_NO_RE.test(v);
+const isValidDob = (v) => {
+  if (typeof v !== "string") return false;
+  const d = new Date(v);
+  return (
+    !Number.isNaN(d.getTime()) &&
+    d.getFullYear() >= 1940 &&
+    d.getTime() <= Date.now()
+  );
+};
+
 // ── Public ────────────────────────────────────────────────────────────────────
 
 export const checkEligibility = async (req, res) => {
@@ -53,11 +69,15 @@ export const checkEligibility = async (req, res) => {
 
   try {
     const { registration_id, dob, advt_no } = req.body;
-    if (!registration_id || !dob || !advt_no)
+    if (
+      !isValidRegId(registration_id) ||
+      !isValidDob(dob) ||
+      !isValidAdvtNo(advt_no)
+    )
       return respond(422, {
         isOk: false,
         status: 422,
-        message: "registration_id, dob, and advt_no are required",
+        message: "Valid registration_id, dob, and advt_no are required",
       });
 
     // Validate registration_id + DOB together (enumeration prevention)
@@ -214,11 +234,11 @@ export const listCallLetters = async (req, res) => {
 
   try {
     const { registration_id, dob } = req.body;
-    if (!registration_id || !dob)
+    if (!isValidRegId(registration_id) || !isValidDob(dob))
       return respond(422, {
         isOk: false,
         status: 422,
-        message: "registration_id and dob are required",
+        message: "Valid registration_id and dob are required",
       });
 
     const candidate = await Candidate.findOne({
@@ -292,13 +312,11 @@ export const getCallLetterSettings = async (req, res) => {
         registration_id: { $ne: "__settings__" },
       }),
     ]);
-    return res
-      .status(200)
-      .json({
-        isOk: true,
-        status: 200,
-        data: { settings: settings || null, rollNumberCount },
-      });
+    return res.status(200).json({
+      isOk: true,
+      status: 200,
+      data: { settings: settings || null, rollNumberCount },
+    });
   } catch (error) {
     return res
       .status(500)

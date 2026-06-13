@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react'
 import { useParams, useNavigate, Link } from 'react-router-dom'
 import { get } from '../api/index'
+import { IconPdf, IconWarn } from '../components/Icons'
 
 const fmtDate = (d) =>
   d ? new Date(d).toLocaleDateString('en-IN', { day: '2-digit', month: '2-digit', year: 'numeric' }) : '—'
@@ -11,13 +12,8 @@ const isClosingSoon = (d) => {
   return diff > 0 && diff < 7 * 86400 * 1000
 }
 
-const VACANCY_CATS = [
-  { key: 'general', label: 'General (UR)' },
-  { key: 'obc',     label: 'OBC' },
-  { key: 'sc',      label: 'SC' },
-  { key: 'st',      label: 'ST' },
-  { key: 'ews',     label: 'EWS' },
-]
+// vacancies is a single number; legacy records may still hold {total, ...}
+const vacCount = (v) => (typeof v === 'object' ? v?.total : v)
 
 function InfoRow({ label, value, highlight }) {
   if (!value && value !== 0) return null
@@ -68,7 +64,6 @@ export default function AdvertisementDetail() {
 
   const closing  = isClosingSoon(advt.end_date)
   const isClosed = advt.status === 'Closed' || advt.status === 'Archived'
-  const hasVacBreakdown = VACANCY_CATS.some(c => advt.vacancies?.[c.key] > 0)
 
   const badgeStyle = {
     display: 'inline-block',
@@ -144,7 +139,7 @@ export default function AdvertisementDetail() {
               <InfoRow label="Department" value={advt.department?.departmentName} />
               <InfoRow label="Class" value={`Class ${advt.class}`} />
               <InfoRow label="Pay Scale" value={advt.pay_scale} />
-              <InfoRow label="Total Vacancies" value={advt.vacancies?.total} />
+              <InfoRow label="Total Vacancies" value={vacCount(advt.vacancies)} />
               <InfoRow label="Age Limit" value={
                 advt.age_limit?.min || advt.age_limit?.max
                   ? `${advt.age_limit.min ?? '—'} – ${advt.age_limit.max ?? '—'} years`
@@ -157,43 +152,13 @@ export default function AdvertisementDetail() {
               <InfoRow label="Last Date to Apply" value={fmtDate(advt.end_date)} highlight={closing} />
               <InfoRow label="Probation Period" value={advt.probation_period} />
               <InfoRow label="Status" value={
-                isClosed ? 'Closed' : closing ? '⚠ Closing Soon' : 'Active'
+                isClosed ? 'Closed' : closing ? <><IconWarn /> Closing Soon</> : 'Active'
               } highlight={closing} />
             </tbody>
           </table>
         </div>
 
-        {/* ── Vacancies Breakdown ── */}
         <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
-          {hasVacBreakdown && (
-            <div className="box">
-              <div className="box-title">
-                <span>Vacancies Breakdown</span>
-                <span className="guj">ખાલી જગ્યાઓ</span>
-              </div>
-              <table className="ojas" style={{ fontSize: 13 }}>
-                <thead>
-                  <tr>
-                    <th>Category</th>
-                    <th style={{ textAlign: 'center', width: 80 }}>Posts</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {VACANCY_CATS.filter(c => advt.vacancies?.[c.key] > 0).map(c => (
-                    <tr key={c.key}>
-                      <td>{c.label}</td>
-                      <td style={{ textAlign: 'center', fontWeight: 700 }}>{advt.vacancies[c.key]}</td>
-                    </tr>
-                  ))}
-                  <tr style={{ background: 'var(--ojas-bg-2)', fontWeight: 700 }}>
-                    <td>Total</td>
-                    <td style={{ textAlign: 'center', fontWeight: 700, color: 'var(--ojas-navy)' }}>{advt.vacancies?.total ?? 0}</td>
-                  </tr>
-                </tbody>
-              </table>
-            </div>
-          )}
-
           {/* ── Important Dates card ── */}
           <div className="box">
             <div className="box-title">
@@ -208,7 +173,7 @@ export default function AdvertisementDetail() {
             </table>
             {closing && (
               <div style={{ padding: '8px 12px', background: '#fff3cd', borderTop: '1px solid #ffc107', fontSize: 12.5, color: '#856404', fontWeight: 600 }}>
-                ⚠ This advertisement is closing soon. Apply before the last date.
+                <IconWarn /> This advertisement is closing soon. Apply before the last date.
               </div>
             )}
           </div>
@@ -254,7 +219,7 @@ export default function AdvertisementDetail() {
 
             {advt.note && (
               <div style={{ background: '#fff3f3', border: '1px solid #f5c6cb', borderRadius: 4, padding: '10px 14px' }}>
-                <div style={{ fontWeight: 700, fontSize: 13, color: 'var(--ojas-red)', marginBottom: 4 }}>⚠ Important Note</div>
+                <div style={{ fontWeight: 700, fontSize: 13, color: 'var(--ojas-red)', marginBottom: 4 }}><IconWarn /> Important Note</div>
                 <p style={{ margin: 0, fontSize: 13.5, lineHeight: 1.7, color: 'var(--ojas-red)', whiteSpace: 'pre-wrap' }}>{advt.note}</p>
               </div>
             )}
@@ -298,7 +263,7 @@ export default function AdvertisementDetail() {
               display: 'inline-block',
             }}
           >
-            📄 Download Official PDF
+            <IconPdf /> Download Official PDF
           </a>
         )}
         <Link
