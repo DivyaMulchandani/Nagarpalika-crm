@@ -12,6 +12,7 @@ import {
   updateAdvertisementStatus, uploadAdvertisementPdf,
 } from "../../api/advertisements.api";
 import { getAllDepartments } from "../../api/departments.api";
+import { getAllQualifications } from "../../api/qualifications.api";
 import BreadCrumb from "../../Components/Common/BreadCrumb";
 import { toast } from "react-toastify";
 import { AuthContext } from "../../context/AuthContext";
@@ -31,6 +32,8 @@ const empty = {
   start_date: "", end_date: "", application_fee: "", probation_period: "",
   age_min: "", age_max: "", qualification: "", experience_required: "",
   ph_description: "", other_conditions: "", note: "",
+  required_qualifications: [],
+  caste_certificate: { required: false, is_compulsory: false },
 };
 
 const AdvertisementForm = () => {
@@ -54,12 +57,16 @@ const AdvertisementForm = () => {
   const [pdfFile, setPdfFile] = useState(null);
   const [pdfUploading, setPdfUploading] = useState(false);
   const [statusLoading, setStatusLoading] = useState(false);
+  const [qualificationOptions, setQualificationOptions] = useState([]);
   // Status change is dropdown-driven and must be confirmed in a modal
   const [pendingStatus, setPendingStatus] = useState(null);
 
   useEffect(() => {
     getAllDepartments()
       .then((r) => setDeptOptions((r.data.data || []).map((d) => ({ value: d._id, label: d.departmentName }))))
+      .catch(() => {});
+    getAllQualifications({ isActive: true })
+      .then((r) => setQualificationOptions((r.data.data || []).map((q) => ({ value: q._id, label: q.name }))))
       .catch(() => {});
   }, []);
 
@@ -89,6 +96,11 @@ const AdvertisementForm = () => {
           ph_description:      d.ph_description      || "",
           other_conditions:    d.other_conditions    || "",
           note:                d.note                || "",
+          required_qualifications: (d.required_qualifications || []).map((rq) => ({
+            qualification: rq.qualification?._id || rq.qualification,
+            is_compulsory: rq.is_compulsory,
+          })),
+          caste_certificate: d.caste_certificate ?? { required: false, is_compulsory: false },
         });
       })
       .catch(() => toast.error("Failed to load advertisement"))
@@ -129,6 +141,8 @@ const AdvertisementForm = () => {
       ph_description:      values.ph_description      || undefined,
       other_conditions:    values.other_conditions    || undefined,
       note:                values.note                || undefined,
+      required_qualifications: values.required_qualifications,
+      caste_certificate:       values.caste_certificate,
     };
 
     setIsLoading(true);
@@ -311,8 +325,98 @@ const AdvertisementForm = () => {
                   <Row>
                     <Col md={2}><div className="mb-3"><Label>Min Age</Label><Input type="number" min={0} value={values.age_min} onChange={(e) => set("age_min", e.target.value)} disabled={isView} /></div></Col>
                     <Col md={2}><div className="mb-3"><Label>Max Age</Label><Input type="number" min={0} value={values.age_max} onChange={(e) => set("age_max", e.target.value)} disabled={isView} /></div></Col>
-                    <Col md={4}><div className="mb-3"><Label>Qualification</Label><Input value={values.qualification} onChange={(e) => set("qualification", e.target.value)} disabled={isView} /></div></Col>
+                    <Col md={4}><div className="mb-3"><Label>Qualification (Free Text)</Label><Input value={values.qualification} onChange={(e) => set("qualification", e.target.value)} disabled={isView} /></div></Col>
                     <Col md={4}><div className="mb-3"><Label>Experience Required</Label><Input value={values.experience_required} onChange={(e) => set("experience_required", e.target.value)} disabled={isView} /></div></Col>
+
+                    {/* ── Required Qualifications (multi-select with compulsory toggle) ── */}
+                    <Col md={12}>
+                      <div className="mb-3">
+                        <Label>Required Qualifications <span className="text-muted" style={{fontSize:12}}>(select one or more; toggle compulsory per item)</span></Label>
+                        <Select
+                          isMulti
+                          options={qualificationOptions}
+                          value={qualificationOptions.filter((opt) =>
+                            values.required_qualifications.some((rq) => rq.qualification === opt.value)
+                          )}
+                          onChange={(selected) => {
+                            const next = (selected || []).map((opt) => {
+                              const existing = values.required_qualifications.find((rq) => rq.qualification === opt.value);
+                              return { qualification: opt.value, is_compulsory: existing ? existing.is_compulsory : true };
+                            });
+                            set("required_qualifications", next);
+                          }}
+                          isDisabled={isView}
+                          placeholder="Select required qualifications..."
+                        />
+                        {values.required_qualifications.length > 0 && (
+                          <div className="mt-2 d-flex flex-wrap gap-2">
+                            {values.required_qualifications.map((rq) => {
+                              const opt = qualificationOptions.find((o) => o.value === rq.qualification);
+                              return (
+                                <div key={rq.qualification} className="d-flex align-items-center gap-1 border rounded px-2 py-1" style={{fontSize:13, background:"#f8f9fa"}}>
+                                  <span>{opt?.label || rq.qualification}</span>
+                                  <div className="form-check form-switch mb-0 ms-2">
+                                    <Input
+                                      type="checkbox"
+                                      className="form-check-input"
+                                      role="switch"
+                                      checked={rq.is_compulsory}
+                                      disabled={isView}
+                                      onChange={(e) => {
+                                        const next = values.required_qualifications.map((r) =>
+                                          r.qualification === rq.qualification ? { ...r, is_compulsory: e.target.checked } : r
+                                        );
+                                        set("required_qualifications", next);
+                                      }}
+                                    />
+                                    <Label className="form-check-label mb-0" style={{fontSize:11, color: rq.is_compulsory ? "#0f5132" : "#6c757d"}}>
+                                      {rq.is_compulsory ? "Compulsory" : "Optional"}
+                                    </Label>
+                                  </div>
+                                </div>
+                              );
+                            })}
+                          </div>
+                        )}
+                      </div>
+                    </Col>
+
+                    {/* ── Caste Certificate ── */}
+                    <Col md={12}>
+                      <div className="mb-3">
+                        <Label>Caste Certificate</Label>
+                        <div className="d-flex align-items-center gap-4 mt-1">
+                          <div className="form-check">
+                            <Input
+                              type="checkbox"
+                              className="form-check-input"
+                              id="caste_required"
+                              checked={values.caste_certificate.required}
+                              disabled={isView}
+                              onChange={(e) => set("caste_certificate", { required: e.target.checked, is_compulsory: e.target.checked ? values.caste_certificate.is_compulsory : false })}
+                            />
+                            <Label className="form-check-label" htmlFor="caste_required">Include caste certificate requirement</Label>
+                          </div>
+                          {values.caste_certificate.required && (
+                            <div className="form-check form-switch mb-0">
+                              <Input
+                                type="checkbox"
+                                className="form-check-input"
+                                role="switch"
+                                id="caste_compulsory"
+                                checked={values.caste_certificate.is_compulsory}
+                                disabled={isView}
+                                onChange={(e) => set("caste_certificate", { ...values.caste_certificate, is_compulsory: e.target.checked })}
+                              />
+                              <Label className="form-check-label" htmlFor="caste_compulsory" style={{color: values.caste_certificate.is_compulsory ? "#0f5132" : "#6c757d"}}>
+                                {values.caste_certificate.is_compulsory ? "Compulsory" : "Optional"}
+                              </Label>
+                            </div>
+                          )}
+                        </div>
+                      </div>
+                    </Col>
+
                     <Col md={6}><div className="mb-3"><Label>PH Description</Label><Input type="textarea" rows={2} value={values.ph_description} onChange={(e) => set("ph_description", e.target.value)} disabled={isView} /></div></Col>
                     <Col md={6}><div className="mb-3"><Label>Other Conditions</Label><Input type="textarea" rows={2} value={values.other_conditions} onChange={(e) => set("other_conditions", e.target.value)} disabled={isView} /></div></Col>
                     <Col md={12}><div className="mb-3"><Label>Note <span className="text-muted" style={{fontSize:12}}>(shown on public website)</span></Label><Input type="textarea" rows={3} value={values.note} onChange={(e) => set("note", e.target.value)} disabled={isView} placeholder="e.g. Candidates must bring original documents at the time of interview." /></div></Col>

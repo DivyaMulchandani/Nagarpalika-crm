@@ -184,6 +184,12 @@ export const ENDPOINTS = {
         BASE:   `${V1}/help/queries`,
         STATUS: (id) => `${V1}/help/queries/${id}/status`,
     },
+
+    QUALIFICATIONS: {
+        BASE:   `${V1}/qualifications`,
+        BY_ID:  (id) => `${V1}/qualifications/${id}`,
+        SEARCH: `${V1}/qualifications/search`,
+    },
 };
 
 export default ENDPOINTS;

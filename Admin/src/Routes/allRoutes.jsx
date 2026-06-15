@@ -37,6 +37,8 @@ import MenuMasterForm from "../pages/Master/MenuMasterForm";
 import EmployeeRoles from "../pages/Setup/EmployeeRoles";
 import RoleMaster from "../pages/Master/RoleMaster";
 import RoleMasterForm from "../pages/Master/RoleMasterForm";
+import Qualification from "../pages/Master/Qualification";
+import QualificationForm from "../pages/Master/QualificationForm";
 import WhatsAppMessages from "../pages/WhatsApp/WhatsAppMessages";
 import HelpQueryList from "../pages/HelpQueries/HelpQueryList";
 
@@ -96,6 +98,12 @@ const authProtectedRoutes = [
     { path: "/role-master/add",      component: <RoleMasterForm /> },
     { path: "/role-master/:id",      component: <RoleMasterForm /> },
     { path: "/role-master/:id/edit", component: <RoleMasterForm /> },
+
+    // Qualification Master
+    { path: "/qualification",          component: <Qualification /> },
+    { path: "/qualification/add",      component: <QualificationForm /> },
+    { path: "/qualification/:id",      component: <QualificationForm /> },
+    { path: "/qualification/:id/edit", component: <QualificationForm /> },
 
     // Notifications
     { path: "/whatsapp", component: <WhatsAppMessages /> },

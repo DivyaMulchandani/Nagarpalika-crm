@@ -211,6 +211,7 @@ import feePaymentsRoutes from "./routes/v1/feePayments.routes.js";
 import callLettersRoutes from "./routes/v1/callLetters.routes.js";
 import noticesRoutes from "./routes/v1/notices.routes.js";
 import helpQueryRoutes from "./routes/v1/helpQuery.routes.js";
+import qualificationsRoutes from "./routes/v1/qualifications.routes.js";
 
 // Rate limit all public API reads
 app.use("/api/v1/advertisements", publicApiLimiter);
@@ -233,6 +234,7 @@ app.use("/api/v1", feePaymentsRoutes);
 app.use("/api/v1", callLettersRoutes);
 app.use("/api/v1", noticesRoutes);
 app.use("/api/v1", helpQueryRoutes);
+app.use("/api/v1", qualificationsRoutes);
 app.use("/api/v1/otp", otpRoutes);
 app.use("/api/v1/master-data", masterDataRoutes);
 

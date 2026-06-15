@@ -102,7 +102,7 @@ export default function ApplicationEntry() {
                     <td>
                       {alreadyApplied
                         ? <span style={{ color: '#2a7a2a', fontSize: 12, fontWeight: 700 }}>Applied <IconCheck /></span>
-                        : <button className="btn primary" style={{ fontSize: 12, padding: '4px 10px' }} onClick={() => navigate('/application/apply', { state: { advt: a } })}>Apply ▶</button>
+                        : <button className="btn primary" style={{ fontSize: 12, padding: '4px 10px' }} onClick={() => navigate(`/apply/${a.slug || a._id}`)}>Apply ▶</button>
                       }
                     </td>
                   </tr>

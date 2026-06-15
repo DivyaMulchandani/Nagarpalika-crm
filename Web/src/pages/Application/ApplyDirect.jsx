@@ -1,7 +1,7 @@
 import { useState, useEffect, useCallback } from 'react'
 import { useParams, useNavigate, Link } from 'react-router-dom'
 import { toast } from 'react-toastify'
-import { get, post } from '../../api/index'
+import { get, post, BASE } from '../../api/index'
 import { useAuth } from '../../context/AuthContext'
 import { IconGear, IconWarn, IconCheck, IconCheckCircle } from '../../components/Icons'
 
@@ -145,14 +145,117 @@ function OtpLogin({ onSuccess }) {
 }
 
 // ─────────────────────────────────────────────────────────────
+// Document Upload Panel — files selected here, submitted together with the application
+// ─────────────────────────────────────────────────────────────
+function DocumentUploadPanel({ advt, formData, onSuccess, onBack }) {
+  const docs = [
+    ...(advt.required_qualifications || []).map((rq) => ({
+      label: rq.qualification?.name || String(rq.qualification),
+      is_compulsory: rq.is_compulsory,
+    })),
+    ...(advt.caste_certificate?.required
+      ? [{ label: 'Caste Certificate', is_compulsory: advt.caste_certificate.is_compulsory }]
+      : []),
+  ]
+
+  const [files, setFiles]         = useState({})
+  const [submitting, setSubmitting] = useState(false)
+  const [error, setError]         = useState(null)
+
+  const compulsoryReady = docs.filter((d) => d.is_compulsory).every((d) => !!files[d.label])
+
+  const handleSubmit = async () => {
+    setError(null)
+    setSubmitting(true)
+    try {
+      const res = await post('/api/v1/applications', { advt_no: advt.advt_no, declaration_accepted: true, additional_fields: formData || {} })
+      const ref = res?.data?.application_ref_no
+      if (!ref) throw new Error('Could not get application reference number.')
+
+      for (const { label, is_compulsory } of docs) {
+        const file = files[label]
+        if (!file) continue
+        const fd = new FormData()
+        fd.append('file', file)
+        fd.append('label', label)
+        fd.append('is_compulsory', String(is_compulsory))
+        const uploadRes = await fetch(`${BASE}/api/v1/applications/${ref}/documents`, {
+          method: 'POST', body: fd, credentials: 'include',
+        })
+        const uploadData = await uploadRes.json()
+        if (!uploadData.isOk) toast.warn(`${label}: ${uploadData.message || 'Upload failed'}`)
+      }
+
+      toast.success('Application submitted successfully.')
+      onSuccess(ref)
+    } catch (err) {
+      setError(err.message || 'Submission failed. Try again.')
+      toast.error(err.message || 'Submission failed. Try again.')
+    } finally {
+      setSubmitting(false)
+    }
+  }
+
+  return (
+    <div className="box" style={{ maxWidth: 680, margin: '0 auto' }}>
+      <div className="box-title">
+        <span>Document Submission</span>
+        <span className="guj">દસ્તાવેજ સબમિટ કરો</span>
+      </div>
+      <div className="box-body">
+        <div className="notice info" style={{ fontSize: 13, marginBottom: 16 }}>
+          Select the required documents below. They will be uploaded when you submit your application.
+          Accepted: PDF, JPG, PNG — max 5 MB each.
+        </div>
+
+        {docs.map(({ label, is_compulsory }) => (
+          <div key={label} style={{ marginBottom: 16, padding: '12px 14px', border: `1px solid ${files[label] ? '#c3e6cb' : is_compulsory ? '#f5c6cb' : 'var(--ojas-line)'}`, borderRadius: 4, background: files[label] ? '#f0fff4' : '#fff' }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 }}>
+              <span style={{ fontWeight: 600, fontSize: 13.5 }}>{label}</span>
+              <span style={{ fontSize: 11, fontWeight: 700, padding: '2px 8px', borderRadius: 3, background: is_compulsory ? '#f8d7da' : '#e2e8f0', color: is_compulsory ? '#721c24' : '#4a5568' }}>
+                {is_compulsory ? 'Compulsory' : 'Optional'}
+              </span>
+            </div>
+            <input type="file" accept=".pdf,.jpg,.jpeg,.png"
+              onChange={(e) => setFiles((p) => ({ ...p, [label]: e.target.files[0] || undefined }))}
+              style={{ fontSize: 13, width: '100%' }} />
+            {files[label] && (
+              <div style={{ color: '#2a7a2a', fontSize: 12, marginTop: 4 }}>✓ {files[label].name}</div>
+            )}
+          </div>
+        ))}
+
+        {error && (
+          <div style={{ color: 'var(--ojas-red)', fontSize: 13, marginBottom: 14, padding: '8px 12px', background: '#fff3f3', border: '1px solid #f5c6cb', borderRadius: 3 }}>
+            <IconWarn /> {error}
+          </div>
+        )}
+
+        <div className="form-actions" style={{ marginTop: 8 }}>
+          <button className="btn" onClick={onBack} disabled={submitting}>← Back</button>
+          {!compulsoryReady && (
+            <span style={{ fontSize: 12, color: 'var(--ojas-red)', alignSelf: 'center' }}>
+              <IconWarn /> Select all compulsory documents to submit.
+            </span>
+          )}
+          <button className="btn primary" disabled={!compulsoryReady || submitting} onClick={handleSubmit}>
+            {submitting ? 'Submitting…' : 'Submit Application ▶'}
+          </button>
+        </div>
+      </div>
+    </div>
+  )
+}
+
+// ─────────────────────────────────────────────────────────────
 // Application Form (shown after login)
 // ─────────────────────────────────────────────────────────────
-function ApplicationFormPanel({ advt, onSuccess, onDeadline }) {
+function ApplicationFormPanel({ advt, onSuccess, onNext, onDeadline }) {
   const [agreed, setAgreed]   = useState(false)
+  const [gender, setGender]   = useState('')
   const [loading, setLoading] = useState(false)
   const [error, setError]     = useState(null)
 
-  // Hard deadline: auto-exit the form at midnight of the last day.
   useEffect(() => {
     if (!advt?.end_date) return
     const deadline = new Date(advt.end_date)
@@ -168,11 +271,21 @@ function ApplicationFormPanel({ advt, onSuccess, onDeadline }) {
     return () => clearInterval(t)
   }, [advt, onDeadline])
 
-  const handleSubmit = async () => {
+  const hasDocs = (advt.required_qualifications?.length > 0) || !!advt.caste_certificate?.required
+
+  const handleNext = () => {
+    if (!gender) { setError('Please select your gender.'); return }
+    if (!agreed) { setError('Accept the declaration to continue.'); return }
+    setError(null)
+    onNext({ gender })
+  }
+
+  const handleSubmitDirect = async () => {
+    if (!gender) { setError('Please select your gender.'); return }
     if (!agreed) { setError('Accept the declaration to continue.'); return }
     setError(null); setLoading(true)
     try {
-      const res = await post('/api/v1/applications', { advt_no: advt.advt_no, declaration_accepted: true })
+      const res = await post('/api/v1/applications', { advt_no: advt.advt_no, declaration_accepted: true, additional_fields: { gender } })
       toast.success('Application submitted successfully.')
       onSuccess(res?.data?.application_ref_no)
     } catch (err) {
@@ -188,8 +301,6 @@ function ApplicationFormPanel({ advt, onSuccess, onDeadline }) {
         <span className="guj">ઓનલાઇન અરજી ફોર્મ</span>
       </div>
       <div className="box-body">
-
-        {/* Post summary */}
         <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 13.5, marginBottom: 16 }}>
           <tbody>
             {[
@@ -214,6 +325,43 @@ function ApplicationFormPanel({ advt, onSuccess, onDeadline }) {
           Your personal details (name, DOB, category, address, photo, signature) are taken automatically from your <strong>OTR profile</strong>. Ensure your OTR profile is complete and accurate.
         </div>
 
+        <div style={{ marginBottom: 16, padding: '12px 14px', border: '1px solid var(--ojas-line)', borderRadius: 4 }}>
+          <div style={{ fontWeight: 600, fontSize: 13.5, marginBottom: 10 }}>
+            Gender / જાતિ <span style={{ color: 'var(--ojas-red)' }}>*</span>
+          </div>
+          <div style={{ display: 'flex', gap: 28 }}>
+            {['Male', 'Female', 'Other'].map((g) => (
+              <label key={g} style={{ display: 'flex', gap: 8, alignItems: 'center', cursor: 'pointer', fontSize: 13.5 }}>
+                <input type="radio" name="gender" value={g} checked={gender === g} onChange={() => setGender(g)} />
+                {g}
+              </label>
+            ))}
+          </div>
+        </div>
+
+        {hasDocs && (
+          <div className="notice warn" style={{ fontSize: 13, marginBottom: 16 }}>
+            <div className="title">Documents required after submission</div>
+            <ul style={{ margin: '6px 0 0', paddingLeft: 20, lineHeight: 1.9 }}>
+              {(advt.required_qualifications || []).map((rq, i) => (
+                <li key={i}>
+                  {rq.qualification?.name || rq.qualification}
+                  <span style={{ marginLeft: 6, fontSize: 11, fontWeight: rq.is_compulsory ? 700 : 400, color: rq.is_compulsory ? '#721c24' : '#856404' }}>
+                    ({rq.is_compulsory ? 'Compulsory' : 'Optional'})
+                  </span>
+                </li>
+              ))}
+              {advt.caste_certificate?.required && (
+                <li>Caste Certificate
+                  <span style={{ marginLeft: 6, fontSize: 11, fontWeight: advt.caste_certificate.is_compulsory ? 700 : 400, color: advt.caste_certificate.is_compulsory ? '#721c24' : '#856404' }}>
+                    ({advt.caste_certificate.is_compulsory ? 'Compulsory' : 'Optional'})
+                  </span>
+                </li>
+              )}
+            </ul>
+          </div>
+        )}
+
         <div className="notice warn" style={{ fontSize: 13, marginBottom: 16 }}>
           <div className="title">Declaration / ઘોષણા</div>
           I hereby apply for the above post and declare that all information in my OTR profile is true and correct to the best of my knowledge. I understand that providing false information may result in cancellation of my application or appointment.
@@ -224,12 +372,7 @@ function ApplicationFormPanel({ advt, onSuccess, onDeadline }) {
         </div>
 
         <label style={{ display: 'flex', gap: 10, alignItems: 'flex-start', cursor: 'pointer', marginBottom: 20, fontSize: 13.5 }}>
-          <input
-            type="checkbox"
-            checked={agreed}
-            onChange={(e) => setAgreed(e.target.checked)}
-            style={{ marginTop: 3, flexShrink: 0 }}
-          />
+          <input type="checkbox" checked={agreed} onChange={(e) => setAgreed(e.target.checked)} style={{ marginTop: 3, flexShrink: 0 }} />
           <span>I accept the above declaration and wish to submit my application for <strong>{advt.post_title?.en}</strong>.</span>
         </label>
 
@@ -241,9 +384,15 @@ function ApplicationFormPanel({ advt, onSuccess, onDeadline }) {
 
         <div className="form-actions">
           <Link to="/careers" className="btn">← Cancel</Link>
-          <button className="btn primary" disabled={loading || !agreed} onClick={handleSubmit}>
-            {loading ? 'Submitting…' : 'Submit Application ▶'}
-          </button>
+          {hasDocs ? (
+            <button className="btn primary" disabled={!agreed} onClick={handleNext}>
+              Next: Upload Documents →
+            </button>
+          ) : (
+            <button className="btn primary" disabled={loading || !agreed} onClick={handleSubmitDirect}>
+              {loading ? 'Submitting…' : 'Submit Application ▶'}
+            </button>
+          )}
         </div>
       </div>
     </div>
@@ -327,6 +476,7 @@ export default function ApplyDirect() {
   const [advt, setAdvt]       = useState(null)
   const [myApp, setMyApp]     = useState(null)
   const [refNo, setRefNo]     = useState(null)
+  const [formData, setFormData] = useState({})
 
   const loadData = useCallback(() => {
     setScreen('loading')
@@ -361,7 +511,10 @@ export default function ApplyDirect() {
   // and re-check existing applications
   const handleLoginSuccess = () => { refresh(); loadData() }
 
-  const handleSubmitSuccess = (ref) => { setRefNo(ref); setScreen('success') }
+  const handleSubmitSuccess = (ref) => {
+    setRefNo(ref)
+    setScreen('success')
+  }
 
   // ── Screens ─────────────────────────────────────────────────
 
@@ -434,6 +587,20 @@ export default function ApplyDirect() {
     )
   }
 
+  if (screen === 'upload_docs') {
+    return (
+      <>
+        {heading}
+        <DocumentUploadPanel
+          advt={advt}
+          formData={formData}
+          onSuccess={(ref) => { setRefNo(ref); setScreen('success') }}
+          onBack={() => setScreen('form')}
+        />
+      </>
+    )
+  }
+
   if (screen === 'success') {
     return (
       <>
@@ -467,7 +634,12 @@ export default function ApplyDirect() {
       )}
 
       {screen === 'form' && (
-        <ApplicationFormPanel advt={advt} onSuccess={handleSubmitSuccess} onDeadline={() => setScreen('closed')} />
+        <ApplicationFormPanel
+          advt={advt}
+          onSuccess={handleSubmitSuccess}
+          onNext={(data) => { setFormData(data); setScreen('upload_docs') }}
+          onDeadline={() => setScreen('closed')}
+        />
       )}
     </>
   )

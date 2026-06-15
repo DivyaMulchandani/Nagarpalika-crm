@@ -35,6 +35,14 @@ const ApplicationSchema = new mongoose.Schema(
     declaration_accepted: { type: Boolean, default: false },
     experience_years: { type: Number },
     additional_fields: { type: mongoose.Schema.Types.Mixed, default: {} },
+    documents: [
+      {
+        label: { type: String, required: true },
+        file_path: { type: String, required: true },
+        is_compulsory: { type: Boolean, default: false },
+        uploaded_at: { type: Date, default: Date.now },
+      },
+    ],
 
     edit_log: [
       {
@@ -65,7 +73,7 @@ ApplicationSchema.pre("save", async function (next) {
         { $inc: { seq: 1 } },
         { upsert: true, new: true },
       );
-      this.application_ref_no = `APP/${year}/${String(counter.seq).padStart(6, "0")}`;
+      this.application_ref_no = `APP-${year}-${String(counter.seq).padStart(6, "0")}`;
     } catch (err) {
       return next(err);
     }
