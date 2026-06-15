@@ -1,9 +1,7 @@
 import React, { useContext, useEffect } from "react";
 import { Link } from "react-router-dom";
 import SimpleBar from "simplebar-react";
-import vyarisMark from "../assets/images/vyaris-mark.svg";
-import vyarisWordmark from "../assets/images/vyaris-wordmark.svg";
-
+import npLogo from "../assets/images/np-logo.png";
 //Import Components
 import VerticalLayout from "./VerticalLayouts";
 import TwoColumnLayout from "./TwoColumnLayout";
@@ -60,13 +58,21 @@ const Sidebar = ({ layoutType }) => {
                         border-bottom: 1px solid var(--vy-line-1, #D2D6CB);
                         display: flex;
                         align-items: center;
-                        justify-content: space-between;
-                        padding: 16px 20px;
-                        height: 70px;
+                        justify-content: center;
+                        padding: 12px 20px;
+                        height: 90px;
+                        position: relative;
                     }
                     .minimal-logo-box .logo img {
-                        height: 28px;
+                        height: 55px;
+                        width: auto;
                         display: block;
+                    }
+                    .minimal-logo-box .btn-vertical-sm-hover {
+                        position: absolute;
+                        right: 16px;
+                        top: 50%;
+                        transform: translateY(-50%);
                     }
 
                     .menu-title {
@@ -341,19 +347,19 @@ const Sidebar = ({ layoutType }) => {
                 <div className="navbar-brand-box minimal-logo-box">
                     <Link to="/dashboard" className="logo logo-dark">
                         <span className="logo-sm">
-                            <img src={vyarisMark} alt="Vyaris" height="28" />
+                            <img src={npLogo} alt="Nagar Palika" height="28" />
                         </span>
                         <span className="logo-lg">
-                            <img src={vyarisWordmark} alt="Vyaris" height="24" />
+                            <img src={npLogo} alt="Nagar Palika" height="24" />
                         </span>
                     </Link>
 
                     <Link to="/dashboard" className="logo logo-light">
                         <span className="logo-sm">
-                            <img src={vyarisMark} alt="Vyaris" height="28" />
+                            <img src={npLogo} alt="Nagar Palika" height="28" />
                         </span>
                         <span className="logo-lg">
-                            <img src={vyarisWordmark} alt="Vyaris" height="24" />
+                            <img src={npLogo} alt="Nagar Palika" height="24" />
                         </span>
                     </Link>
                     <button

@@ -1,4 +1,4 @@
-import React, { useState, useContext } from "react";
+import React, { useState, useContext, useMemo } from "react";
 import {
     Dropdown,
     DropdownItem,
@@ -6,7 +6,7 @@ import {
     DropdownToggle,
 } from "reactstrap";
 
-import vyarisMark from "../../assets/images/vyaris-mark.svg";
+import npLogo from "../../assets/images/np-logo.png";
 import { useNavigate } from "react-router-dom";
 import { AuthContext } from "../../context/AuthContext";
 import { logout } from "../../api/auth.api";
@@ -15,6 +15,15 @@ import { ROLES } from "../../constants/roles";
 const ProfileDropdown = () => {
     const navigate = useNavigate();
     const { adminData, setAdminData, role } = useContext(AuthContext);
+    const API_URL = import.meta.env.VITE_API_URL || "http://localhost:8000";
+
+    const profileImageUrl = useMemo(() => {
+        if (adminData?.logo) {
+            const imagePath = adminData.logo.replace(/\\/g, "/");
+            return `${API_URL}/${imagePath}`;
+        }
+        return npLogo;
+    }, [adminData?.logo, API_URL]);
 
     const handleLogout = async () => {
         setAdminData(null);
@@ -39,7 +48,7 @@ const ProfileDropdown = () => {
                     <span className="d-flex align-items-center">
                         <img
                             className="rounded-circle header-profile-user"
-                            src={vyarisMark}
+                            src={profileImageUrl}
                             alt="Header Avatar"
                             style={{ background: "var(--vy-bg-2, #EDEFE8)", padding: 4 }}
                         />
