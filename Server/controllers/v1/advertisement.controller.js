@@ -36,6 +36,8 @@ export const createAdvertisement = async (req, res) => {
       other_conditions,
       note,
       status,
+      required_qualifications,
+      caste_certificate,
     } = req.body;
 
     const adv = new Advertisement({
@@ -46,6 +48,11 @@ export const createAdvertisement = async (req, res) => {
       vacancies: normalizeVacancies(vacancies) ?? 0,
       age_limit,
       qualification,
+      required_qualifications: required_qualifications ?? [],
+      caste_certificate: caste_certificate ?? {
+        required: false,
+        is_compulsory: false,
+      },
       ph_description,
       experience_required,
       application_fee,
@@ -76,7 +83,7 @@ export const createAdvertisement = async (req, res) => {
 // Fields safe to expose to the public (no audit/internal/export data)
 const PUBLIC_ADVT_PROJECTION =
   "advt_no slug post_title department class pay_scale vacancies age_limit " +
-  "qualification ph_description experience_required application_fee " +
+  "qualification required_qualifications caste_certificate ph_description experience_required application_fee " +
   "start_date end_date probation_period other_conditions note status pdf_path";
 
 const VALID_STATUSES = ["Draft", "Published", "Closed", "Archived"];
@@ -196,10 +203,9 @@ export const getAdvertisementById = async (req, res) => {
     if (!isAuthenticated)
       query.status = { $in: ["Published", "Closed", "Archived"] };
 
-    let find = Advertisement.findOne(query).populate(
-      "department",
-      "departmentName departmentCode",
-    );
+    let find = Advertisement.findOne(query)
+      .populate("department", "departmentName departmentCode")
+      .populate("required_qualifications.qualification", "name");
     if (!isAuthenticated) find = find.select(PUBLIC_ADVT_PROJECTION);
 
     const adv = await find;
@@ -238,6 +244,8 @@ export const patchAdvertisement = async (req, res) => {
       "vacancies",
       "age_limit",
       "qualification",
+      "required_qualifications",
+      "caste_certificate",
       "ph_description",
       "experience_required",
       "application_fee",

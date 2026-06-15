@@ -37,6 +37,20 @@ const AdvertisementSchema = new mongoose.Schema(
       max: { type: Number },
     },
     qualification: { type: String, trim: true },
+    required_qualifications: [
+      {
+        qualification: {
+          type: mongoose.Schema.Types.ObjectId,
+          ref: "Qualification",
+          required: true,
+        },
+        is_compulsory: { type: Boolean, default: true },
+      },
+    ],
+    caste_certificate: {
+      required: { type: Boolean, default: false },
+      is_compulsory: { type: Boolean, default: false },
+    },
     ph_description: { type: String, trim: true },
     experience_required: { type: String, trim: true },
     application_fee: { type: Number, default: 0 },

@@ -96,6 +96,33 @@ export default function ApplicationForm() {
             Your personal details (name, DOB, category, address, photo, signature) will be taken from your OTR profile. Ensure your OTR profile is complete and up to date before applying.
           </div>
 
+          {(advt.required_qualifications?.length > 0 || advt.caste_certificate?.required) && (
+            <div className="notice warn" style={{ fontSize: 13, marginBottom: 16 }}>
+              <div className="title">Required Documents</div>
+              <p style={{ margin: '4px 0 6px' }}>You must arrange the following documents before appearing for the selection process:</p>
+              <ul style={{ margin: 0, paddingLeft: 20, lineHeight: 1.9 }}>
+                {advt.required_qualifications?.map((rq, i) => (
+                  <li key={i}>
+                    {rq.qualification?.name || rq.qualification}
+                    {rq.is_compulsory
+                      ? <span style={{ marginLeft: 6, fontSize: 11, fontWeight: 700, color: '#c0392b' }}>(Compulsory)</span>
+                      : <span style={{ marginLeft: 6, fontSize: 11, color: '#856404' }}>(Optional)</span>
+                    }
+                  </li>
+                ))}
+                {advt.caste_certificate?.required && (
+                  <li>
+                    Caste Certificate
+                    {advt.caste_certificate.is_compulsory
+                      ? <span style={{ marginLeft: 6, fontSize: 11, fontWeight: 700, color: '#c0392b' }}>(Compulsory)</span>
+                      : <span style={{ marginLeft: 6, fontSize: 11, color: '#856404' }}>(Optional)</span>
+                    }
+                  </li>
+                )}
+              </ul>
+            </div>
+          )}
+
           <div className="notice warn" style={{ fontSize: 13, marginBottom: 16 }}>
             <div className="title">Declaration / ઘોષણા</div>
             I hereby apply for the above post and declare that all information in my OTR profile is true and correct to the best of my knowledge. I understand that providing false information may result in cancellation of my application or appointment.

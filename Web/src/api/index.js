@@ -1,4 +1,4 @@
-const BASE = import.meta.env.VITE_API_URL || "";
+export const BASE = import.meta.env.VITE_API_URL || "";
 
 // Paths that may legitimately receive a 401 without meaning "session expired"
 const PUBLIC_PATH_PREFIXES = [

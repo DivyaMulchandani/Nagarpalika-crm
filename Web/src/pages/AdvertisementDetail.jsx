@@ -181,7 +181,7 @@ export default function AdvertisementDetail() {
       </div>
 
       {/* ── Qualifications & Conditions ── */}
-      {(advt.qualification || advt.experience_required || advt.ph_description || advt.other_conditions || advt.note) && (
+      {(advt.qualification || advt.required_qualifications?.length > 0 || advt.caste_certificate?.required || advt.experience_required || advt.ph_description || advt.other_conditions || advt.note) && (
         <div className="box" style={{ marginTop: 16 }}>
           <div className="box-title">
             <span>Eligibility &amp; Conditions</span>
@@ -193,6 +193,36 @@ export default function AdvertisementDetail() {
               <div>
                 <div style={{ fontWeight: 700, fontSize: 13, color: 'var(--ojas-navy)', marginBottom: 4 }}>Educational Qualification</div>
                 <p style={{ margin: 0, fontSize: 13.5, lineHeight: 1.7, whiteSpace: 'pre-wrap' }}>{advt.qualification}</p>
+              </div>
+            )}
+
+            {advt.required_qualifications?.length > 0 && (
+              <div>
+                <div style={{ fontWeight: 700, fontSize: 13, color: 'var(--ojas-navy)', marginBottom: 6 }}>Required Qualifications</div>
+                <ul style={{ margin: 0, paddingLeft: 20, fontSize: 13.5, lineHeight: 1.9 }}>
+                  {advt.required_qualifications.map((rq, i) => (
+                    <li key={i}>
+                      {rq.qualification?.name || rq.qualification}
+                      {rq.is_compulsory
+                        ? <span style={{ marginLeft: 8, fontSize: 11, fontWeight: 700, color: '#c0392b', background: '#fde8e8', padding: '1px 7px', borderRadius: 3 }}>Compulsory</span>
+                        : <span style={{ marginLeft: 8, fontSize: 11, color: '#6c757d', background: '#f0f0f0', padding: '1px 7px', borderRadius: 3 }}>Optional</span>
+                      }
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            )}
+
+            {advt.caste_certificate?.required && (
+              <div>
+                <div style={{ fontWeight: 700, fontSize: 13, color: 'var(--ojas-navy)', marginBottom: 4 }}>Caste Certificate</div>
+                <p style={{ margin: 0, fontSize: 13.5 }}>
+                  Caste certificate is required for this post.{' '}
+                  {advt.caste_certificate.is_compulsory
+                    ? <span style={{ fontWeight: 700, color: '#c0392b' }}>Submission is compulsory.</span>
+                    : <span style={{ color: '#6c757d' }}>Submission is optional.</span>
+                  }
+                </p>
               </div>
             )}
 

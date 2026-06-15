@@ -529,3 +529,45 @@ export const searchApplications = async (req, res) => {
       .json({ isOk: false, status: 500, message: error.message });
   }
 };
+
+export const uploadApplicationDocument = async (req, res) => {
+  try {
+    const registration_id = req.user.registration_id;
+    const { ref } = req.params;
+    const { label, is_compulsory } = req.body;
+
+    if (!label?.trim())
+      return res
+        .status(400)
+        .json({ isOk: false, message: "label is required" });
+    if (!req.file)
+      return res.status(422).json({ isOk: false, message: "File is required" });
+
+    const app = await Application.findOne({
+      application_ref_no: ref,
+      registration_id,
+    });
+    if (!app)
+      return res
+        .status(404)
+        .json({ isOk: false, message: "Application not found" });
+
+    // Replace existing document with same label
+    app.documents = app.documents.filter((d) => d.label !== label.trim());
+    app.documents.push({
+      label: label.trim(),
+      file_path: `uploads/application-docs/${req.file.filename}`,
+      is_compulsory: is_compulsory === "true" || is_compulsory === true,
+      uploaded_at: new Date(),
+    });
+    await app.save();
+
+    return res.status(200).json({
+      isOk: true,
+      message: "Document uploaded",
+      data: { label: label.trim() },
+    });
+  } catch (error) {
+    return res.status(500).json({ isOk: false, message: error.message });
+  }
+};

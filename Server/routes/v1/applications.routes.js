@@ -1,4 +1,8 @@
+import crypto from "crypto";
+import path from "path";
+import fs from "fs";
 import express from "express";
+import multer from "multer";
 import { authMiddleware } from "../../middlewares/authMiddleware.js";
 import {
   submitApplication,
@@ -11,7 +15,40 @@ import {
   exportApplications,
   updateApplicationStatus,
   searchApplications,
+  uploadApplicationDocument,
 } from "../../controllers/v1/application.controller.js";
+
+const UPLOADS_ROOT = path.resolve("uploads");
+
+const docStorage = multer.diskStorage({
+  destination: (_req, _file, cb) => {
+    const dir = path.join(UPLOADS_ROOT, "application-docs");
+    fs.mkdirSync(dir, { recursive: true });
+    cb(null, dir);
+  },
+  filename: (_req, _file, cb) => {
+    const ext = path.extname(_file.originalname).toLowerCase();
+    cb(null, `${Date.now()}-${crypto.randomBytes(6).toString("hex")}${ext}`);
+  },
+});
+
+const docUpload = multer({
+  storage: docStorage,
+  limits: { fileSize: 5 * 1024 * 1024 },
+  fileFilter: (_req, file, cb) => {
+    const allowed = [".pdf", ".jpg", ".jpeg", ".png"];
+    if (allowed.includes(path.extname(file.originalname).toLowerCase()))
+      cb(null, true);
+    else cb(new Error("Only PDF, JPG, and PNG files are allowed"));
+  },
+});
+
+const handleDocUpload = (req, res, next) => {
+  docUpload.single("file")(req, res, (err) => {
+    if (err) return res.status(422).json({ isOk: false, message: err.message });
+    next();
+  });
+};
 
 const router = express.Router();
 
@@ -37,6 +74,12 @@ router.patch(
   "/applications/:ref",
   authMiddleware(["CANDIDATE"]),
   editApplication,
+);
+router.post(
+  "/applications/:ref/documents",
+  authMiddleware(["CANDIDATE"]),
+  handleDocUpload,
+  uploadApplicationDocument,
 );
 
 // ── Admin ─────────────────────────────────────────────────────────────────────
