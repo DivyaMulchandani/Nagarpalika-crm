@@ -373,7 +373,7 @@ const CompanyDetails = () => {
     }
   };
 
-  document.title = `Company Details | Shree Balaji Trade-Wing`;
+  document.title = `Nagarpalika Details | ${adminData?.companyName}`;
 
   return (
     <React.Fragment>

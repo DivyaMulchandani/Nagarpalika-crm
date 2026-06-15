@@ -5,8 +5,7 @@ import { useNavigate } from "react-router-dom";
 import withRouter from "../../Components/Common/withRouter";
 import { AuthContext } from "../../context/AuthContext";
 import { MenuContext } from "../../context/MenuContext";
-import vyarisMark from "../../assets/images/vyaris-mark.svg";
-import vyarisWordmark from "../../assets/images/vyaris-wordmark.svg";
+import npLogo from "../../assets/images/np-logo.png";
 import {
     loginCompany,
     sendOtp,
@@ -32,69 +31,16 @@ const vyAuthStyles = `
     padding: 64px;
     display: flex;
     flex-direction: column;
-    justify-content: space-between;
+    justify-content: center;
+    align-items: center;
     position: relative;
     overflow: hidden;
 }
-.vy-auth__hero::after {
-    content: "";
-    position: absolute;
-    inset: auto 0 0 0;
-    height: 1px;
-    background: var(--vy-lime);
-    box-shadow: 0 0 24px -2px var(--vy-lime);
-}
-.vy-auth__brand { display: flex; align-items: center; gap: 16px; }
-.vy-auth__brand img { height: 28px; }
-.vy-auth__hero-body { max-width: 560px; }
-.vy-auth__eyebrow {
-    font-family: var(--vy-font-display);
-    font-weight: 600;
-    font-size: 12px;
-    letter-spacing: 0.18em;
-    text-transform: uppercase;
-    color: #8E918A;
-    display: inline-flex;
-    align-items: center;
-    gap: 10px;
-}
-.vy-auth__eyebrow::before {
-    content: "";
-    width: 8px; height: 8px;
-    background: var(--vy-lime);
-    display: inline-block;
-}
-.vy-auth__display {
-    font-family: var(--vy-font-display);
-    font-weight: 700;
-    font-size: 56px;
-    line-height: 1.02;
-    letter-spacing: -0.025em;
-    color: #F4F5F2;
-    margin: 24px 0 24px 0;
-}
-.vy-auth__lede {
-    font-family: var(--vy-font-body);
-    font-size: 17px;
-    line-height: 1.55;
-    color: #C9CBC5;
-    max-width: 520px;
-}
-.vy-auth__metric-row { display: flex; gap: 48px; }
-.vy-auth__metric .num {
-    font-family: var(--vy-font-display);
-    font-weight: 700;
-    font-size: 32px;
-    color: #F4F5F2;
-    font-feature-settings: "tnum" 1;
-}
-.vy-auth__metric .label {
-    font-family: var(--vy-font-display);
-    font-weight: 600;
-    font-size: 11px;
-    letter-spacing: 0.18em;
-    text-transform: uppercase;
-    color: #8E918A;
+.vy-auth__hero img {
+    max-width: 100%;
+    height: auto;
+    max-height: 60%;
+    object-fit: contain;
 }
 
 .vy-auth__form-pane {
@@ -142,8 +88,8 @@ const vyAuthStyles = `
     transition: border-color 120ms ease, box-shadow 120ms ease;
 }
 .vy-auth .form-control:focus {
-    border-color: var(--vy-lime);
-    box-shadow: 0 0 0 3px rgba(200, 255, 61, 0.25);
+    border-color: #8d337b;
+    box-shadow: 0 0 0 3px rgba(141, 51, 123, 0.25);
     outline: none;
 }
 .vy-auth .form-control.is-invalid {
@@ -153,9 +99,9 @@ const vyAuthStyles = `
 
 .vy-auth .vy-btn-primary {
     width: 100%;
-    background: var(--vy-lime);
-    color: var(--vy-ink);
-    border: 1px solid var(--vy-lime);
+    background: #8d337b;
+    color: #FFFFFF;
+    border: 1px solid #8d337b;
     border-radius: 8px;
     padding: 0.7rem 1rem;
     font-family: var(--vy-font-display);
@@ -167,14 +113,14 @@ const vyAuthStyles = `
     box-shadow: none;
 }
 .vy-auth .vy-btn-primary:hover:not(:disabled) {
-    background: var(--vy-lime-soft, #E7FF96);
-    border-color: var(--vy-lime-soft, #E7FF96);
+    background: #a84b91;
+    border-color: #a84b91;
 }
 .vy-auth .vy-btn-primary:active:not(:disabled) { transform: scale(0.98); }
 .vy-auth .vy-btn-primary:disabled { opacity: 0.6; cursor: not-allowed; }
 
 .vy-auth .vy-link {
-    color: var(--vy-lime-700, #145c2e);
+    color: #8d337b;
     text-decoration: none;
     font-weight: 600;
     font-size: 13px;
@@ -215,14 +161,14 @@ const vyAuthStyles = `
 }
 @media (max-width: 767px) {
     .vy-auth { flex-direction: column; }
-    .vy-auth__hero { display: none; }
+    .vy-auth__hero { flex: 0 0 auto; padding: 32px 24px; }
     .vy-auth__form-pane { flex: 1 1 auto; border-left: 0; padding: 32px 24px; }
 }
 `;
 
 const Login = () => {
     const { fetchMenus } = useContext(MenuContext);
-    const { setAdminData, setRole } = useContext(AuthContext);
+    const { adminData, setAdminData, setRole } = useContext(AuthContext);
     const navigate = useNavigate();
     const [values, setValues] = useState(initialState);
     const [formErrors, setFormErrors] = useState({});
@@ -328,7 +274,7 @@ const Login = () => {
             console.error("Login error:", error);
             toast.error(
                 error?.response?.data?.message ||
-                    "An error occurred during login. Please try again."
+                "An error occurred during login. Please try again."
             );
         } finally {
             setIsLoginLoading(false);
@@ -371,8 +317,8 @@ const Login = () => {
                 } else {
                     toast.error(
                         err?.response?.data?.message ||
-                            err.message ||
-                            "Failed to send OTP."
+                        err.message ||
+                        "Failed to send OTP."
                     );
                 }
             });
@@ -478,14 +424,16 @@ const Login = () => {
         setConfirmPassword("");
     };
 
-    document.title = "Sign in · Vyaris HMS";
+    document.title = `Sign in · ${adminData?.companyName || adminData?.data?.companyName || adminData?.employeeName || "Nagar Palika"}`;
+    console.log('adminData:', adminData);
+
 
     const renderLoginForm = () => (
         <Form onSubmit={login}>
             <div className="vy-auth__eyebrow">Sign in</div>
-            <h1 className="vy-auth__form-title">Sign in to your clinic</h1>
+            <h1 className="vy-auth__form-title">Sign in to Nagarpalika</h1>
             <p className="vy-auth__form-sub">
-                Enter your credentials to open your dashboard.
+                Enter your credentials to access your dashboard.
             </p>
 
             <div className="mb-3">
@@ -494,7 +442,7 @@ const Login = () => {
                     id="email"
                     name="email"
                     type="email"
-                    placeholder="you@clinic.com"
+                    placeholder="your@email.com"
                     onChange={handleChange}
                     value={values.email}
                     className={
@@ -575,7 +523,7 @@ const Login = () => {
                             <Input
                                 id="forgotPasswordEmail"
                                 type="email"
-                                placeholder="you@clinic.com"
+                                placeholder="your@email.com"
                                 value={forgotPasswordEmail}
                                 onChange={(e) => setForgotPasswordEmail(e.target.value)}
                                 disabled={isSendOtpLoading}
@@ -677,11 +625,10 @@ const Login = () => {
                             </a>
                             <a
                                 href="#"
-                                className={`vy-link ${
-                                    otpResendDisabled || isResendOtpLoading
-                                        ? "is-disabled"
-                                        : ""
-                                }`}
+                                className={`vy-link ${otpResendDisabled || isResendOtpLoading
+                                    ? "is-disabled"
+                                    : ""
+                                    }`}
                                 onClick={(e) => {
                                     e.preventDefault();
                                     if (!otpResendDisabled && !isResendOtpLoading) {
@@ -759,44 +706,14 @@ const Login = () => {
             <style>{vyAuthStyles}</style>
             <div className="vy-auth">
                 <aside className="vy-auth__hero">
-                    <div className="vy-auth__brand">
-                        <img
-                            src={vyarisWordmark}
-                            alt="Vyaris"
-                            style={{ filter: "invert(1)" }}
-                        />
-                    </div>
-                    <div className="vy-auth__hero-body">
-                        <span className="vy-auth__eyebrow">Hospital management</span>
-                        <h1 className="vy-auth__display">
-                            Run the clinic.<br />
-                            Skip the paperwork.
-                        </h1>
-                        <p className="vy-auth__lede">
-                            Appointments, patients, billing and roles in one calm
-                            mission-control surface. Built for Indian OPDs.
-                        </p>
-                    </div>
-                    <div className="vy-auth__metric-row">
-                        <div className="vy-auth__metric">
-                            <div className="num">99.9%</div>
-                            <div className="label">Uptime / 30D</div>
-                        </div>
-                        <div className="vy-auth__metric">
-                            <div className="num">12ms</div>
-                            <div className="label">Median lookup</div>
-                        </div>
-                        <div className="vy-auth__metric">
-                            <div className="num">v1.0</div>
-                            <div className="label">Release</div>
-                        </div>
-                    </div>
+                    <img
+                        src={npLogo}
+                        alt="Nagarpalika"
+                        style={{ height: "450px", width: "450px" }}
+                    />
                 </aside>
 
                 <section className="vy-auth__form-pane">
-                    <div style={{ display: "flex", justifyContent: "flex-start", marginBottom: 32 }}>
-                        <img src={vyarisMark} alt="Vyaris mark" style={{ height: 32 }} />
-                    </div>
                     {!forgotPasswordMode ? renderLoginForm() : renderForgotPasswordForm()}
                 </section>
             </div>
