@@ -18,6 +18,8 @@ import {
 } from "../../controllers/v1/candidate.controller.js";
 import {
   initRegistration,
+  verifyAadhaar,
+  verifyMobile,
   saveStep,
   uploadPhoto,
   uploadSignature,
@@ -26,6 +28,7 @@ import {
   submitRegistration,
   resumeRegistration,
 } from "../../controllers/v1/candidateRegistration.controller.js";
+import { uploadLimits } from "../../config/portal.config.js";
 
 const router = express.Router();
 
@@ -39,6 +42,8 @@ router.post(
 router.post("/candidates/auth/password/reset", resetCandidatePassword);
 
 // ── Registration (multi-step) ─────────────────────────────────────────────────
+router.post("/candidates/verify/aadhaar", verifyAadhaar);
+router.post("/candidates/verify/mobile", verifyMobile);
 router.post("/candidates/register/init", initRegistration);
 router.post("/candidates/register/step", saveStep);
 router.post(
@@ -46,7 +51,7 @@ router.post(
   createSecureImageUpload({
     fieldName: "photo",
     destination: "uploads/candidates",
-    maxSize: 2 * 1024 * 1024,
+    maxSize: uploadLimits.photoMaxBytes,
   }),
   uploadPhoto,
 );
@@ -55,7 +60,7 @@ router.post(
   createSecureImageUpload({
     fieldName: "signature",
     destination: "uploads/candidates",
-    maxSize: 2 * 1024 * 1024,
+    maxSize: uploadLimits.signatureMaxBytes,
   }),
   uploadSignature,
 );
@@ -64,6 +69,7 @@ router.post(
   createSecureUpload({
     fieldName: "caste_cert",
     destination: "uploads/candidates",
+    maxSize: uploadLimits.documentMaxBytes,
   }),
   uploadCasteCert,
 );
@@ -72,6 +78,7 @@ router.post(
   createSecureUpload({
     fieldName: "udid_cert",
     destination: "uploads/candidates",
+    maxSize: uploadLimits.documentMaxBytes,
   }),
   uploadUdidCert,
 );

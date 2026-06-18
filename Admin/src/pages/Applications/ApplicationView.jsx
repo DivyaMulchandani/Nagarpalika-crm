@@ -7,8 +7,7 @@ import { getApplicationByRef } from "../../api/applications.api";
 import BreadCrumb from "../../Components/Common/BreadCrumb";
 import { toast } from "react-toastify";
 import { AuthContext } from "../../context/AuthContext";
-
-const API_BASE = import.meta.env.VITE_API_URL || "";
+import StoredFileViewer from "../../Components/Common/StoredFileViewer";
 
 const fmtDate = (d) => d ? new Date(d).toLocaleDateString("en-IN") : "—";
 const fmtDateTime = (d) =>
@@ -83,40 +82,74 @@ const ApplicationView = () => {
       <Container fluid>
         <BreadCrumb maintitle="Recruitment" title="Application Detail" pageTitle="Applications" />
 
-        {/* ── Candidate ─────────────────────────────────────── */}
         <SectionCard title="Candidate Details">
           {!c ? (
             <div className="alert alert-warning py-2 mb-0">
               Candidate record not found for registration ID <strong>{app?.registration_id}</strong>
             </div>
           ) : (
-            <Row>
-              <Field label="Registration ID" value={c.registration_id} mono />
-              <Field label="Full Name" value={c.name} />
-              <Field label="Father / Husband Name" value={c.father_husband_name} />
-              <Field label="Date of Birth" value={fmtDate(c.dob)} />
-              <Field label="Gender" value={c.gender} />
-              <Field label="Category" value={c.category} />
-              <Field label="Marital Status" value={c.marital_status} />
-              <Field label="Nationality" value={c.nationality} />
-              <Field label="Religion" value={c.religion} />
-              <Field label="PH Type" value={c.ph_type || "N/A"} />
-              <Field label="Qualification" value={c.qualification} />
-              <Field label="Mobile" value={`${c.mobile}${c.mobile_verified ? " ✓" : ""}`} />
-              <Field label="Alternate Mobile" value={c.alternate_mobile} />
-              <Field label="Email" value={`${c.email || "—"}${c.email_verified ? " ✓" : ""}`} />
-              <Field label="Caste Cert. No." value={c.caste_cert_no} />
-              <Field label="Permanent Address" value={addrLine(c.address_permanent)} span={6} />
-              <Field
-                label="Current Address"
-                value={c.address_current?.same_as_permanent ? "Same as permanent" : addrLine(c.address_current)}
-                span={6}
-              />
-            </Row>
+            <>
+              <Row className="mb-2">
+                <StoredFileViewer label="Profile Photo" path={c.photo_path} url={c.photo_url} />
+              </Row>
+              <Row>
+                <Field label="Registration ID" value={c.registration_id} mono />
+                <Field label="Full Name" value={c.name} />
+                <Field label="Father / Husband Name" value={c.father_husband_name} />
+                <Field label="Date of Birth" value={fmtDate(c.dob)} />
+                <Field label="Gender" value={c.gender} />
+                <Field label="Category" value={c.category} />
+                <Field label="Marital Status" value={c.marital_status} />
+                <Field label="Nationality" value={c.nationality} />
+                <Field label="Religion" value={c.religion} />
+                <Field label="PH Type" value={c.ph_type || "N/A"} />
+                <Field label="Qualification" value={c.qualification} />
+                <Field label="Mobile" value={`${c.mobile}${c.mobile_verified ? " ✓" : ""}`} />
+                <Field label="Alternate Mobile" value={c.alternate_mobile} />
+                <Field label="Email" value={`${c.email || "—"}${c.email_verified ? " ✓" : ""}`} />
+                <Field label="Caste Cert. No." value={c.caste_cert_no} />
+                <Field label="Permanent Address" value={addrLine(c.address_permanent)} span={6} />
+                {!c.address_current?.same_as_permanent && (
+                  <Field label="Current Address" value={addrLine(c.address_current)} span={6} />
+                )}
+              </Row>
+            </>
           )}
         </SectionCard>
 
-        {/* ── Application ───────────────────────────────────── */}
+        {c && (
+          <SectionCard title="Educational Details">
+            <Row>
+              <Field label="Qualification" value={c.qualification} />
+              <Field label="Mother Tongue" value={c.mother_tongue} />
+              {c.languages?.length > 0 && (
+                <Col md={12} className="mb-3">
+                  <div style={{ fontSize: 11, color: "#888", textTransform: "uppercase", letterSpacing: 0.3, marginBottom: 6 }}>Languages</div>
+                  <table className="table table-sm table-bordered mb-0" style={{ maxWidth: 480, fontSize: 13 }}>
+                    <thead className="table-light"><tr><th>Language</th><th>Read</th><th>Write</th><th>Speak</th></tr></thead>
+                    <tbody>
+                      {c.languages.map((l, i) => (
+                        <tr key={i}><td>{l.language}</td><td>{l.read ? "✓" : "—"}</td><td>{l.write ? "✓" : "—"}</td><td>{l.speak ? "✓" : "—"}</td></tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </Col>
+              )}
+            </Row>
+          </SectionCard>
+        )}
+
+        {c && (
+          <SectionCard title="OTR Documents">
+            <Row>
+              <StoredFileViewer label="Photo" path={c.photo_path} url={c.photo_url} />
+              <StoredFileViewer label="Signature" path={c.signature_path} url={c.signature_url} />
+              {c.caste_cert_path && <StoredFileViewer label="Caste Certificate" path={c.caste_cert_path} url={c.caste_cert_url} />}
+              {c.ph_status && <StoredFileViewer label="UDID Certificate" path={c.udid_cert_path} url={c.udid_cert_url} />}
+            </Row>
+          </SectionCard>
+        )}
+
         <SectionCard
           title="Application Details"
           badge={
@@ -133,14 +166,10 @@ const ApplicationView = () => {
             <Field label="Gender (Declared)" value={app?.additional_fields?.gender} />
             <Field label="Exam Centre" value={app?.exam_centre} />
             <Field label="Experience (yrs)" value={app?.experience_years != null ? String(app.experience_years) : null} />
-            <Field
-              label="Declaration Accepted"
-              value={app?.declaration_accepted ? "Yes" : "No"}
-            />
+            <Field label="Declaration Accepted" value={app?.declaration_accepted ? "Yes" : "No"} />
           </Row>
         </SectionCard>
 
-        {/* ── Advertisement ─────────────────────────────────── */}
         {advt && (
           <SectionCard title="Advertisement Details">
             <Row>
@@ -151,7 +180,6 @@ const ApplicationView = () => {
               <Field label="Application Fee" value={advt.application_fee ? `₹ ${advt.application_fee}` : "Free"} />
               <Field label="Last Date" value={fmtDate(advt.end_date)} />
             </Row>
-
             {advt.required_qualifications?.length > 0 && (
               <div className="mt-2">
                 <div style={{ fontSize: 11, color: "#888", textTransform: "uppercase", letterSpacing: 0.3, marginBottom: 6 }}>Required Qualifications</div>
@@ -165,7 +193,6 @@ const ApplicationView = () => {
                 </div>
               </div>
             )}
-
             {advt.caste_certificate?.required && (
               <div className="mt-3">
                 <div style={{ fontSize: 11, color: "#888", textTransform: "uppercase", letterSpacing: 0.3, marginBottom: 4 }}>Caste Certificate</div>
@@ -177,43 +204,24 @@ const ApplicationView = () => {
           </SectionCard>
         )}
 
-        {/* ── Documents ─────────────────────────────────────── */}
-        <SectionCard title="Submitted Documents">
+        <SectionCard title="Application Documents">
           {!app?.documents?.length ? (
-            <div className="text-muted" style={{ fontSize: 13 }}>No documents submitted.</div>
+            <div className="text-muted" style={{ fontSize: 13 }}>No application documents submitted.</div>
           ) : (
             <table className="table table-sm table-bordered mb-0" style={{ fontSize: 13 }}>
               <thead className="table-light">
-                <tr>
-                  <th>#</th>
-                  <th>Document</th>
-                  <th>Type</th>
-                  <th>Uploaded At</th>
-                  <th>File</th>
-                </tr>
+                <tr><th>#</th><th>Document</th><th>Type</th><th>Uploaded At</th><th>File</th></tr>
               </thead>
               <tbody>
                 {app.documents.map((doc, i) => (
                   <tr key={i}>
                     <td>{i + 1}</td>
                     <td>{doc.label}</td>
-                    <td>
-                      <Badge color={doc.is_compulsory ? "danger" : "secondary"} className="fw-normal">
-                        {doc.is_compulsory ? "Compulsory" : "Optional"}
-                      </Badge>
-                    </td>
+                    <td><Badge color={doc.is_compulsory ? "danger" : "secondary"} className="fw-normal">{doc.is_compulsory ? "Compulsory" : "Optional"}</Badge></td>
                     <td>{fmtDateTime(doc.uploaded_at)}</td>
                     <td>
                       {doc.file_path ? (
-                        <a
-                          href={`${API_BASE}/${doc.file_path.replace(/\\/g, "/").replace(/^.*uploads\//, "uploads/")}`}
-                          target="_blank"
-                          rel="noreferrer"
-                          className="btn btn-sm btn-outline-primary py-0 px-2"
-                          style={{ fontSize: 12 }}
-                        >
-                          View
-                        </a>
+                        <a href={doc.file_url || "#"} target="_blank" rel="noreferrer" className="btn btn-sm btn-outline-primary py-0 px-2" style={{ fontSize: 12 }}>View</a>
                       ) : "—"}
                     </td>
                   </tr>

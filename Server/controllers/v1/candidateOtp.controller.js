@@ -1,12 +1,14 @@
 import crypto from "crypto";
 import Candidate from "../../models/Candidate.js";
+import { deliverOtp } from "../../services/notification.service.js";
+import { otpSettings } from "../../config/portal.config.js";
 
 // In-memory rate limiter: target → { count, windowStart }
 const otpRateMap = new Map();
 const OTP_WINDOW_MS = 60 * 60 * 1000; // 1 hour
-const OTP_PER_WINDOW = 3;
-const OTP_EXPIRE_MS = 10 * 60 * 1000; // 10 minutes
-const MAX_VERIFY_ATTEMPTS = 3;
+const OTP_PER_WINDOW = otpSettings.perHourLimit;
+const OTP_EXPIRE_MS = otpSettings.expireMinutes * 60 * 1000;
+const MAX_VERIFY_ATTEMPTS = otpSettings.maxVerifyAttempts;
 
 const checkOtpRate = (target) => {
   const now = Date.now();
@@ -32,13 +34,29 @@ const isValidOtp = (o) => typeof o === "string" && OTP_RE.test(o);
 // Send OTP to candidate mobile (pre-registration — verified by phone number)
 export const sendCandidateOtp = async (req, res) => {
   try {
-    const { mobile } = req.body;
+    const { mobile, aadhaar } = req.body;
     if (!isValidMobile(mobile))
       return res.status(422).json({
         isOk: false,
         status: 422,
         message: "A valid 10-digit mobile number is required",
       });
+
+    const VERIFY_TTL_MS = 15 * 60 * 1000;
+    const isFresh = (at) => at && Date.now() - at < VERIFY_TTL_MS;
+    const aadhaarOk = req.session.aadhaarVerified;
+    const mobileOk = req.session.mobileFormatVerified;
+
+    if (!aadhaarOk || !isFresh(aadhaarOk.at))
+      return res.status(403).json({ isOk: false, status: 403, message: "Aadhaar verification required before OTP" });
+    if (!mobileOk || !isFresh(mobileOk.at) || mobileOk.mobile !== mobile)
+      return res.status(403).json({ isOk: false, status: 403, message: "Mobile verification required before OTP" });
+    if (aadhaar && aadhaarOk.hash) {
+      const hash = crypto.createHash("sha256").update(String(aadhaar).replace(/\s/g, "")).digest("hex");
+      if (hash !== aadhaarOk.hash)
+        return res.status(403).json({ isOk: false, status: 403, message: "Aadhaar does not match verified number" });
+    }
+
 
     if (await Candidate.findOne({ mobile }))
       return res.status(409).json({
@@ -65,11 +83,12 @@ export const sendCandidateOtp = async (req, res) => {
       attempts: 0,
     };
 
+    deliverOtp({ mobile, otp, trigger: "otp_registration" }).catch((err) =>
+      console.error("[OTP] delivery error:", err.message),
+    );
+
     const extra = {};
-    if (process.env.NODE_ENV !== "production") {
-      console.log(`[CANDIDATE OTP] mobile=${mobile} otp=${otp}`);
-      extra.dev_otp = otp;
-    }
+    if (process.env.NODE_ENV !== "production") extra.dev_otp = otp;
 
     return res.status(200).json({
       isOk: true,
@@ -187,12 +206,9 @@ export const sendPasswordResetOtp = async (req, res) => {
         attempts: 0,
       };
 
-      // TODO Phase 8: deliver otp via SMS + email
-      if (process.env.NODE_ENV !== "production") {
-        console.log(
-          `[RESET OTP] registration_id=${registration_id} — delivery pending SMS/email integration`,
-        );
-      }
+      deliverOtp({ mobile: candidate.mobile, otp, trigger: "otp_password_reset", email: candidate.email }).catch((err) =>
+        console.error("[OTP] reset delivery error:", err.message),
+      );
     }
 
     return res.status(200).json({
@@ -244,11 +260,10 @@ export const sendLoginOtp = async (req, res) => {
         attempts: 0,
       };
 
-      // TODO Phase 8: deliver via SMS
-      if (process.env.NODE_ENV !== "production") {
-        console.log(`[LOGIN OTP] mobile=${mobile} otp=${otp}`);
-        extra.dev_otp = otp; // expose in non-prod for dev ease
-      }
+      deliverOtp({ mobile, otp, trigger: "otp_login" }).catch((err) =>
+        console.error("[OTP] login delivery error:", err.message),
+      );
+      if (process.env.NODE_ENV !== "production") extra.dev_otp = otp;
     }
 
     return res.status(200).json({

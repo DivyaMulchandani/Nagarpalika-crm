@@ -5,6 +5,9 @@ const PUBLIC_PATH_PREFIXES = [
   "/api/v1/otp/",
   "/api/v1/candidates/register/",
   "/api/v1/call-letters/",
+  "/api/v1/documents/",
+  "/api/v1/config/",
+  "/api/v1/qualifications/public",
 ];
 
 async function request(path, options = {}) {

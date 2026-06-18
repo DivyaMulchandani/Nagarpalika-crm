@@ -1,20 +1,12 @@
-import path from "path";
-import fs from "fs";
+import crypto from "crypto";
 import mongoose from "mongoose";
 import Advertisement from "../../models/Advertisement.js";
-
-const UPLOADS_ROOT = path.resolve("uploads");
-
-const safePdfPath = (pdf_path) => {
-  if (!pdf_path) return null;
-  const resolved = path.resolve(UPLOADS_ROOT, pdf_path);
-  if (
-    !resolved.startsWith(UPLOADS_ROOT + path.sep) &&
-    resolved !== UPLOADS_ROOT
-  )
-    return null;
-  return resolved;
-};
+import {
+  getReadStream,
+  uploadBuffer,
+  deleteFile,
+  normalizeKey,
+} from "../../services/storage.service.js";
 
 export const createAdvertisement = async (req, res) => {
   try {
@@ -86,6 +78,9 @@ const PUBLIC_ADVT_PROJECTION =
   "qualification required_qualifications caste_certificate ph_description experience_required application_fee " +
   "start_date end_date probation_period other_conditions note status pdf_path";
 
+const LIST_ADVT_PROJECTION =
+  "advt_no slug post_title department class vacancies application_fee end_date status pdf_path note pay_scale";
+
 const VALID_STATUSES = ["Draft", "Published", "Closed", "Archived"];
 
 // Vacancies is a single number now; accept legacy {total, ...} objects too.
@@ -135,16 +130,17 @@ export const listAdvertisements = async (req, res) => {
     const page = Math.max(parseInt(req.query.page) || 1, 1);
     const skip = (page - 1) * limit;
 
+    const projection = isAuthenticated
+      ? `${LIST_ADVT_PROJECTION} createdAt updatedAt`
+      : LIST_ADVT_PROJECTION;
+
     const query = Advertisement.find(filter)
       .populate("department", "departmentName departmentCode")
       .sort({ end_date: 1 })
       .skip(skip)
       .limit(limit)
-      .select(
-        isAuthenticated
-          ? `${PUBLIC_ADVT_PROJECTION} createdAt updatedAt`
-          : PUBLIC_ADVT_PROJECTION,
-      );
+      .select(projection)
+      .lean();
 
     const [total, data] = await Promise.all([
       Advertisement.countDocuments(filter),
@@ -174,17 +170,19 @@ export const getAdvertisementPdf = async (req, res) => {
         .status(404)
         .json({ isOk: false, status: 404, message: "Not found" });
 
-    const filePath = safePdfPath(adv.pdf_path);
-    if (!filePath)
+    if (!normalizeKey(adv.pdf_path))
       return res
         .status(404)
         .json({ isOk: false, status: 404, message: "No PDF available" });
-    if (!fs.existsSync(filePath))
+
+    const stream = await getReadStream(adv.pdf_path);
+    if (!stream)
       return res
         .status(404)
         .json({ isOk: false, status: 404, message: "File not found" });
 
-    return res.sendFile(filePath);
+    res.setHeader("Content-Type", "application/pdf");
+    return stream.pipe(res);
   } catch (error) {
     return res
       .status(500)
@@ -456,12 +454,16 @@ export const uploadAdvertisementPdf = async (req, res) => {
         .status(422)
         .json({ isOk: false, status: 422, message: "PDF file required" });
 
-    if (adv.pdf_path) {
-      const oldPath = safePdfPath(adv.pdf_path);
-      if (oldPath && fs.existsSync(oldPath)) fs.unlinkSync(oldPath);
-    }
+    if (adv.pdf_path) await deleteFile(adv.pdf_path);
 
-    adv.pdf_path = path.join("advertisements", req.file.filename);
+    const filename = `${Date.now()}-${crypto.randomBytes(8).toString("hex")}.pdf`;
+    const stored = await uploadBuffer({
+      module: "advertisements",
+      buffer: req.file.buffer,
+      filename,
+      contentType: "application/pdf",
+    });
+    adv.pdf_path = stored.key;
     adv.updatedBy = req.user.id;
     await adv.save();
     return res.status(200).json({
@@ -555,12 +557,8 @@ export const downloadZipExport = async (req, res) => {
         .status(404)
         .json({ isOk: false, status: 404, message: "File not found" });
 
-    const filePath = path.resolve(UPLOADS_ROOT, ze.file_path);
-    if (!filePath.startsWith(UPLOADS_ROOT + path.sep))
-      return res
-        .status(400)
-        .json({ isOk: false, status: 400, message: "Invalid file path" });
-    if (!fs.existsSync(filePath))
+    const stream = await getReadStream(ze.file_path);
+    if (!stream)
       return res
         .status(404)
         .json({ isOk: false, status: 404, message: "File not found" });
@@ -570,7 +568,7 @@ export const downloadZipExport = async (req, res) => {
       "Content-Disposition",
       `attachment; filename="applications-${(adv.advt_no ?? String(adv._id)).replace(/\//g, "-")}.zip"`,
     );
-    return res.sendFile(filePath);
+    return stream.pipe(res);
   } catch (error) {
     return res
       .status(500)

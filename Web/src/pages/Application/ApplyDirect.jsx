@@ -7,6 +7,9 @@ import { IconGear, IconWarn, IconCheck, IconCheckCircle } from '../../components
 
 const DEV = import.meta.env.DEV
 
+const DEFAULT_DOC_LIMIT = { maxBytes: 10 * 1024 * 1024, maxLabel: '10 MB' }
+
+
 const fmtDate = (d) =>
   d ? new Date(d).toLocaleDateString('en-IN', { day: '2-digit', month: '2-digit', year: 'numeric' }) : '—'
 
@@ -161,6 +164,21 @@ function DocumentUploadPanel({ advt, formData, onSuccess, onBack }) {
   const [files, setFiles]         = useState({})
   const [submitting, setSubmitting] = useState(false)
   const [error, setError]         = useState(null)
+  const [docLimit, setDocLimit]   = useState(DEFAULT_DOC_LIMIT)
+
+  useEffect(() => {
+    get('/api/v1/config/portal')
+      .then((res) => {
+        const limits = res?.data?.uploadLimits
+        if (limits?.documentMaxBytes) {
+          setDocLimit({
+            maxBytes: limits.documentMaxBytes,
+            maxLabel: limits.documentMaxLabel || `${Math.round(limits.documentMaxBytes / (1024 * 1024))} MB`,
+          })
+        }
+      })
+      .catch(() => {})
+  }, [])
 
   const compulsoryReady = docs.filter((d) => d.is_compulsory).every((d) => !!files[d.label])
 
@@ -175,6 +193,9 @@ function DocumentUploadPanel({ advt, formData, onSuccess, onBack }) {
       for (const { label, is_compulsory } of docs) {
         const file = files[label]
         if (!file) continue
+        if (file.size > docLimit.maxBytes) {
+          throw new Error(`${label}: file must be under ${docLimit.maxLabel}`)
+        }
         const fd = new FormData()
         fd.append('file', file)
         fd.append('label', label)
@@ -205,7 +226,7 @@ function DocumentUploadPanel({ advt, formData, onSuccess, onBack }) {
       <div className="box-body">
         <div className="notice info" style={{ fontSize: 13, marginBottom: 16 }}>
           Select the required documents below. They will be uploaded when you submit your application.
-          Accepted: PDF, JPG, PNG — max 5 MB each.
+          Accepted: PDF, JPG, PNG — max {docLimit.maxLabel} each.
         </div>
 
         {docs.map(({ label, is_compulsory }) => (
@@ -217,7 +238,16 @@ function DocumentUploadPanel({ advt, formData, onSuccess, onBack }) {
               </span>
             </div>
             <input type="file" accept=".pdf,.jpg,.jpeg,.png"
-              onChange={(e) => setFiles((p) => ({ ...p, [label]: e.target.files[0] || undefined }))}
+              onChange={(e) => {
+                const file = e.target.files[0] || undefined
+                if (file && file.size > docLimit.maxBytes) {
+                  toast.warn(`${label}: file must be under ${docLimit.maxLabel}`)
+                  e.target.value = ''
+                  setFiles((p) => ({ ...p, [label]: undefined }))
+                  return
+                }
+                setFiles((p) => ({ ...p, [label]: file }))
+              }}
               style={{ fontSize: 13, width: '100%' }} />
             {files[label] && (
               <div style={{ color: '#2a7a2a', fontSize: 12, marginTop: 4 }}>✓ {files[label].name}</div>
@@ -478,31 +508,28 @@ export default function ApplyDirect() {
   const [refNo, setRefNo]     = useState(null)
   const [formData, setFormData] = useState({})
 
-  const loadData = useCallback(() => {
+  const loadData = useCallback(async () => {
     setScreen('loading')
-    Promise.all([
-      get(`/api/v1/advertisements/${id}`),
-      get('/api/v1/applications/me', undefined, { silent401: true }).catch(() => null),
-    ]).then(([advtRes, authRes]) => {
+    try {
+      const authRes = await get('/api/v1/applications/me', undefined, { silent401: true }).catch(() => null)
+      if (authRes === null) {
+        setScreen('login')
+        return
+      }
+
+      const advtRes = await get(`/api/v1/advertisements/${id}`)
       const a = advtRes?.data
       if (!a) { setScreen('not_found'); return }
       if (a.status === 'Closed' || a.status === 'Archived') { setAdvt(a); setScreen('closed'); return }
       if (a.status !== 'Published') { setAdvt(a); setScreen('closed'); return }
 
       setAdvt(a)
-
-      if (authRes === null) {
-        // 401 — not logged in
-        setScreen('login')
-        return
-      }
-
-      // Check if already applied
       const existing = (authRes?.data || []).find(ap => ap.advt_no === a.advt_no)
       if (existing) { setMyApp(existing); setScreen('already_applied'); return }
-
       setScreen('form')
-    }).catch(() => setScreen('error'))
+    } catch {
+      setScreen('error')
+    }
   }, [id])
 
   useEffect(() => { loadData() }, [loadData])

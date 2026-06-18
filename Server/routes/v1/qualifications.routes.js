@@ -7,12 +7,14 @@ import {
   getQualificationById,
   updateQualification,
   deleteQualification,
+  listPublicQualifications,
 } from "../../controllers/v1/qualification.controller.js";
 
 const router = express.Router();
 
 const adminAuth = authMiddleware(["ADMIN", "EMPLOYEE"]);
 
+router.get("/qualifications/public", listPublicQualifications);
 router.post("/qualifications/search", adminAuth, searchQualifications);
 router.get("/qualifications", adminAuth, getAllQualifications);
 router.post("/qualifications", adminAuth, createQualification);

@@ -17,7 +17,7 @@ const UserProfile = () => {
                                     <div className="d-flex">
                                         <div className="mx-3">
                                             <img
-                                                src={`/${adminData?.logo}`}
+                                                src={adminData?.logo_url || npLogo}
                                                 alt=""
                                                 className="avatar-md rounded-circle img-thumbnail"
                                             />

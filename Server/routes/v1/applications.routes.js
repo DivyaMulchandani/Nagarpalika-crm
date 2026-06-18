@@ -2,6 +2,7 @@ import crypto from "crypto";
 import path from "path";
 import fs from "fs";
 import express from "express";
+import { uploadLimits } from "../../config/portal.config.js";
 import multer from "multer";
 import { authMiddleware } from "../../middlewares/authMiddleware.js";
 import {
@@ -20,21 +21,9 @@ import {
 
 const UPLOADS_ROOT = path.resolve("uploads");
 
-const docStorage = multer.diskStorage({
-  destination: (_req, _file, cb) => {
-    const dir = path.join(UPLOADS_ROOT, "application-docs");
-    fs.mkdirSync(dir, { recursive: true });
-    cb(null, dir);
-  },
-  filename: (_req, _file, cb) => {
-    const ext = path.extname(_file.originalname).toLowerCase();
-    cb(null, `${Date.now()}-${crypto.randomBytes(6).toString("hex")}${ext}`);
-  },
-});
-
 const docUpload = multer({
-  storage: docStorage,
-  limits: { fileSize: 5 * 1024 * 1024 },
+  storage: multer.memoryStorage(),
+  limits: { fileSize: uploadLimits.documentMaxBytes },
   fileFilter: (_req, file, cb) => {
     const allowed = [".pdf", ".jpg", ".jpeg", ".png"];
     if (allowed.includes(path.extname(file.originalname).toLowerCase()))

@@ -19,9 +19,10 @@ import { getAllCountries, getStatesByCountry, getCitiesByState } from "../../api
 import { updateCompany } from "../../api/companies.api";
 
 const API_URL = import.meta.env.VITE_API_URL || ""
-const toAbsUrl = (p) => {
-  if (!p || p.startsWith("blob:") || p.startsWith("http")) return p
-  return `${API_URL}/${p.replace(/\\/g, "/")}`
+const toAbsUrl = (path, url) => {
+  if (url) return url
+  if (!path || path.startsWith("blob:") || path.startsWith("http")) return path
+  return null
 }
 
 const CompanyDetails = () => {
@@ -159,14 +160,14 @@ const CompanyDetails = () => {
 
   useEffect(() => {
     if (adminData.logo) {
-      setLogoPreview(toAbsUrl(adminData.logo));
+      setLogoPreview(toAbsUrl(adminData.logo, adminData.logo_url));
       setShowFileInput(false);
     }
   }, [adminData.logo]);
 
   useEffect(() => {
     if (adminData.favicon) {
-      setFaviconPreview(toAbsUrl(adminData.favicon));
+      setFaviconPreview(toAbsUrl(adminData.favicon, adminData.favicon_url));
       setShowFaviconInput(false);
     }
   }, [adminData.favicon]);
@@ -274,7 +275,7 @@ const CompanyDetails = () => {
 
   useEffect(() => {
     if (!selectedFile && values.logo) {
-      setLogoPreview(toAbsUrl(values.logo));
+      setLogoPreview(toAbsUrl(values.logo, adminData.logo_url));
       setShowFileInput(false);
     }
   }, [values.logo, selectedFile]);

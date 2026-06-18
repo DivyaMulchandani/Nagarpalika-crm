@@ -24,18 +24,13 @@ import {
   listEmailTemplateByParams,
   listAllEmailTemplates,
 } from "../../controllers/v1/emailTemplate.controller.js";
-import fs from "fs";
 import { createSecureImageUpload } from "../../middlewares/secureUpload.js";
+import { resolveFileUrl } from "../../services/storage.service.js";
 
 const router = express.Router();
 
 // ============ SECURE FILE UPLOAD CONFIGURATION ============
 const descriptionUploadDir = "uploads/cms/email-template/signature";
-
-// Ensure upload directory exists
-if (!fs.existsSync(descriptionUploadDir)) {
-  fs.mkdirSync(descriptionUploadDir, { recursive: true });
-}
 
 /**
  * Secure upload middleware for signature images
@@ -617,7 +612,7 @@ router.post(
   "/email-templates/upload-signature",
   authMiddleware(["ADMIN", "EMPLOYEE"]),
   secureSignatureUpload,      // Secure file validation & compression
-  (req, res) => {
+  async (req, res) => {
     if (!req.file) {
       return res.status(400).json({
         isOk: false,
@@ -625,7 +620,7 @@ router.post(
       });
     }
 
-    const imageUrl = `${process.env.REACT_APP_API_URL}/uploads/cms/email-template/signature/${req.file.filename}`;
+    const imageUrl = await resolveFileUrl(req.file.path, 3600);
 
     return res.status(200).json({
       isOk: true,

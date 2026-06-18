@@ -18,6 +18,37 @@ import path from "path";
 import fs from "fs";
 import { promises as fsPromises } from "fs";
 import { fileTypeFromFile, fileTypeFromBuffer } from "file-type";
+import { uploadBuffer, moduleFromDestination } from "../services/storage.service.js";
+
+const persistValidatedUpload = async ({
+  req,
+  destination,
+  buffer,
+  originalname,
+  mimetype,
+  allowedMimes,
+}) => {
+  const validation = await validateBufferMagicBytes(buffer, allowedMimes);
+  if (!validation.valid) {
+    return { ok: false, error: validation.error || "Invalid file type" };
+  }
+
+  const secureFilename = generateSecureFilename(originalname);
+  const module = moduleFromDestination(destination);
+  const stored = await uploadBuffer({
+    module,
+    buffer,
+    filename: secureFilename,
+    contentType: mimetype || "application/octet-stream",
+  });
+
+  req.file.filename = secureFilename;
+  req.file.path = stored.key;
+  req.file.storageKey = stored.key;
+  req.file.size = buffer.length;
+  delete req.file.buffer;
+  return { ok: true, detected: validation.detected };
+};
 
 // Lazy load sharp to handle Node version compatibility
 // Sharp requires Node.js 18+ - if not available, compression is disabled
@@ -377,16 +408,20 @@ export function createSecureImageUpload(options = {}) {
                     }
                 }
 
-                // 3. Save to disk with secure filename
-                await ensureUploadDir(destination);
+                // 3. Persist via storage service (S3 or local)
                 const secureFilename = generateSecureFilename(req.file.originalname, finalExt);
-                const filePath = path.join(destination, secureFilename);
-
-                await fsPromises.writeFile(filePath, processedBuffer);
+                const module = moduleFromDestination(destination);
+                const stored = await uploadBuffer({
+                  module,
+                  buffer: processedBuffer,
+                  filename: secureFilename,
+                  contentType: "image/webp",
+                });
 
                 // 4. Update req.file with processed file info
                 req.file.filename = secureFilename;
-                req.file.path = filePath;
+                req.file.path = stored.key;
+                req.file.storageKey = stored.key;
                 req.file.size = processedBuffer.length;
                 req.file.mimetype = 'image/webp';
                 req.file.originalSize = req.file.buffer.length;
@@ -426,7 +461,7 @@ export function createSecureDocumentUpload(options = {}) {
     } = options;
 
     const upload = multer({
-        storage: createSecureStorage({ destination }),
+        storage: multer.memoryStorage(),
         fileFilter: createFileFilter(ALLOWED_MIMES.documents, ALLOWED_EXTENSIONS.documents),
         limits: { fileSize: maxSize },
     });
@@ -457,26 +492,21 @@ export function createSecureDocumentUpload(options = {}) {
             }
 
             try {
-                // Validate magic bytes
-                const validation = await validateMagicBytes(
-                    req.file.path,
-                    ALLOWED_MIMES.documents
-                );
+                const result = await persistValidatedUpload({
+                    req,
+                    destination,
+                    buffer: req.file.buffer,
+                    originalname: req.file.originalname,
+                    mimetype: req.file.mimetype,
+                    allowedMimes: ALLOWED_MIMES.documents,
+                });
 
-                if (!validation.valid) {
-                    // Delete the uploaded file
-                    try {
-                        await fsPromises.unlink(req.file.path);
-                    } catch (unlinkErr) {
-                        console.error('Failed to delete invalid file:', unlinkErr);
-                    }
-
-                    console.warn(`[SECURITY] Magic byte validation failed for document upload`);
+                if (!result.ok) {
                     return res.status(400).json({
                         isOk: false,
                         status: 400,
                         error: 'Security Validation Failed',
-                        message: validation.error || 'Invalid file type',
+                        message: result.error,
                     });
                 }
 
@@ -510,7 +540,7 @@ export function createSecureUpload(options = {}) {
     } = options;
 
     const upload = multer({
-        storage: createSecureStorage({ destination }),
+        storage: multer.memoryStorage(),
         fileFilter: createFileFilter(allowedMimes, allowedExts),
         limits: { fileSize: maxSize },
     });
@@ -541,25 +571,25 @@ export function createSecureUpload(options = {}) {
             }
 
             try {
-                // Validate magic bytes
-                const validation = await validateMagicBytes(req.file.path, allowedMimes);
+                const result = await persistValidatedUpload({
+                    req,
+                    destination,
+                    buffer: req.file.buffer,
+                    originalname: req.file.originalname,
+                    mimetype: req.file.mimetype,
+                    allowedMimes,
+                });
 
-                if (!validation.valid) {
-                    try {
-                        await fsPromises.unlink(req.file.path);
-                    } catch (unlinkErr) {
-                        console.error('Failed to delete invalid file:', unlinkErr);
-                    }
-
+                if (!result.ok) {
                     return res.status(400).json({
                         isOk: false,
                         status: 400,
                         error: 'Security Validation Failed',
-                        message: validation.error || 'Invalid file type',
+                        message: result.error,
                     });
                 }
 
-                console.log(`[UPLOAD] Secure file upload: ${req.file.filename} (${validation.detected})`);
+                console.log(`[UPLOAD] Secure file upload: ${req.file.filename} (${result.detected})`);
                 next();
             } catch (error) {
                 console.error('[UPLOAD] Validation error:', error.message);
@@ -618,8 +648,6 @@ export function createSecureMultiUpload(options = {}) {
             }
 
             try {
-                await ensureUploadDir(destination);
-
                 // Process each field's files
                 for (const field of fields) {
                     const files = req.files?.[field.name] || [];
@@ -647,14 +675,18 @@ export function createSecureMultiUpload(options = {}) {
                             finalExt = '.webp';
                         }
 
-                        // Save with secure filename
                         const secureFilename = generateSecureFilename(file.originalname, finalExt);
-                        const filePath = path.join(destination, secureFilename);
-                        await fsPromises.writeFile(filePath, processedBuffer);
+                        const module = moduleFromDestination(destination);
+                        const stored = await uploadBuffer({
+                            module,
+                            buffer: processedBuffer,
+                            filename: secureFilename,
+                            contentType: compress && sharpAvailable ? "image/webp" : file.mimetype,
+                        });
 
-                        // Update file info
                         files[i].filename = secureFilename;
-                        files[i].path = filePath;
+                        files[i].path = stored.key;
+                        files[i].storageKey = stored.key;
                         files[i].size = processedBuffer.length;
                         delete files[i].buffer;
                     }
