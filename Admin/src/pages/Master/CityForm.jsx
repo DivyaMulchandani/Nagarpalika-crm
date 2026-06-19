@@ -85,7 +85,7 @@ const CityForm = () => {
   return (
     <div className="page-content">
       <Container fluid>
-        <BreadCrumb maintitle="Master" title={title} pageTitle="City" />
+        <BreadCrumb maintitle="Master" title={title} pageTitle="City" pageTitlePath="/city" />
         <Row>
           <Col lg={6}>
             <Card>

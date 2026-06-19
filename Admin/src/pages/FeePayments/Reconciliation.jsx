@@ -27,7 +27,7 @@ const Reconciliation = () => {
   return (
     <div className="page-content">
       <Container fluid>
-        <BreadCrumb maintitle="Recruitment" title="Fee Reconciliation" pageTitle="Fee Payments" />
+        <BreadCrumb maintitle="Recruitment" title="Fee Reconciliation" pageTitle="Fee Payments" pageTitlePath="/fee-payments" />
         <Card>
           <CardHeader>
             <div className="d-flex flex-wrap gap-2 align-items-end">

@@ -228,7 +228,7 @@ const EmployeeForm = () => {
   return (
     <div className="page-content">
       <Container fluid>
-        <BreadCrumb maintitle="Setup" title={title} pageTitle="Employee" />
+        <BreadCrumb maintitle="Setup" title={title} pageTitle="Employee" pageTitlePath="/employee" />
         <Row>
           <Col lg={12}>
             <Card>

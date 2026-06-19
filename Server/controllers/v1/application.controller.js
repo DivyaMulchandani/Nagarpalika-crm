@@ -584,7 +584,7 @@ export const searchApplications = async (req, res) => {
       });
     }
     pipeline.push({ $match: matchCond });
-    pipeline.push({ $project: { ...ADMIN_APP_PROJECTION, _candidate: 0, _advt: 0 } });
+    pipeline.push({ $project: ADMIN_APP_PROJECTION });
     pipeline.push({
       $sort: { [sorton || "createdAt"]: sortdir === "asc" ? 1 : -1 },
     });

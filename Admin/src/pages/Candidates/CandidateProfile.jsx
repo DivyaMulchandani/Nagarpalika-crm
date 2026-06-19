@@ -43,7 +43,7 @@ const CandidateProfile = () => {
   return (
     <div className="page-content">
       <Container fluid>
-        <BreadCrumb maintitle="Recruitment" title="Candidate Profile" pageTitle="Candidates" />
+        <BreadCrumb maintitle="Recruitment" title="Candidate Profile" pageTitle="Candidates" pageTitlePath="/candidates" />
         <Card>
           <CardHeader className="d-flex align-items-center justify-content-between">
             <div>

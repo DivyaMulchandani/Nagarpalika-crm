@@ -153,7 +153,7 @@ const MenuMasterForm = () => {
   return (
     <div className="page-content">
       <Container fluid>
-        <BreadCrumb maintitle="Master" title={title} pageTitle="Menu Master" />
+        <BreadCrumb maintitle="Master" title={title} pageTitle="Menu Master" pageTitlePath="/menu-master" />
         <Row>
           <Col lg={8}>
             <Card>

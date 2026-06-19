@@ -206,7 +206,7 @@ const AdvertisementForm = () => {
   return (
     <div className="page-content">
       <Container fluid>
-        <BreadCrumb maintitle="Recruitment" title={title} pageTitle="Advertisements" />
+        <BreadCrumb maintitle="Recruitment" title={title} pageTitle="Advertisements" pageTitlePath="/advertisements" />
         <Card>
           <CardHeader className="d-flex align-items-center justify-content-between">
             <div className="d-flex align-items-center gap-3">

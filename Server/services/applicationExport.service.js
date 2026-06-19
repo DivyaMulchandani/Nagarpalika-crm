@@ -1,8 +1,11 @@
 import path from "path";
 import { PassThrough } from "stream";
-import archiver from "archiver";
+import { createRequire } from "module";
 import { generateApplicationPdf } from "./applicationPdf.service.js";
 import { getReadStream, normalizeKey } from "./storage.service.js";
+
+const require = createRequire(import.meta.url);
+const archiver = require("archiver");
 
 const UNSAFE_CHARS = /[<>:"/\\|?*\x00-\x1f]/g;
 

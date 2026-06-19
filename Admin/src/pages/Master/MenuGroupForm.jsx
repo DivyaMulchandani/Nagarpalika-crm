@@ -86,7 +86,7 @@ const MenuGroupForm = () => {
   return (
     <div className="page-content">
       <Container fluid>
-        <BreadCrumb maintitle="Master" title={title} pageTitle="Menu Group" />
+        <BreadCrumb maintitle="Master" title={title} pageTitle="Menu Group" pageTitlePath="/menu-group" />
         <Row>
           <Col lg={6}>
             <Card>

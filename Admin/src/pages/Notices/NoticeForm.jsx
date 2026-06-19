@@ -131,7 +131,7 @@ const NoticeForm = () => {
   return (
     <div className="page-content">
       <Container fluid>
-        <BreadCrumb maintitle="Recruitment" title={isEdit ? "Edit Notice" : "New Notice"} pageTitle="Notice Board" />
+        <BreadCrumb maintitle="Recruitment" title={isEdit ? "Edit Notice" : "New Notice"} pageTitle="Notice Board" pageTitlePath="/notices" />
 
         <Card className="mb-3">
           <CardHeader className="d-flex align-items-center justify-content-between">

@@ -93,7 +93,7 @@ const CallLetterManage = () => {
   return (
     <div className="page-content">
       <Container fluid>
-        <BreadCrumb maintitle="Recruitment" title={`Call Letters — ${decodedAdvtNo}`} pageTitle="Call Letters" />
+        <BreadCrumb maintitle="Recruitment" title={`Call Letters — ${decodedAdvtNo}`} pageTitle="Call Letters" pageTitlePath="/call-letters" />
         <Card className="mb-3">
           <CardHeader><h6 className="mb-0">1. Upload Roll Numbers (CSV)</h6></CardHeader>
           <CardBody>

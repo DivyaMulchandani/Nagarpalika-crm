@@ -77,7 +77,7 @@ const DepartmentForm = () => {
   return (
     <div className="page-content">
       <Container fluid>
-        <BreadCrumb maintitle="Setup" title={title} pageTitle="Department" />
+        <BreadCrumb maintitle="Setup" title={title} pageTitle="Department" pageTitlePath="/department" />
         <Row>
           <Col lg={6}>
             <Card>

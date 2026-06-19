@@ -80,7 +80,7 @@ const StateForm = () => {
   return (
     <div className="page-content">
       <Container fluid>
-        <BreadCrumb maintitle="Master" title={title} pageTitle="State" />
+        <BreadCrumb maintitle="Master" title={title} pageTitle="State" pageTitlePath="/state" />
         <Row>
           <Col lg={6}>
             <Card>

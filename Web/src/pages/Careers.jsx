@@ -106,7 +106,7 @@ export default function Careers() {
                       <td><span className={`badge ${j.status === 'Closed' ? 'closed' : closing ? 'urgent' : 'active'}`}>{j.status === 'Closed' ? 'Closed' : closing ? 'Closing Soon' : 'Active'}</span></td>
                       <td style={{ textAlign: 'center' }}>
                         {j.pdf_path && (
-                          <a href={`${import.meta.env.VITE_API_URL}/api/v1/advertisements/${j._id}/pdf`} target="_blank" rel="noreferrer" download style={{ color: 'var(--ojas-red)', fontWeight: 700, fontSize: 13 }} title="Download PDF"><IconPdf style={{ fontSize: 16 }} /></Link>
+                          <a href={`${import.meta.env.VITE_API_URL}/api/v1/advertisements/${j._id}/pdf`} target="_blank" rel="noreferrer" download style={{ color: 'var(--ojas-red)', fontWeight: 700, fontSize: 13 }} title="Download PDF"><IconPdf style={{ fontSize: 16 }} /></a>
                         )}
                       </td>
                       <td style={{ textAlign: 'center' }}>

@@ -4,7 +4,13 @@
       "PowerShell(Get-ChildItem -Path \"d:\\\\Vyaris\\\\nagarpalika-v2\\\\Server\" -Force | Where-Object { $_.Name -ne 'node_modules' })",
       "PowerShell(Get-ChildItem -Path \"d:\\\\Vyaris\\\\nagarpalika-v2\\\\Server\" -Recurse -Force | Where-Object { $_.FullPath -notmatch 'node_modules' } | Select-Object FullName | ConvertTo-Csv -NoTypeInformation | Select-Object -First 100)",
       "PowerShell(Get-ChildItem -Path \"d:\\\\Vyaris\\\\nagarpalika-v2\\\\Server\\\\middlewares\" -File | ForEach-Object { $_.Name })",
-      "PowerShell(Get-ChildItem -Path \"d:\\\\Vyaris\\\\nagarpalika-v2\\\\Server\\\\routes\\\\v1\" -File | ForEach-Object { $_.Name })"
+      "PowerShell(Get-ChildItem -Path \"d:\\\\Vyaris\\\\nagarpalika-v2\\\\Server\\\\routes\\\\v1\" -File | ForEach-Object { $_.Name })",
+      "Bash(timeout 10 bun --watch server.js)",
+      "Bash(sed -i 's/pageTitle=\"Call Letters\" \\\\/>/pageTitle=\"Call Letters\" pageTitlePath=\"\\\\/call-letters\" \\\\/>/g' CallLetters/CallLetterManage.jsx)",
+      "Bash(sed -i 's/pageTitle=\"Candidates\" \\\\/>/pageTitle=\"Candidates\" pageTitlePath=\"\\\\/candidates\" \\\\/>/g' Candidates/CandidateProfile.jsx)",
+      "Bash(sed -i 's/pageTitle=\"Fee Payments\" \\\\/>/pageTitle=\"Fee Payments\" pageTitlePath=\"\\\\/fee-payments\" \\\\/>/g' FeePayments/FeePaymentView.jsx)",
+      "Bash(sed -i 's/pageTitle=\"Notice Board\" \\\\/>/pageTitle=\"Notice Board\" pageTitlePath=\"\\\\/notices\" \\\\/>/g' Notices/NoticeForm.jsx)",
+      "Bash(sed -i 's/pageTitle=\"City\" \\\\/>/pageTitle=\"City\" pageTitlePath=\"\\\\/city\" \\\\/>/g' Master/CityForm.jsx)"
     ]
   }
 }
