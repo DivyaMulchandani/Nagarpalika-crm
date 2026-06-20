@@ -3,6 +3,7 @@ import path from "path";
 import Candidate from "../../models/Candidate.js";
 import Qualification from "../../models/Qualification.js";
 import { sendTemplatedEmail } from "../../services/email.service.js";
+import { resolveFileUrl } from "../../services/storage.service.js";
 
 const EDIT_WINDOW_HOURS = 72;
 
@@ -238,9 +239,10 @@ export const uploadPhoto = async (req, res) => {
         .json({ isOk: false, status: 422, message: "Photo file required" });
 
     req.session.candidateStep.data.photo_path = req.file.path;
+    const url = await resolveFileUrl(req.file.path);
     return res
       .status(200)
-      .json({ isOk: true, status: 200, message: "Photo uploaded" });
+      .json({ isOk: true, status: 200, message: "Photo uploaded", data: { url } });
   } catch (error) {
     return res
       .status(500)
@@ -262,9 +264,10 @@ export const uploadSignature = async (req, res) => {
         .json({ isOk: false, status: 422, message: "Signature file required" });
 
     req.session.candidateStep.data.signature_path = req.file.path;
+    const url = await resolveFileUrl(req.file.path);
     return res
       .status(200)
-      .json({ isOk: true, status: 200, message: "Signature uploaded" });
+      .json({ isOk: true, status: 200, message: "Signature uploaded", data: { url } });
   } catch (error) {
     return res
       .status(500)
@@ -369,9 +372,10 @@ export const uploadCasteCert = async (req, res) => {
       });
 
     req.session.candidateStep.data.caste_cert_path = req.file.path;
+    const url = await resolveFileUrl(req.file.path);
     return res
       .status(200)
-      .json({ isOk: true, status: 200, message: "Caste certificate uploaded" });
+      .json({ isOk: true, status: 200, message: "Caste certificate uploaded", data: { url } });
   } catch (error) {
     return res
       .status(500)
@@ -395,9 +399,10 @@ export const uploadUdidCert = async (req, res) => {
       });
 
     req.session.candidateStep.data.udid_cert_path = req.file.path;
+    const url = await resolveFileUrl(req.file.path);
     return res
       .status(200)
-      .json({ isOk: true, status: 200, message: "UDID certificate uploaded" });
+      .json({ isOk: true, status: 200, message: "UDID certificate uploaded", data: { url } });
   } catch (error) {
     return res
       .status(500)

@@ -5,6 +5,8 @@ import {
   uploadBuffer,
   deleteFile,
   normalizeKey,
+  attachFileUrls,
+  resolveFileUrl,
 } from "../../services/storage.service.js";
 
 export const createNotice = async (req, res) => {
@@ -71,7 +73,7 @@ export const listNotices = async (req, res) => {
       ? undefined
       : MARQUEE_NOTICE_PROJECTION;
 
-    const [total, data] = await Promise.all([
+    const [total, raw] = await Promise.all([
       Notice.countDocuments(filter),
       Notice.find(filter)
         .select(projection)
@@ -80,6 +82,8 @@ export const listNotices = async (req, res) => {
         .limit(limit)
         .lean(),
     ]);
+
+    const data = await Promise.all(raw.map((item) => attachFileUrls(item, ["pdf_path"])));
 
     return res.status(200).json({
       isOk: true,
@@ -135,7 +139,8 @@ export const getNoticeById = async (req, res) => {
       return res
         .status(404)
         .json({ isOk: false, status: 404, message: "Not found" });
-    return res.status(200).json({ isOk: true, status: 200, data: notice });
+    const data = await attachFileUrls(notice, ["pdf_path"]);
+    return res.status(200).json({ isOk: true, status: 200, data });
   } catch (error) {
     return res
       .status(500)
@@ -315,13 +320,14 @@ export const uploadNoticePdf = async (req, res) => {
     notice.pdf_path = stored.key;
     notice.updatedBy = req.user.id;
     await notice.save();
+    const pdf_url = await resolveFileUrl(notice.pdf_path);
     return res
       .status(200)
       .json({
         isOk: true,
         status: 200,
         message: "PDF uploaded",
-        data: { pdf_path: notice.pdf_path },
+        data: { pdf_path: notice.pdf_path, pdf_url },
       });
   } catch (error) {
     return res
