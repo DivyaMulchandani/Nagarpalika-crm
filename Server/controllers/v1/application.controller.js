@@ -9,6 +9,7 @@ import {
   uploadBuffer,
   attachFileUrls,
   attachDocumentListUrls,
+  resolveFileUrl,
   CANDIDATE_FILE_FIELDS,
 } from "../../services/storage.service.js";
 import {
@@ -651,10 +652,11 @@ export const uploadApplicationDocument = async (req, res) => {
     });
     await app.save();
 
+    const file_url = await resolveFileUrl(stored.key);
     return res.status(200).json({
       isOk: true,
       message: "Document uploaded",
-      data: { label: label.trim() },
+      data: { label: label.trim(), file_url },
     });
   } catch (error) {
     return res.status(500).json({ isOk: false, message: error.message });

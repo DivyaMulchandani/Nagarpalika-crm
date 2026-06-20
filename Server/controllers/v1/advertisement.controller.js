@@ -6,6 +6,8 @@ import {
   uploadBuffer,
   deleteFile,
   normalizeKey,
+  attachFileUrls,
+  resolveFileUrl,
 } from "../../services/storage.service.js";
 
 export const createAdvertisement = async (req, res) => {
@@ -142,10 +144,12 @@ export const listAdvertisements = async (req, res) => {
       .select(projection)
       .lean();
 
-    const [total, data] = await Promise.all([
+    const [total, raw] = await Promise.all([
       Advertisement.countDocuments(filter),
       query,
     ]);
+
+    const data = await Promise.all(raw.map((item) => attachFileUrls(item, ["pdf_path"])));
 
     return res.status(200).json({
       isOk: true,
@@ -211,7 +215,8 @@ export const getAdvertisementById = async (req, res) => {
       return res
         .status(404)
         .json({ isOk: false, status: 404, message: "Not found" });
-    return res.status(200).json({ isOk: true, status: 200, data: adv });
+    const data = await attachFileUrls(adv, ["pdf_path"]);
+    return res.status(200).json({ isOk: true, status: 200, data });
   } catch (error) {
     return res
       .status(500)
@@ -466,11 +471,12 @@ export const uploadAdvertisementPdf = async (req, res) => {
     adv.pdf_path = stored.key;
     adv.updatedBy = req.user.id;
     await adv.save();
+    const pdf_url = await resolveFileUrl(adv.pdf_path);
     return res.status(200).json({
       isOk: true,
       status: 200,
       message: "PDF uploaded",
-      data: { pdf_path: adv.pdf_path },
+      data: { pdf_path: adv.pdf_path, pdf_url },
     });
   } catch (error) {
     return res
