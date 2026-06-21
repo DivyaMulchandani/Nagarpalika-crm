@@ -10,12 +10,18 @@
 #   ALLOWED_ORIGINS=http://77.37.45.226
 #   PORTAL_URL=http://77.37.45.226
 #   API_URL=http://77.37.45.226/api
+#
+# nginx runs as www-data — /home/<user> dirs are usually 750, which blocks
+# traversal into Server/out/*. Either: chmod o+x on /home/dev-team-np,
+# /home/dev-team-np/project, /home/dev-team-np/project/nagarpalika-v2, and
+# Server/ (no need to open file contents, just the +x bit for traversal);
+# or symlink the out dirs under /var/www/ and point root/alias there instead.
 
 server {
     listen 80 default_server;
     server_name 77.37.45.226;
 
-    root /var/www/nagarpalika/Server/out/web;
+    root /home/dev-team-np/project/nagarpalika-v2/Server/out/web;
     index index.html;
 
     client_max_body_size 20M;
@@ -32,7 +38,7 @@ server {
 
     # ── Admin panel ── static build, SPA fallback, base path /admin/ ───────────
     location /admin/ {
-        alias /var/www/nagarpalika/Server/out/admin/;
+        alias /home/dev-team-np/project/nagarpalika-v2/Server/out/admin/;
         try_files $uri $uri/ /admin/index.html;
     }
 
