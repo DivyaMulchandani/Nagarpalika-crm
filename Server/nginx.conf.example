@@ -1,11 +1,19 @@
-# Example nginx server block for hosting Web + Admin + Server on one domain.
-# Copy to /etc/nginx/sites-available/nagarpalika, adjust domain/paths, then:
+# nginx server block for hosting Web + Admin + Server on the VPS IP (no domain yet, HTTP only).
+# Copy to /etc/nginx/sites-available/nagarpalika, adjust paths, then:
 #   ln -s /etc/nginx/sites-available/nagarpalika /etc/nginx/sites-enabled/
 #   nginx -t && systemctl reload nginx
+#
+# Once a domain is pointed at this IP, swap server_name to the domain and add
+# SSL (certbot --nginx) — remove default_server then too.
+#
+# Server/.env on the VPS needs (so CORS + redirects match this origin):
+#   ALLOWED_ORIGINS=http://77.37.45.226
+#   PORTAL_URL=http://77.37.45.226
+#   API_URL=http://77.37.45.226/api
 
 server {
-    listen 80;
-    server_name your-domain.com;
+    listen 80 default_server;
+    server_name 77.37.45.226;
 
     root /var/www/nagarpalika/Server/out/web;
     index index.html;
