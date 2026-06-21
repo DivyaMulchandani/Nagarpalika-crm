@@ -10,6 +10,7 @@
 #   ALLOWED_ORIGINS=http://77.37.45.226
 #   PORTAL_URL=http://77.37.45.226
 #   API_URL=http://77.37.45.226/api
+#   COOKIE_SECURE=false   <- HTTP only right now; flip to true once HTTPS is set up
 #
 # nginx runs as www-data — /home/<user> dirs are usually 750, which blocks
 # traversal into Server/out/*. Either: chmod o+x on /home/dev-team-np,

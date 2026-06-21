@@ -128,7 +128,9 @@ app.use(
       autoRemove: "native", // Use MongoDB TTL index for cleanup
     }),
     cookie: {
-      secure: process.env.NODE_ENV === "production", // HTTPS only in production
+      // Tied to COOKIE_SECURE, not NODE_ENV — browsers drop "secure" cookies
+      // over plain HTTP, so this must stay false until the site is on HTTPS.
+      secure: process.env.COOKIE_SECURE === "true",
       httpOnly: true, // Prevents XSS attacks
       maxAge: 24 * 60 * 60 * 1000, // 24 hours
       sameSite: "strict", // CSRF protection
