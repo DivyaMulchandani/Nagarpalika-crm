@@ -1,0 +1,35 @@
+# Example nginx server block for hosting Web + Admin + Server on one domain.
+# Copy to /etc/nginx/sites-available/nagarpalika, adjust domain/paths, then:
+#   ln -s /etc/nginx/sites-available/nagarpalika /etc/nginx/sites-enabled/
+#   nginx -t && systemctl reload nginx
+
+server {
+    listen 80;
+    server_name your-domain.com;
+
+    root /var/www/nagarpalika/Server/out/web;
+    index index.html;
+
+    client_max_body_size 20M;
+
+    # ── API ── proxy to Bun/Express via PM2 (ecosystem.js, port 7001) ──────────
+    location /api/ {
+        proxy_pass http://127.0.0.1:7001;
+        proxy_http_version 1.1;
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+    }
+
+    # ── Admin panel ── static build, SPA fallback, base path /admin/ ───────────
+    location /admin/ {
+        alias /var/www/nagarpalika/Server/out/admin/;
+        try_files $uri $uri/ /admin/index.html;
+    }
+
+    # ── Web portal ── static build, SPA fallback at root ────────────────────────
+    location / {
+        try_files $uri $uri/ /index.html;
+    }
+}

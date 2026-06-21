@@ -246,15 +246,8 @@ app.get("/api", (req, res) => {
   });
 });
 
-app.use("/", express.static(path.join(__dirname, "/out/admin")));
-
-app.get("/*", async (req, res) => {
-  if (req.path.startsWith("/api/")) {
-    return res
-      .status(404)
-      .json({ isOk: false, status: 404, message: "Not found" });
-  }
-  res.sendFile(path.join(__dirname, "/out/admin", "index.html"));
+app.use("/api/*", (req, res) => {
+  res.status(404).json({ isOk: false, status: 404, message: "Not found" });
 });
 
 // ============ ERROR HANDLING ============
