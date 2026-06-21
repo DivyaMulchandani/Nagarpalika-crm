@@ -4,7 +4,7 @@ module.exports = {
       name: 'nagarpalika-server',
       script: 'server.js',
       cwd: __dirname,
-      interpreter: 'bun',
+      interpreter: 'node',
       instances: 1,
       exec_mode: 'fork',
       autorestart: true,

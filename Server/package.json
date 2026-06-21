@@ -5,11 +5,11 @@
   "type": "module",
   "main": "server.js",
   "scripts": {
-    "dev": "bun --watch server.js",
+    "dev": "node --watch server.js",
     "build": "echo \"No build output for hms-server\"",
     "lint": "echo \"Lint currently managed outside Bun+Nx migration\"",
     "test": "jest --passWithNoTests",
-    "start": "bun server.js"
+    "start": "node server.js"
   },
   "keywords": [],
   "author": "",
