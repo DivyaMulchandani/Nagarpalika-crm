@@ -128,7 +128,9 @@ app.use(
       autoRemove: "native", // Use MongoDB TTL index for cleanup
     }),
     cookie: {
-      secure: process.env.NODE_ENV === "production", // HTTPS only in production
+      // Tied to COOKIE_SECURE, not NODE_ENV — browsers drop "secure" cookies
+      // over plain HTTP, so this must stay false until the site is on HTTPS.
+      secure: process.env.COOKIE_SECURE === "true",
       httpOnly: true, // Prevents XSS attacks
       maxAge: 24 * 60 * 60 * 1000, // 24 hours
       sameSite: "strict", // CSRF protection
@@ -179,15 +181,6 @@ mongoose.connection.on("reconnected", () => {
 app.use(morgan("dev"));
 app.use(express.static("files"));
 
-// Serve uploaded files (logos, favicons, documents) with cross-origin access
-app.use(
-  "/uploads",
-  (req, res, next) => {
-    res.setHeader("Cross-Origin-Resource-Policy", "cross-origin");
-    next();
-  },
-  express.static(path.join(__dirname, "uploads")),
-);
 
 if (process.env.NODE_ENV !== "production") setupSwagger(app);
 
@@ -212,6 +205,9 @@ import callLettersRoutes from "./routes/v1/callLetters.routes.js";
 import noticesRoutes from "./routes/v1/notices.routes.js";
 import helpQueryRoutes from "./routes/v1/helpQuery.routes.js";
 import qualificationsRoutes from "./routes/v1/qualifications.routes.js";
+import whatsappRoutes from "./routes/v1/whatsapp.routes.js";
+import documentsRoutes from "./routes/v1/documents.routes.js";
+import configRoutes from "./routes/v1/config.routes.js";
 
 // Rate limit all public API reads
 app.use("/api/v1/advertisements", publicApiLimiter);
@@ -235,6 +231,9 @@ app.use("/api/v1", callLettersRoutes);
 app.use("/api/v1", noticesRoutes);
 app.use("/api/v1", helpQueryRoutes);
 app.use("/api/v1", qualificationsRoutes);
+app.use("/api/v1", whatsappRoutes);
+app.use("/api/v1", documentsRoutes);
+app.use("/api/v1", configRoutes);
 app.use("/api/v1/otp", otpRoutes);
 app.use("/api/v1/master-data", masterDataRoutes);
 
@@ -249,15 +248,8 @@ app.get("/api", (req, res) => {
   });
 });
 
-app.use("/", express.static(path.join(__dirname, "/out/admin")));
-
-app.get("/*", async (req, res) => {
-  if (req.path.startsWith("/api/")) {
-    return res
-      .status(404)
-      .json({ isOk: false, status: 404, message: "Not found" });
-  }
-  res.sendFile(path.join(__dirname, "/out/admin", "index.html"));
+app.use("/api/*", (req, res) => {
+  res.status(404).json({ isOk: false, status: 404, message: "Not found" });
 });
 
 // ============ ERROR HANDLING ============

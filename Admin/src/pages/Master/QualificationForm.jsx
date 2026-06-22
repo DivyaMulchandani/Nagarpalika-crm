@@ -76,7 +76,7 @@ const QualificationForm = () => {
   return (
     <div className="page-content">
       <Container fluid>
-        <BreadCrumb maintitle="Master" title={title} pageTitle="Qualification" />
+        <BreadCrumb maintitle="Master" title={title} pageTitle="Qualification" pageTitlePath="/qualification" />
         <Row>
           <Col lg={6}>
             <Card>

@@ -76,7 +76,7 @@ const RoleMasterForm = () => {
   return (
     <div className="page-content">
       <Container fluid>
-        <BreadCrumb maintitle="Employee Management" title={title} pageTitle="Role Master" />
+        <BreadCrumb maintitle="Employee Management" title={title} pageTitle="Role Master" pageTitlePath="/role-master" />
         <Row>
           <Col lg={6}>
             <Card>

@@ -92,7 +92,7 @@ export const logout = async () => {
     } finally {
         // Always clear local storage regardless of API result
         localStorage.removeItem("role");
-        window.location.href = "/";
+        window.location.href = import.meta.env.BASE_URL;
     }
 };
 

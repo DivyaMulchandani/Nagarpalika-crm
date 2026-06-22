@@ -1,8 +1,7 @@
 import CompanyMasterModels from "../../models/CompanyMaster.js";
 import EmployeeModels from "../../models/Employee.js";
 import bcrypt from "bcrypt";
-import fs from "fs";
-import path from "path";
+import { deleteFile, attachFileUrls } from "../../services/storage.service.js";
 
 export const getPublicDetails = async (req, res) => {
   try {
@@ -13,7 +12,8 @@ export const getPublicDetails = async (req, res) => {
       return res
         .status(404)
         .json({ isOk: false, status: 404, message: "Not configured" });
-    return res.status(200).json({ isOk: true, status: 200, data: company });
+    const data = await attachFileUrls(company, ["logo", "favicon"]);
+    return res.status(200).json({ isOk: true, status: 200, data });
   } catch (error) {
     return res
       .status(500)
@@ -144,22 +144,12 @@ export const updateCompanyMaster = async (req, res) => {
 
     // Handle file updates
     if (req.files && req.files.logo) {
-      if (companyMaster.logo) {
-        const oldLogoPath = path.join(companyMaster.logo);
-        if (fs.existsSync(oldLogoPath)) {
-          fs.unlinkSync(oldLogoPath);
-        }
-      }
+      if (companyMaster.logo) await deleteFile(companyMaster.logo);
       companyMaster.logo = req.files.logo[0].path;
     }
 
     if (req.files && req.files.favicon) {
-      if (companyMaster.favicon) {
-        const oldFaviconPath = path.join(companyMaster.favicon);
-        if (fs.existsSync(oldFaviconPath)) {
-          fs.unlinkSync(oldFaviconPath);
-        }
-      }
+      if (companyMaster.favicon) await deleteFile(companyMaster.favicon);
       companyMaster.favicon = req.files.favicon[0].path;
     }
 
@@ -321,9 +311,20 @@ export const getCurrentUserDetails = async (req, res) => {
       dataToSend.companyName = company ? company.companyName : "";
     }
 
+    let responseData = dataToSend;
+    if (role === "ADMIN") {
+      responseData = await attachFileUrls(dataToSend, ["logo", "favicon"]);
+    } else if (company) {
+      const companyUrls = await attachFileUrls(company, ["logo", "favicon"]);
+      responseData.logo = companyUrls.logo;
+      responseData.logo_url = companyUrls.logo_url;
+      responseData.favicon = companyUrls.favicon;
+      responseData.favicon_url = companyUrls.favicon_url;
+    }
+
     return res.status(200).json({
       isOk: true,
-      data: dataToSend,
+      data: responseData,
       role: role,
       status: 200,
     });

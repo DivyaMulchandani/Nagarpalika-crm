@@ -15,15 +15,10 @@ import { ROLES } from "../../constants/roles";
 const ProfileDropdown = () => {
     const navigate = useNavigate();
     const { adminData, setAdminData, role } = useContext(AuthContext);
-    const API_URL = import.meta.env.VITE_API_URL || "http://localhost:8000";
-
     const profileImageUrl = useMemo(() => {
-        if (adminData?.logo) {
-            const imagePath = adminData.logo.replace(/\\/g, "/");
-            return `${API_URL}/${imagePath}`;
-        }
+        if (adminData?.logo_url) return adminData.logo_url;
         return npLogo;
-    }, [adminData?.logo, API_URL]);
+    }, [adminData?.logo_url]);
 
     const handleLogout = async () => {
         setAdminData(null);

@@ -1,8 +1,21 @@
+import crypto from "crypto";
+import path from "path";
 import Application from "../../models/Application.js";
 import Advertisement from "../../models/Advertisement.js";
 import Candidate from "../../models/Candidate.js";
 import { generateApplicationPdf } from "../../services/applicationPdf.service.js";
 import { sendTemplatedEmail } from "../../services/email.service.js";
+import {
+  uploadBuffer,
+  attachFileUrls,
+  attachDocumentListUrls,
+  resolveFileUrl,
+  CANDIDATE_FILE_FIELDS,
+} from "../../services/storage.service.js";
+import {
+  streamApplicationsZip,
+  buildExportZipFilename,
+} from "../../services/applicationExport.service.js";
 
 const EDITABLE_FIELDS = [
   "exam_centre",
@@ -77,6 +90,8 @@ const ADMIN_APP_PROJECTION = {
   status: 1,
   submitted_at: 1,
   createdAt: 1,
+  candidate_name: 1,
+  post_title: 1,
 };
 
 // Fields a candidate is allowed to see about their own application
@@ -338,7 +353,8 @@ export const getApplicationPdf = async (req, res) => {
         )
         .lean(),
       Advertisement.findOne({ advt_no: app.advt_no })
-        .populate("department", "name")
+        .populate("department", "departmentName departmentCode")
+        .populate("required_qualifications.qualification", "name")
         .lean(),
     ]);
 
@@ -413,14 +429,24 @@ export const getApplicationForAdmin = async (req, res) => {
         .select("-password -aadhaar_hash -login_attempts -lockout_until")
         .lean(),
       Advertisement.findOne({ advt_no: app.advt_no })
-        .populate("department", "name")
+        .populate("department", "departmentName departmentCode")
+        .populate("required_qualifications.qualification", "name")
         .lean(),
+    ]);
+
+    const [candidateWithUrls, documentsWithUrls] = await Promise.all([
+      candidate ? attachFileUrls(candidate, CANDIDATE_FILE_FIELDS) : null,
+      attachDocumentListUrls(app.documents),
     ]);
 
     return res.status(200).json({
       isOk: true,
       status: 200,
-      data: { application: app, candidate, advertisement: advt },
+      data: {
+        application: { ...app, documents: documentsWithUrls },
+        candidate: candidateWithUrls,
+        advertisement: advt,
+      },
     });
   } catch (error) {
     return res
@@ -431,20 +457,50 @@ export const getApplicationForAdmin = async (req, res) => {
 
 export const exportApplications = async (req, res) => {
   try {
-    const { status, advt_no, registration_id } = req.body || {};
+    const { status, advt_no, registration_id, application_ref_nos } = req.body || {};
     const filter = {};
     if (status) filter.status = status;
     if (advt_no) filter.advt_no = advt_no;
     if (registration_id) filter.registration_id = registration_id;
+    if (Array.isArray(application_ref_nos) && application_ref_nos.length) {
+      filter.application_ref_no = { $in: application_ref_nos };
+    }
 
-    const apps = await Application.find(filter).lean();
-    return res
-      .status(200)
-      .json({ isOk: true, status: 200, count: apps.length, data: apps });
+    const apps = await Application.find(filter).sort({ createdAt: -1 }).lean();
+    if (!apps.length) {
+      return res.status(404).json({
+        isOk: false,
+        status: 404,
+        message: "No applications found for export",
+      });
+    }
+
+    const items = await Promise.all(
+      apps.map(async (app) => {
+        const [candidate, advt] = await Promise.all([
+          Candidate.findOne({ registration_id: app.registration_id })
+            .select("-password -aadhaar_hash -login_attempts -lockout_until")
+            .lean(),
+          Advertisement.findOne({ advt_no: app.advt_no })
+            .populate("department", "departmentName departmentCode")
+            .populate("required_qualifications.qualification", "name")
+            .lean(),
+        ]);
+        return { application: app, candidate, advertisement: advt };
+      }),
+    );
+
+    const filename = buildExportZipFilename({ advt_no, count: apps.length });
+    res.setHeader("Content-Type", "application/zip");
+    res.setHeader("Content-Disposition", `attachment; filename="${filename}"`);
+
+    await streamApplicationsZip(items, res);
   } catch (error) {
-    return res
-      .status(500)
-      .json({ isOk: false, status: 500, message: error.message });
+    if (!res.headersSent) {
+      return res
+        .status(500)
+        .json({ isOk: false, status: 500, message: error.message });
+    }
   }
 };
 
@@ -493,12 +549,37 @@ export const searchApplications = async (req, res) => {
     if (advt_no) matchCond.advt_no = advt_no;
 
     const pipeline = [];
+
+    pipeline.push({
+      $lookup: {
+        from: "candidates",
+        localField: "registration_id",
+        foreignField: "registration_id",
+        as: "_candidate",
+      },
+    });
+    pipeline.push({
+      $lookup: {
+        from: "advertisements",
+        localField: "advt_no",
+        foreignField: "advt_no",
+        as: "_advt",
+      },
+    });
+    pipeline.push({
+      $addFields: {
+        candidate_name: { $arrayElemAt: ["$_candidate.name", 0] },
+        post_title: { $arrayElemAt: ["$_advt.post_title.en", 0] },
+      },
+    });
+
     if (match) {
       pipeline.push({
         $match: {
           $or: [
             { registration_id: { $regex: match, $options: "i" } },
             { application_ref_no: { $regex: match, $options: "i" } },
+            { candidate_name: { $regex: match, $options: "i" } },
           ],
         },
       });
@@ -554,18 +635,28 @@ export const uploadApplicationDocument = async (req, res) => {
 
     // Replace existing document with same label
     app.documents = app.documents.filter((d) => d.label !== label.trim());
+    const ext = path.extname(req.file.originalname).toLowerCase() || ".pdf";
+    const filename = `${Date.now()}-${crypto.randomBytes(6).toString("hex")}${ext}`;
+    const stored = await uploadBuffer({
+      module: "application-docs",
+      buffer: req.file.buffer,
+      filename,
+      contentType: req.file.mimetype,
+    });
+
     app.documents.push({
       label: label.trim(),
-      file_path: `uploads/application-docs/${req.file.filename}`,
+      file_path: stored.key,
       is_compulsory: is_compulsory === "true" || is_compulsory === true,
       uploaded_at: new Date(),
     });
     await app.save();
 
+    const file_url = await resolveFileUrl(stored.key);
     return res.status(200).json({
       isOk: true,
       message: "Document uploaded",
-      data: { label: label.trim() },
+      data: { label: label.trim(), file_url },
     });
   } catch (error) {
     return res.status(500).json({ isOk: false, message: error.message });

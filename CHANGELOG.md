@@ -6,10 +6,19 @@ Format: [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 ## [Unreleased]
 
 ### Added
+- PM2 `ecosystem.js` config in `Server/` for production deployment on Hostinger VPS (Bun interpreter, fork mode, auto-restart, log rotation paths)
+- `Server/nginx.conf.example` reverse-proxy config: `/` → Web build, `/admin/` → Admin build, `/api/` → proxied to PM2-managed Server
+- Web build now outputs to `Server/out/web` (mirrors existing `Server/out/admin` pattern); Admin build uses `/admin/` base path in production so its router and assets resolve under the new `/admin/` nginx location
+- `.env.production.example` in `Web/` and `Admin/` documenting relative (same-origin) `VITE_API_URL` for the nginx-proxied deployment
+- Upload responses for advertisement PDF, notice PDF, application documents, and candidate registration files now include a resolved `pdf_url` / `file_url` / `url` field (presigned S3 URL or CDN URL) so clients can display or download files immediately without a separate signed-URL request
+- Advertisement list and detail endpoints now return `pdf_url` alongside `pdf_path`; notice list and detail endpoints do the same — clients no longer need to call `/documents/signed-url` for these public resources
 - Advertisement detail page (`/advertisement/:id`) — full post info: vacancies by category, eligibility, important dates, PDF download, and Apply button
 - `🔍` Details column on Careers table; post title is now a clickable link to the detail page
 - Inline OTP login on apply page (`/apply/:id`) — candidates login and submit on the same screen with no redirect
 - `.btn-link` utility CSS class for inline anchor-styled buttons
+
+### Changed
+- Server no longer serves the Admin build itself (`express.static` + SPA fallback at root removed from `server.js`) — nginx now owns all static file serving; Server handles only `/api/*`
 
 ### Fixed
 - Apply links used `advt_no` (e.g. `ADV/2026/0006`, contains slashes) as URL segment, breaking React Router — switched to MongoDB `_id`

@@ -39,8 +39,9 @@ api.interceptors.response.use(
             localStorage.removeItem("role");
             localStorage.removeItem("user");
             sessionStorage.removeItem("authUser");
-            if (window.location.pathname !== "/" && window.location.pathname !== "/login") {
-                window.location.href = "/";
+            const base = import.meta.env.BASE_URL;
+            if (window.location.pathname !== base && window.location.pathname !== `${base}login`) {
+                window.location.href = base;
             }
         }
 

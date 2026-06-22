@@ -61,16 +61,15 @@ const ApplicationList = () => {
     {
       name: "App Ref No",
       cell: (r) => (
-        <span title={r.application_ref_no} style={{ fontFamily: "monospace", fontSize: 12, cursor: "default" }}>
-          {r.application_ref_no?.slice(0, 8)}…
-        </span>
+        <span style={{ fontFamily: "monospace", fontSize: 12 }}>{r.application_ref_no}</span>
       ),
       sortField: "application_ref_no",
       sortable: true,
       grow: 1,
     },
-    { name: "Reg ID", selector: (r) => r.registration_id, grow: 1.5 },
-    { name: "Advt No", selector: (r) => r.advt_no, grow: 1 },
+    { name: "Candidate Name", selector: (r) => r.candidate_name || "—", grow: 1.5, sortable: true, sortField: "candidate_name" },
+    { name: "Reg ID", selector: (r) => r.registration_id, grow: 1.2 },
+    { name: "Post Title", selector: (r) => r.post_title || r.advt_no, grow: 1.5 },
     {
       name: "Status",
       cell: (r) => <Badge color={appColor[r.status] || "secondary"}>{r.status?.replace(/_/g, " ")}</Badge>,
@@ -87,6 +86,36 @@ const ApplicationList = () => {
     },
   ];
 
+
+  const handleExport = async () => {
+    setExporting(true);
+    try {
+      const res = await exportApplications({ advt_no: advtFilter?.value });
+      const blob = res.data;
+      if (blob?.type === "application/json") {
+        const text = await blob.text();
+        const json = JSON.parse(text);
+        throw new Error(json?.message || "Export failed");
+      }
+      const disposition = res.headers?.["content-disposition"] || "";
+      const match = disposition.match(/filename="?([^";]+)"?/i);
+      const filename = match?.[1] || "applications-export.zip";
+      const url = window.URL.createObjectURL(blob);
+      const link = document.createElement("a");
+      link.href = url;
+      link.download = filename;
+      document.body.appendChild(link);
+      link.click();
+      link.remove();
+      window.URL.revokeObjectURL(url);
+      toast.success("ZIP export downloaded");
+    } catch (err) {
+      toast.error(err?.message || "Export failed");
+    } finally {
+      setExporting(false);
+    }
+  };
+
   document.title = `Applications | ${adminData?.companyName}`;
 
   return (
@@ -98,13 +127,13 @@ const ApplicationList = () => {
             <CardHeader>
               <div className="d-flex flex-wrap gap-2 align-items-center justify-content-between">
                 <div className="d-flex flex-wrap gap-2 align-items-center">
-                  <input className="form-control form-control-sm" style={{ width: 220 }} placeholder="Search ref no / reg ID..." value={query} onChange={(e) => { setQuery(e.target.value); setPageNo(1); }} />
+                  <input className="form-control form-control-sm" style={{ width: 220 }} placeholder="Search ref no / reg ID / name..." value={query} onChange={(e) => { setQuery(e.target.value); setPageNo(1); }} />
                   <div style={{ width: 260 }}>
                     <Select options={advtOptions} value={advtFilter} onChange={(v) => { setAdvtFilter(v); setPageNo(1); }} placeholder="Advertisement" isClearable isSearchable />
                   </div>
                 </div>
                 {currentPagePermissions.write && (
-                  <Button color="outline-primary" size="sm" onClick={() => { setExporting(true); exportApplications({ advt_no: advtFilter?.value }).then(() => toast.success("Export initiated")).catch(() => toast.error("Export failed")).finally(() => setExporting(false)); }} disabled={exporting}>
+                  <Button color="outline-primary" size="sm" onClick={handleExport} disabled={exporting}>
                     {exporting ? <span className="spinner-border spinner-border-sm me-1"></span> : <i className="ri-download-2-line me-1"></i>}Export
                   </Button>
                 )}

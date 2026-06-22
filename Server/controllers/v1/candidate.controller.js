@@ -1,6 +1,7 @@
 import bcrypt from "bcrypt";
 import crypto from "crypto";
 import Candidate from "../../models/Candidate.js";
+import { attachFileUrls, CANDIDATE_FILE_FIELDS } from "../../services/storage.service.js";
 
 const hashAadhaar = (raw) =>
   crypto.createHash("sha256").update(raw.replace(/\s/g, "")).digest("hex");
@@ -212,10 +213,11 @@ export const getMyProfile = async (req, res) => {
     // Absolute session expiry (login time + 30 min) — the frontend timer
     // seeds its countdown from this, so refreshes/activity never reset it.
     const loginAt = req.session?.user?.loginAt;
+    const data = await attachFileUrls(candidate, CANDIDATE_FILE_FIELDS);
     return res.status(200).json({
       isOk: true,
       status: 200,
-      data: candidate,
+      data,
       session_expires_at: loginAt
         ? new Date(loginAt + INACTIVITY_MS).toISOString()
         : null,
@@ -372,7 +374,8 @@ export const getCandidateById = async (req, res) => {
       return res
         .status(404)
         .json({ isOk: false, status: 404, message: "Not found" });
-    return res.status(200).json({ isOk: true, status: 200, data: candidate });
+    const data = await attachFileUrls(candidate, CANDIDATE_FILE_FIELDS);
+    return res.status(200).json({ isOk: true, status: 200, data });
   } catch (error) {
     return res
       .status(500)

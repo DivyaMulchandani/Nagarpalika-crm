@@ -38,7 +38,7 @@ const FeePaymentView = () => {
   return (
     <div className="page-content">
       <Container fluid>
-        <BreadCrumb maintitle="Recruitment" title="Fee Payment Detail" pageTitle="Fee Payments" />
+        <BreadCrumb maintitle="Recruitment" title="Fee Payment Detail" pageTitle="Fee Payments" pageTitlePath="/fee-payments" />
         <Card>
           <CardHeader className="d-flex align-items-center justify-content-between">
             <h6 className="mb-0">Payment — <span style={{ fontFamily: "monospace" }}>{fee.payment_id}</span></h6>

@@ -6,8 +6,9 @@ import EmailFor from "../../models/EmailFor.js";
 import nodemailer from "nodemailer";
 import bcrypt from "bcrypt";
 import crypto from "crypto";
+import { otpSettings } from "../../config/portal.config.js";
 
-const MAX_OTP_ATTEMPTS = 5;
+const MAX_OTP_ATTEMPTS = otpSettings.maxVerifyAttempts;
 
 export const createOtp = async (req, res) => {
   try {

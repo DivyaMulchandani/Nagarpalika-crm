@@ -1,19 +1,13 @@
-import path from "path";
-import fs from "fs";
+import crypto from "crypto";
 import Notice from "../../models/Notice.js";
-
-const UPLOADS_ROOT = path.resolve("uploads");
-
-const safePdfPath = (pdf_path) => {
-  if (!pdf_path) return null;
-  const resolved = path.resolve(UPLOADS_ROOT, pdf_path);
-  if (
-    !resolved.startsWith(UPLOADS_ROOT + path.sep) &&
-    resolved !== UPLOADS_ROOT
-  )
-    return null;
-  return resolved;
-};
+import {
+  getReadStream,
+  uploadBuffer,
+  deleteFile,
+  normalizeKey,
+  attachFileUrls,
+  resolveFileUrl,
+} from "../../services/storage.service.js";
 
 export const createNotice = async (req, res) => {
   try {
@@ -52,6 +46,9 @@ export const createNotice = async (req, res) => {
   }
 };
 
+const MARQUEE_NOTICE_PROJECTION =
+  "title body publish_date pdf_path slug type status";
+
 export const listNotices = async (req, res) => {
   try {
     const isAuthenticated = !!req.session?.user;
@@ -72,13 +69,21 @@ export const listNotices = async (req, res) => {
     const page = Math.max(parseInt(req.query.page) || 1, 1);
     const skip = (page - 1) * limit;
 
-    const [total, data] = await Promise.all([
+    const projection = isAuthenticated
+      ? undefined
+      : MARQUEE_NOTICE_PROJECTION;
+
+    const [total, raw] = await Promise.all([
       Notice.countDocuments(filter),
       Notice.find(filter)
+        .select(projection)
         .sort({ publish_date: -1, createdAt: -1 })
         .skip(skip)
-        .limit(limit),
+        .limit(limit)
+        .lean(),
     ]);
+
+    const data = await Promise.all(raw.map((item) => attachFileUrls(item, ["pdf_path"])));
 
     return res.status(200).json({
       isOk: true,
@@ -104,17 +109,19 @@ export const getNoticePdf = async (req, res) => {
         .status(404)
         .json({ isOk: false, status: 404, message: "Not found" });
 
-    const filePath = safePdfPath(notice.pdf_path);
-    if (!filePath)
+    if (!normalizeKey(notice.pdf_path))
       return res
         .status(404)
         .json({ isOk: false, status: 404, message: "No PDF available" });
-    if (!fs.existsSync(filePath))
+
+    const stream = await getReadStream(notice.pdf_path);
+    if (!stream)
       return res
         .status(404)
         .json({ isOk: false, status: 404, message: "File not found" });
 
-    return res.sendFile(filePath);
+    res.setHeader("Content-Type", "application/pdf");
+    return stream.pipe(res);
   } catch (error) {
     return res
       .status(500)
@@ -132,7 +139,8 @@ export const getNoticeById = async (req, res) => {
       return res
         .status(404)
         .json({ isOk: false, status: 404, message: "Not found" });
-    return res.status(200).json({ isOk: true, status: 200, data: notice });
+    const data = await attachFileUrls(notice, ["pdf_path"]);
+    return res.status(200).json({ isOk: true, status: 200, data });
   } catch (error) {
     return res
       .status(500)
@@ -300,21 +308,26 @@ export const uploadNoticePdf = async (req, res) => {
         .status(422)
         .json({ isOk: false, status: 422, message: "PDF file required" });
 
-    if (notice.pdf_path) {
-      const oldPath = safePdfPath(notice.pdf_path);
-      if (oldPath && fs.existsSync(oldPath)) fs.unlinkSync(oldPath);
-    }
+    if (notice.pdf_path) await deleteFile(notice.pdf_path);
 
-    notice.pdf_path = path.join("notices", req.file.filename);
+    const filename = `${Date.now()}-${crypto.randomBytes(8).toString("hex")}.pdf`;
+    const stored = await uploadBuffer({
+      module: "notices",
+      buffer: req.file.buffer,
+      filename,
+      contentType: "application/pdf",
+    });
+    notice.pdf_path = stored.key;
     notice.updatedBy = req.user.id;
     await notice.save();
+    const pdf_url = await resolveFileUrl(notice.pdf_path);
     return res
       .status(200)
       .json({
         isOk: true,
         status: 200,
         message: "PDF uploaded",
-        data: { pdf_path: notice.pdf_path },
+        data: { pdf_path: notice.pdf_path, pdf_url },
       });
   } catch (error) {
     return res

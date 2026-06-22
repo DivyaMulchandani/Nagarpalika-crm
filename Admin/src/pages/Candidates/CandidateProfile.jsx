@@ -6,6 +6,7 @@ import { getCandidateById } from "../../api/candidates.api";
 import BreadCrumb from "../../Components/Common/BreadCrumb";
 import { toast } from "react-toastify";
 import { AuthContext } from "../../context/AuthContext";
+import StoredFileViewer from "../../Components/Common/StoredFileViewer";
 
 const Field = ({ label, value }) => (
   <Col md={4} className="mb-3">
@@ -13,61 +14,6 @@ const Field = ({ label, value }) => (
     <div style={{ fontWeight: 500 }}>{value || "—"}</div>
   </Col>
 );
-
-const CertViewer = ({ label, path }) => {
-  const API = import.meta.env.VITE_API_URL || "";
-  const url = path ? `${API}/${path}` : null;
-  const isPdf = path?.toLowerCase().endsWith(".pdf");
-  const [blobUrl, setBlobUrl] = useState(null);
-
-  useEffect(() => {
-    if (!url || !isPdf) return;
-    let objectUrl;
-    fetch(url, { credentials: "include" })
-      .then(r => r.blob())
-      .then(blob => { objectUrl = URL.createObjectURL(blob); setBlobUrl(objectUrl); })
-      .catch(() => {});
-    return () => { if (objectUrl) URL.revokeObjectURL(objectUrl); };
-  }, [url, isPdf]);
-
-  return (
-    <Col md={3} className="mb-3">
-      <div style={{ fontSize: 11, color: "#888", marginBottom: 4 }}>{label}</div>
-      {url ? (
-        <>
-          {isPdf ? (
-            <>
-              {blobUrl ? (
-                <a href={url} target="_blank" rel="noreferrer" style={{ textDecoration: "none", display: "block", cursor: "pointer" }}>
-                  <div style={{ width: 120, height: 120, overflow: "hidden", border: "1px solid #ddd", borderRadius: 4 }}>
-                    <iframe
-                      src={blobUrl}
-                      title={label}
-                      style={{ width: "calc(100% + 20px)", height: "100%", border: "none", display: "block", pointerEvents: "none" }}
-                    />
-                  </div>
-                </a>
-              ) : (
-                <div style={{ width: 120, height: 120, border: "1px solid #ddd", borderRadius: 4, background: "#fafafa", display: "flex", alignItems: "center", justifyContent: "center" }}>
-                  <span style={{ fontSize: 11, color: "#999" }}>Loading…</span>
-                </div>
-              )}
-              <a href={url} target="_blank" rel="noreferrer" className="btn btn-sm btn-outline-primary mt-1" style={{ fontSize: 11 }}>
-                View PDF
-              </a>
-            </>
-          ) : (
-            <a href={url} target="_blank" rel="noreferrer">
-              <img src={url} alt={label} style={{ maxWidth: 120, border: "1px solid #ddd", borderRadius: 4, display: "block" }} />
-            </a>
-          )}
-        </>
-      ) : (
-        <span className="text-muted">Not uploaded</span>
-      )}
-    </Col>
-  );
-};
 
 const CandidateProfile = () => {
   const { id } = useParams();
@@ -97,7 +43,7 @@ const CandidateProfile = () => {
   return (
     <div className="page-content">
       <Container fluid>
-        <BreadCrumb maintitle="Recruitment" title="Candidate Profile" pageTitle="Candidates" />
+        <BreadCrumb maintitle="Recruitment" title="Candidate Profile" pageTitle="Candidates" pageTitlePath="/candidates" />
         <Card>
           <CardHeader className="d-flex align-items-center justify-content-between">
             <div>
@@ -157,10 +103,10 @@ const CandidateProfile = () => {
               </TabPane>
               <TabPane tabId="3">
                 <Row>
-                  <CertViewer label="Photo" path={c.photo_path} />
-                  <CertViewer label="Signature" path={c.signature_path} />
-                  {c.caste_cert_path && <CertViewer label="Caste Certificate" path={c.caste_cert_path} />}
-                  {c.ph_status && <CertViewer label="UDID Certificate" path={c.udid_cert_path} />}
+                  <StoredFileViewer label="Photo" path={c.photo_path} url={c.photo_url} />
+                  <StoredFileViewer label="Signature" path={c.signature_path} url={c.signature_url} />
+                  {c.caste_cert_path && <StoredFileViewer label="Caste Certificate" path={c.caste_cert_path} url={c.caste_cert_url} />}
+                  {c.ph_status && <StoredFileViewer label="UDID Certificate" path={c.udid_cert_path} url={c.udid_cert_url} />}
                 </Row>
               </TabPane>
               <TabPane tabId="4">

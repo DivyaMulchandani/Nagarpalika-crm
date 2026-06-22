@@ -1,12 +1,61 @@
 import crypto from "crypto";
 import path from "path";
 import Candidate from "../../models/Candidate.js";
+import Qualification from "../../models/Qualification.js";
 import { sendTemplatedEmail } from "../../services/email.service.js";
+import { resolveFileUrl } from "../../services/storage.service.js";
 
 const EDIT_WINDOW_HOURS = 72;
 
 const hashAadhaar = (raw) =>
   crypto.createHash("sha256").update(raw.replace(/\s/g, "")).digest("hex");
+
+const VERIFY_TTL_MS = 15 * 60 * 1000;
+const MOBILE_RE = /^[6-9]\d{9}$/;
+const PASSWORD_RE = /^(?=.*[A-Z])(?=.*\d)(?=.*[!@#$%^&*(),.?":{}|<>_\-+=\[\]\\|;'`~]).{8,}$/;
+
+const isVerifyFresh = (at) => at && Date.now() - at < VERIFY_TTL_MS;
+
+
+// Pre-OTP: validate Aadhaar format + checksum + uniqueness
+export const verifyAadhaar = async (req, res) => {
+  try {
+    const { aadhaar } = req.body;
+    if (!aadhaar || !/^\d{12}$/.test(String(aadhaar).replace(/\s/g, "")))
+      return res.status(422).json({ isOk: false, status: 422, message: "A valid 12-digit Aadhaar number is required" });
+
+    const { isValidVerhoeff } = await import("../../utils/verhoeff.js");
+    const clean = String(aadhaar).replace(/\s/g, "");
+    if (!isValidVerhoeff(clean))
+      return res.status(422).json({ isOk: false, status: 422, message: "Invalid Aadhaar number" });
+
+    const aadhaar_hash = hashAadhaar(clean);
+    if (await Candidate.findOne({ aadhaar_hash }))
+      return res.status(409).json({ isOk: false, status: 409, message: "Aadhaar already registered" });
+
+    req.session.aadhaarVerified = { hash: aadhaar_hash, at: Date.now() };
+    return res.status(200).json({ isOk: true, status: 200, message: "Aadhaar verified" });
+  } catch (error) {
+    return res.status(500).json({ isOk: false, status: 500, message: error.message });
+  }
+};
+
+// Pre-OTP: validate mobile format + uniqueness
+export const verifyMobile = async (req, res) => {
+  try {
+    const { mobile } = req.body;
+    if (!mobile || !MOBILE_RE.test(mobile))
+      return res.status(422).json({ isOk: false, status: 422, message: "A valid 10-digit mobile number is required" });
+
+    if (await Candidate.findOne({ mobile }))
+      return res.status(409).json({ isOk: false, status: 409, message: "Mobile number already registered" });
+
+    req.session.mobileFormatVerified = { mobile, at: Date.now() };
+    return res.status(200).json({ isOk: true, status: 200, message: "Mobile number verified" });
+  } catch (error) {
+    return res.status(500).json({ isOk: false, status: 500, message: error.message });
+  }
+};
 
 // Step 1 — initiate; mobile OTP must be verified first
 export const initRegistration = async (req, res) => {
@@ -33,6 +82,25 @@ export const initRegistration = async (req, res) => {
         status: 409,
         message: "Aadhaar already registered",
       });
+
+
+    if (sanitized.qualification) {
+      const qualName = String(sanitized.qualification).trim();
+      const exact = await Qualification.findOne({ name: qualName, isActive: true });
+      if (!exact) {
+        const othersEntry = await Qualification.findOne({
+          name: { $regex: /^others$/i },
+          isActive: true,
+        });
+        if (!othersEntry || !qualName) {
+          return res.status(422).json({
+            isOk: false,
+            status: 422,
+            message: "Invalid qualification selected",
+          });
+        }
+      }
+    }
 
     req.session.candidateStep = { step: 1, aadhaar_hash, mobile, data: {} };
 
@@ -122,6 +190,25 @@ export const saveStep = async (req, res) => {
       ]),
     );
 
+
+    if (sanitized.qualification) {
+      const qualName = String(sanitized.qualification).trim();
+      const exact = await Qualification.findOne({ name: qualName, isActive: true });
+      if (!exact) {
+        const othersEntry = await Qualification.findOne({
+          name: { $regex: /^others$/i },
+          isActive: true,
+        });
+        if (!othersEntry || !qualName) {
+          return res.status(422).json({
+            isOk: false,
+            status: 422,
+            message: "Invalid qualification selected",
+          });
+        }
+      }
+    }
+
     req.session.candidateStep = {
       ...req.session.candidateStep,
       step: stepNum,
@@ -152,9 +239,10 @@ export const uploadPhoto = async (req, res) => {
         .json({ isOk: false, status: 422, message: "Photo file required" });
 
     req.session.candidateStep.data.photo_path = req.file.path;
+    const url = await resolveFileUrl(req.file.path);
     return res
       .status(200)
-      .json({ isOk: true, status: 200, message: "Photo uploaded" });
+      .json({ isOk: true, status: 200, message: "Photo uploaded", data: { url } });
   } catch (error) {
     return res
       .status(500)
@@ -176,9 +264,10 @@ export const uploadSignature = async (req, res) => {
         .json({ isOk: false, status: 422, message: "Signature file required" });
 
     req.session.candidateStep.data.signature_path = req.file.path;
+    const url = await resolveFileUrl(req.file.path);
     return res
       .status(200)
-      .json({ isOk: true, status: 200, message: "Signature uploaded" });
+      .json({ isOk: true, status: 200, message: "Signature uploaded", data: { url } });
   } catch (error) {
     return res
       .status(500)
@@ -205,11 +294,11 @@ export const submitRegistration = async (req, res) => {
         message: "name and password are required",
       });
 
-    if (password.length < 8)
+    if (!PASSWORD_RE.test(password))
       return res.status(422).json({
         isOk: false,
         status: 422,
-        message: "Password must be at least 8 characters",
+        message: "Password must be at least 8 characters with 1 uppercase, 1 digit, and 1 special character",
       });
 
     const { aadhaar_hash, mobile, data } = stepSession;
@@ -254,12 +343,11 @@ export const submitRegistration = async (req, res) => {
     delete req.session.candidateStep;
     delete req.session.mobileOtpVerified;
 
-    // registration_id delivered via SMS/email in Phase 8 — not returned here
     return res.status(201).json({
       isOk: true,
       status: 201,
-      message:
-        "Registration complete. Your Registration ID will be sent to your registered mobile and email.",
+      message: "Registration complete",
+      data: { registration_id: candidate.registration_id },
     });
   } catch (error) {
     return res
@@ -284,9 +372,10 @@ export const uploadCasteCert = async (req, res) => {
       });
 
     req.session.candidateStep.data.caste_cert_path = req.file.path;
+    const url = await resolveFileUrl(req.file.path);
     return res
       .status(200)
-      .json({ isOk: true, status: 200, message: "Caste certificate uploaded" });
+      .json({ isOk: true, status: 200, message: "Caste certificate uploaded", data: { url } });
   } catch (error) {
     return res
       .status(500)
@@ -310,9 +399,10 @@ export const uploadUdidCert = async (req, res) => {
       });
 
     req.session.candidateStep.data.udid_cert_path = req.file.path;
+    const url = await resolveFileUrl(req.file.path);
     return res
       .status(200)
-      .json({ isOk: true, status: 200, message: "UDID certificate uploaded" });
+      .json({ isOk: true, status: 200, message: "UDID certificate uploaded", data: { url } });
   } catch (error) {
     return res
       .status(500)

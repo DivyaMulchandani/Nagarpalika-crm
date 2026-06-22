@@ -5,16 +5,19 @@
   "type": "module",
   "main": "server.js",
   "scripts": {
-    "dev": "bun --watch server.js",
+    "dev": "node --watch server.js",
     "build": "echo \"No build output for hms-server\"",
     "lint": "echo \"Lint currently managed outside Bun+Nx migration\"",
     "test": "jest --passWithNoTests",
-    "start": "bun server.js"
+    "start": "node server.js"
   },
   "keywords": [],
   "author": "",
   "license": "ISC",
   "dependencies": {
+    "@aws-sdk/client-s3": "^3.1071.0",
+    "@aws-sdk/s3-request-presigner": "^3.1071.0",
+    "archiver": "^8.0.0",
     "bcrypt": "^5.1.1",
     "body-parser": "^1.20.2",
     "connect-mongo": "^6.0.0",

@@ -1,0 +1,50 @@
+# nginx server block for hosting Web + Admin + Server on the VPS IP (no domain yet, HTTP only).
+# Copy to /etc/nginx/sites-available/nagarpalika, adjust paths, then:
+#   ln -s /etc/nginx/sites-available/nagarpalika /etc/nginx/sites-enabled/
+#   nginx -t && systemctl reload nginx
+#
+# Once a domain is pointed at this IP, swap server_name to the domain and add
+# SSL (certbot --nginx) — remove default_server then too.
+#
+# Server/.env on the VPS needs (so CORS + redirects match this origin):
+#   ALLOWED_ORIGINS=http://77.37.45.226
+#   PORTAL_URL=http://77.37.45.226
+#   API_URL=http://77.37.45.226/api
+#   COOKIE_SECURE=false   <- HTTP only right now; flip to true once HTTPS is set up
+#
+# nginx runs as www-data — /home/<user> dirs are usually 750, which blocks
+# traversal into Server/out/*. Either: chmod o+x on /home/dev-team-np,
+# /home/dev-team-np/project, /home/dev-team-np/project/nagarpalika-v2, and
+# Server/ (no need to open file contents, just the +x bit for traversal);
+# or symlink the out dirs under /var/www/ and point root/alias there instead.
+
+server {
+    listen 80 default_server;
+    server_name 77.37.45.226;
+
+    root /home/dev-team-np/project/nagarpalika-v2/Server/out/web;
+    index index.html;
+
+    client_max_body_size 20M;
+
+    # ── API ── proxy to Bun/Express via PM2 (ecosystem.js, port 7001) ──────────
+    location /api/ {
+        proxy_pass http://127.0.0.1:7001;
+        proxy_http_version 1.1;
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+    }
+
+    # ── Admin panel ── static build, SPA fallback, base path /admin/ ───────────
+    location /admin/ {
+        alias /home/dev-team-np/project/nagarpalika-v2/Server/out/admin/;
+        try_files $uri $uri/ /admin/index.html;
+    }
+
+    # ── Web portal ── static build, SPA fallback at root ────────────────────────
+    location / {
+        try_files $uri $uri/ /index.html;
+    }
+}

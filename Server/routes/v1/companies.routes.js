@@ -1,5 +1,4 @@
 import express from "express";
-import fs from "fs";
 import {
   createCompanyMaster,
   updateCompanyMaster,
@@ -21,11 +20,6 @@ const router = express.Router();
 
 // ============ SECURE FILE UPLOAD CONFIGURATION ============
 const logoUploadFolder = "uploads/companyMaster";
-
-// Ensure upload directory exists
-if (!fs.existsSync(logoUploadFolder)) {
-  fs.mkdirSync(logoUploadFolder, { recursive: true });
-}
 
 /**
  * Secure upload middleware for company logo and favicon

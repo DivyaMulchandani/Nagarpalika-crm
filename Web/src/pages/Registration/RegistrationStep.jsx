@@ -8,19 +8,31 @@ import { transliterateToGujarati } from "../../utils/gujaratiTransliterate";
 const API_BASE = import.meta.env.VITE_API_URL || "";
 
 const TOTAL_STEPS = 10;
+const PASSWORD_RE = /^(?=.*[A-Z])(?=.*\d)(?=.*[!@#$%^&*(),.?":{}|<>_\-+=\[\]\\|;'`~]).{8,}$/;
 const CATEGORIES = ["General", "OBC", "SC", "ST", "EWS"];
 const GENDERS = ["Male", "Female", "Other"];
 const CERT_REQUIRED_CATS = new Set(["OBC", "SC", "ST", "EWS"]);
-const QUALIFICATIONS = [
-  "10th",
-  "12th",
-  "Diploma",
-  "BE Graduate",
-  "BTech Graduate",
-  "BBA/BCom Graduate",
-  "Post Graduate",
-  "Others",
-];
+const DEFAULT_PORTAL_CONFIG = {
+  uploadLimits: {
+    photoMaxBytes: 5 * 1024 * 1024,
+    photoMaxLabel: "5 MB",
+    signatureMaxBytes: 5 * 1024 * 1024,
+    signatureMaxLabel: "5 MB",
+    documentMaxBytes: 10 * 1024 * 1024,
+    documentMaxLabel: "10 MB",
+  },
+  otp: { maxVerifyAttempts: 3 },
+};
+
+const formatBytes = (bytes) => {
+  if (bytes >= 1024 * 1024) {
+    const mb = bytes / (1024 * 1024);
+    return Number.isInteger(mb) ? `${mb} MB` : `${mb.toFixed(1)} MB`;
+  }
+  return `${Math.round(bytes / 1024)} KB`;
+};
+
+const isOthersQualification = (name) => /^others$/i.test(name || "");
 
 function FieldError({ msg }) {
   return msg ? (
@@ -62,10 +74,13 @@ export default function RegistrationStep() {
   const [data, setData] = useState(() => loadPersistedData());
   const [otp, setOtp] = useState("");
   const [otpSent, setOtpSent] = useState(false);
+  const [detailsVerified, setDetailsVerified] = useState(false);
   const [loading, setLoading] = useState(false);
   const [errors, setErrors] = useState({});
   const [registrationId, setRegId] = useState(null);
   const [sessionMissing, setSessionMissing] = useState(false);
+  const [portalConfig, setPortalConfig] = useState(DEFAULT_PORTAL_CONFIG);
+  const [qualifications, setQualifications] = useState([]);
 
   const photoRef = useRef();
   const sigRef = useRef();
@@ -73,6 +88,20 @@ export default function RegistrationStep() {
   useEffect(() => {
     persistData(data);
   }, [data]);
+
+  useEffect(() => {
+    get("/api/v1/config/portal")
+      .then((res) => {
+        if (res?.data) setPortalConfig(res.data);
+      })
+      .catch(() => {});
+    get("/api/v1/qualifications/public")
+      .then((res) => {
+        const list = (res?.data || []).map((q) => q.name).filter(Boolean);
+        setQualifications(list);
+      })
+      .catch(() => {});
+  }, []);
 
   const set = (field) => (e) =>
     setData((p) => ({ ...p, [field]: e.target.value }));
@@ -115,13 +144,13 @@ export default function RegistrationStep() {
     }
   };
 
-  const uploadFile = async (url, field, file, maxKB) => {
+  const uploadFile = async (url, field, file, maxBytes, maxLabel) => {
     if (!file) {
       setErrors({ [field]: "Please select a file." });
       return;
     }
-    if (file.size > maxKB * 1024) {
-      setErrors({ [field]: `File must be under ${maxKB} KB.` });
+    if (file.size > maxBytes) {
+      setErrors({ [field]: `File must be under ${maxLabel || formatBytes(maxBytes)}.` });
       return;
     }
     if (field === "photo" || field === "signature") {
@@ -274,6 +303,7 @@ export default function RegistrationStep() {
                   value={data.aadhaar || ""}
                   onChange={setDigits("aadhaar", 12)}
                   placeholder="12-digit Aadhaar"
+                  disabled={detailsVerified}
                 />
                 <FieldError msg={errors.aadhaar} />
               </div>
@@ -286,46 +316,87 @@ export default function RegistrationStep() {
                   value={data.mobile || ""}
                   onChange={setDigits("mobile", 10)}
                   placeholder="10-digit mobile"
+                  disabled={detailsVerified}
                 />
                 <FieldError msg={errors.mobile} />
               </div>
+              <div className="form-field">
+                <label>Create Password *</label>
+                <input
+                  type="password"
+                  value={data.password || ""}
+                  onChange={set("password")}
+                  placeholder="Min 8 chars, 1 uppercase, 1 digit, 1 special"
+                  disabled={detailsVerified}
+                />
+                <FieldError msg={errors.password} />
+              </div>
+              <div className="form-field">
+                <label>Confirm Password *</label>
+                <input
+                  type="password"
+                  value={data.passwordConfirm || ""}
+                  onChange={set("passwordConfirm")}
+                  placeholder="Re-enter password"
+                  disabled={detailsVerified}
+                />
+                <FieldError msg={errors.passwordConfirm} />
+              </div>
               <FieldError msg={errors._} />
-              {!otpSent ? (
+              {!detailsVerified ? (
                 <div className="form-actions">
-                  <button className="btn" onClick={() => back(1)}>
-                    ← Back
-                  </button>
+                  <button className="btn" onClick={() => back(1)}>← Back</button>
                   <button
                     className="btn primary"
                     disabled={loading}
                     onClick={async () => {
                       const e = {};
-                      if (!/^\d{12}$/.test(data.aadhaar || ""))
-                        e.aadhaar = "Enter a valid 12-digit Aadhaar number.";
-                      if (!/^\d{10}$/.test(data.mobile || ""))
-                        e.mobile = "Enter a valid 10-digit mobile number.";
-                      if (Object.keys(e).length) {
-                        setErrors(e);
-                        return;
-                      }
+                      if (!/^\d{12}$/.test(data.aadhaar || "")) e.aadhaar = "Enter a valid 12-digit Aadhaar number.";
+                      if (!/^[6-9]\d{9}$/.test(data.mobile || "")) e.mobile = "Enter a valid 10-digit mobile number.";
+                      if (!data.password || !PASSWORD_RE.test(data.password))
+                        e.password = "Password must be 8+ chars with uppercase, digit, and special character.";
+                      if (data.password !== data.passwordConfirm)
+                        e.passwordConfirm = "Passwords do not match.";
+                      if (Object.keys(e).length) { setErrors(e); return; }
+                      setErrors({});
+                      setLoading(true);
+                      try {
+                        await post("/api/v1/candidates/verify/aadhaar", { aadhaar: data.aadhaar });
+                        await post("/api/v1/candidates/verify/mobile", { mobile: data.mobile });
+                        setDetailsVerified(true);
+                      } catch (err) {
+                        const msg = err.message || "Verification failed.";
+                        if (msg.toLowerCase().includes("aadhaar")) setErrors({ aadhaar: msg });
+                        else if (msg.toLowerCase().includes("mobile")) setErrors({ mobile: msg });
+                        else setErrors({ _: msg });
+                      } finally { setLoading(false); }
+                    }}
+                  >
+                    {loading ? "Verifying…" : "Verify Details"}
+                  </button>
+                </div>
+              ) : !otpSent ? (
+                <div className="form-actions">
+                  <button className="btn" onClick={() => { setDetailsVerified(false); setOtpSent(false); }}>← Edit Details</button>
+                  <button
+                    className="btn primary"
+                    disabled={loading}
+                    onClick={async () => {
                       setErrors({});
                       setLoading(true);
                       try {
                         const res = await post("/api/v1/otp/candidates/send", {
                           mobile: data.mobile,
+                          aadhaar: data.aadhaar,
                         });
-                        if (import.meta.env.DEV && res?.data?.dev_otp)
-                          setOtp(res.data.dev_otp);
+                        if (import.meta.env.DEV && res?.data?.dev_otp) setOtp(res.data.dev_otp);
                         setOtpSent(true);
                       } catch (err) {
                         const msg = err.message || "Failed to send OTP.";
                         if (msg.toLowerCase().includes("mobile") && msg.toLowerCase().includes("registered"))
                           setErrors({ mobile: "This mobile number is already registered. Please login instead." });
-                        else
-                          setErrors({ _: msg });
-                      } finally {
-                        setLoading(false);
-                      }
+                        else setErrors({ _: msg });
+                      } finally { setLoading(false); }
                     }}
                   >
                     {loading ? "Sending OTP…" : "Send OTP"}
@@ -335,6 +406,9 @@ export default function RegistrationStep() {
                 <>
                   <div className="form-field">
                     <label>OTP (sent to {data.mobile}) *</label>
+                    <p style={{ fontSize: 12, margin: "2px 0 6px", color: "var(--ojas-ink-3)" }}>
+                      Up to {portalConfig.otp.maxVerifyAttempts} verification attempts allowed.
+                    </p>
                     <input
                       type="text"
                       inputMode="numeric"
@@ -345,33 +419,22 @@ export default function RegistrationStep() {
                     />
                   </div>
                   <div className="form-actions">
-                    <button className="btn" onClick={() => setOtpSent(false)}>
-                      ← Resend OTP
-                    </button>
+                    <button className="btn" onClick={() => setOtpSent(false)}>← Resend OTP</button>
                     <button
                       className="btn primary"
                       disabled={loading || otp.length < 6}
                       onClick={async () => {
                         setLoading(true);
                         try {
-                          await post("/api/v1/otp/candidates/verify", {
-                            mobile: data.mobile,
-                            otp,
-                          });
-                          await post("/api/v1/candidates/register/init", {
-                            aadhaar: data.aadhaar,
-                            mobile: data.mobile,
-                          });
+                          await post("/api/v1/otp/candidates/verify", { mobile: data.mobile, otp });
+                          await post("/api/v1/candidates/register/init", { aadhaar: data.aadhaar, mobile: data.mobile });
                           go(3);
                         } catch (err) {
                           const msg = err.message || "Invalid OTP.";
                           if (msg.toLowerCase().includes("aadhaar") && msg.toLowerCase().includes("registered"))
                             setErrors({ aadhaar: "This Aadhaar is already registered. Please login instead." });
-                          else
-                            setErrors({ _: msg });
-                        } finally {
-                          setLoading(false);
-                        }
+                          else setErrors({ _: msg });
+                        } finally { setLoading(false); }
                       }}
                     >
                       {loading ? "Verifying…" : "Verify & Continue ▶"}
@@ -449,6 +512,9 @@ export default function RegistrationStep() {
                 <>
                   <div className="form-field" style={{ gridColumn: "1/-1" }}>
                     <label>Caste Certificate / જ્ઞાતિ પ્રમાણ પત્ર *</label>
+                    <p style={{ fontSize: 12, margin: "2px 0 6px", color: "var(--ojas-ink-3)" }}>
+                      PDF or image · Max {portalConfig.uploadLimits.documentMaxLabel}
+                    </p>
                     <input
                       type="file"
                       accept="image/*,application/pdf"
@@ -533,6 +599,12 @@ export default function RegistrationStep() {
                     }
 
                     if (needsCasteCert && data.casteCertFile) {
+                      const docMax = portalConfig.uploadLimits.documentMaxBytes;
+                      const docLabel = portalConfig.uploadLimits.documentMaxLabel;
+                      if (data.casteCertFile.size > docMax) {
+                        setErrors({ casteCertFile: `File must be under ${docLabel}.` });
+                        return;
+                      }
                       setErrors({});
                       setLoading(true);
                       const fd = new FormData();
@@ -679,7 +751,7 @@ export default function RegistrationStep() {
 
       /* ── Step 5: Other ── */
       case 5: {
-        const isOthersQual = data.qualification === "Others";
+        const isOthersQual = isOthersQualification(data.qualification);
         const finalQual = isOthersQual
           ? data.qualification_other
           : data.qualification;
@@ -710,7 +782,7 @@ export default function RegistrationStep() {
                   onChange={set("qualification")}
                 >
                   <option value="">Select…</option>
-                  {QUALIFICATIONS.map((q) => (
+                  {qualifications.map((q) => (
                     <option key={q}>{q}</option>
                   ))}
                 </select>
@@ -744,6 +816,9 @@ export default function RegistrationStep() {
                 <>
                   <div className="form-field" style={{ gridColumn: "1/-1" }}>
                     <label>UDID Certificate / UDID પ્રમાણ પત્ર *</label>
+                    <p style={{ fontSize: 12, margin: "2px 0 6px", color: "var(--ojas-ink-3)" }}>
+                      PDF or image · Max {portalConfig.uploadLimits.documentMaxLabel}
+                    </p>
                     <input
                       type="file"
                       accept="image/*,application/pdf"
@@ -839,6 +914,12 @@ export default function RegistrationStep() {
                     }
 
                     if (data.ph_status && data.udidCertFile) {
+                      const docMax = portalConfig.uploadLimits.documentMaxBytes;
+                      const docLabel = portalConfig.uploadLimits.documentMaxLabel;
+                      if (data.udidCertFile.size > docMax) {
+                        setErrors({ udidCertFile: `File must be under ${docLabel}.` });
+                        return;
+                      }
                       setErrors({});
                       setLoading(true);
                       const fd = new FormData();
@@ -996,7 +1077,7 @@ export default function RegistrationStep() {
               Step 7: Upload Photo
             </h2>
             <div className="notice info" style={{ fontSize: 12 }}>
-              JPEG/PNG · Max 2 MB · White background · Clear face visible
+              JPEG/PNG · Max {portalConfig.uploadLimits.photoMaxLabel} · White background · Clear face visible
             </div>
             <div style={{ marginTop: 12 }}>
               <input
@@ -1039,7 +1120,8 @@ export default function RegistrationStep() {
                     "/api/v1/candidates/register/photo",
                     "photo",
                     data.photoFile,
-                    2048,
+                    portalConfig.uploadLimits.photoMaxBytes,
+                    portalConfig.uploadLimits.photoMaxLabel,
                   )
                 }
               >
@@ -1057,7 +1139,7 @@ export default function RegistrationStep() {
               Step 8: Upload Signature
             </h2>
             <div className="notice info" style={{ fontSize: 12 }}>
-              JPEG only · Max 2 MB · Black/blue ink on white paper
+              JPEG/PNG · Max {portalConfig.uploadLimits.signatureMaxLabel} · Black/blue ink on white paper
             </div>
             <div style={{ marginTop: 12 }}>
               <input
@@ -1100,7 +1182,8 @@ export default function RegistrationStep() {
                     "/api/v1/candidates/register/signature",
                     "signature",
                     data.sigFile,
-                    2048,
+                    portalConfig.uploadLimits.signatureMaxBytes,
+                    portalConfig.uploadLimits.signatureMaxLabel,
                   )
                 }
               >
@@ -1180,7 +1263,7 @@ export default function RegistrationStep() {
             <h2 style={{ fontSize: 16, marginBottom: 12 }}>
               Step 10: Submit Registration
             </h2>
-            {registrationId === "sent" ? (
+            {registrationId && registrationId !== "pending" ? (
               <div className="notice info" style={{ textAlign: "center" }}>
                 <div
                   className="title"
@@ -1189,9 +1272,10 @@ export default function RegistrationStep() {
                   <IconCheckCircle /> Registration Submitted
                 </div>
                 <p style={{ marginTop: 8, fontSize: 13.5 }}>
-                  Your Registration ID has been sent to your registered{" "}
-                  <strong>mobile number</strong> and{" "}
-                  <strong>email address</strong>.
+                  Your Registration ID: <strong style={{ fontFamily: "var(--font-mono)", fontSize: 16 }}>{registrationId}</strong>
+                </p>
+                <p style={{ fontSize: 12, color: "var(--ojas-ink-3)", marginTop: 8 }}>
+                  A copy has also been sent to your registered mobile and email.
                 </p>
                 <p
                   style={{
@@ -1231,13 +1315,12 @@ export default function RegistrationStep() {
                       setErrors({});
                       setLoading(true);
                       try {
-                        // password field removed (OTP login); auto-generate throwaway value
-                        await post("/api/v1/candidates/register/submit", {
+                        const res = await post("/api/v1/candidates/register/submit", {
                           name: data.name_en || data.name_gu || "Candidate",
-                          password: crypto.randomUUID() + crypto.randomUUID(),
+                          password: data.password,
                         });
                         sessionStorage.removeItem(SESSION_KEY);
-                        setRegId("sent");
+                        setRegId(res?.data?.registration_id || "sent");
                       } catch (err) {
                         setErrors({
                           _:

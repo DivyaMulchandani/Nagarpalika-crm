@@ -67,6 +67,19 @@ export const searchQualifications = async (req, res) => {
   }
 };
 
+
+export const listPublicQualifications = async (_req, res) => {
+  try {
+    const docs = await Qualification.find({ isActive: true })
+      .sort({ name: 1 })
+      .select("name isActive")
+      .lean();
+    return res.status(200).json({ isOk: true, data: docs });
+  } catch (error) {
+    return res.status(500).json({ isOk: false, message: error.message });
+  }
+};
+
 export const getAllQualifications = async (req, res) => {
   try {
     const filter = {};
