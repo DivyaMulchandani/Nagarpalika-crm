@@ -1,5 +1,5 @@
 # Apache2 vhost for hosting Web + Admin + Server on patan.onlinejobportal.org.
-# Replaces nginx.conf.example — same routing: / -> Web, /admin -> Admin, /api -> Server (port 7001).
+# Replaces nginx.conf.example — same routing: / -> Web, /admin -> Admin, /api -> Server (port 8000).
 #
 # Setup on VPS:
 #   sudo systemctl stop nginx && sudo systemctl disable nginx
@@ -41,10 +41,10 @@
         Require all granted
     </Directory>
 
-    # ── API ── proxy to Node/Express via PM2 (ecosystem.config.cjs, port 7001) ──
+    # ── API ── proxy to Node/Express via PM2 (ecosystem.config.cjs, port 8000) ──
     ProxyPreserveHost On
-    ProxyPass /api/ http://127.0.0.1:7001/api/
-    ProxyPassReverse /api/ http://127.0.0.1:7001/api/
+    ProxyPass /api/ http://127.0.0.1:8000/api/
+    ProxyPassReverse /api/ http://127.0.0.1:8000/api/
 
     # ── Admin panel ── static build, SPA fallback, base path /admin/ ───────────
     Alias /admin /home/dev-team-np/project/nagarpalika-v2/Server/out/admin
