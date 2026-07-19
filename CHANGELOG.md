@@ -17,6 +17,7 @@ Format: [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 - Inline OTP login on apply page (`/apply/:id`) — candidates login and submit on the same screen with no redirect
 - `.btn-link` utility CSS class for inline anchor-styled buttons
 - Language master (Admin CRUD, Server API) with configurable display order — registration Step 6 language field is now a dropdown sourced from this master instead of free text
+- Logged-in user's name in the Web header now opens a floating dropdown menu (My Profile, My Applications, Logout), responsive on mobile
 
 ### Changed
 - Server no longer serves the Admin build itself (`express.static` + SPA fallback at root removed from `server.js`) — nginx now owns all static file serving; Server handles only `/api/*`
