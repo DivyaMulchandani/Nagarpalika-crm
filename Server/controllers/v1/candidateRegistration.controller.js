@@ -3,7 +3,7 @@ import path from "path";
 import Candidate from "../../models/Candidate.js";
 import Qualification from "../../models/Qualification.js";
 import { sendTemplatedEmail } from "../../services/email.service.js";
-import { resolveFileUrl } from "../../services/storage.service.js";
+import { resolveFileUrl, deleteFile } from "../../services/storage.service.js";
 
 const EDIT_WINDOW_HOURS = 72;
 
@@ -16,6 +16,14 @@ const MOBILE_RE = /^[6-9]\d{9}$/;
 const PASSWORD_RE = /^(?=.*[A-Z])(?=.*\d)(?=.*[!@#$%^&*(),.?":{}|<>_\-+=\[\]\\|;'`~]).{8,}$/;
 
 const isVerifyFresh = (at) => at && Date.now() - at < VERIFY_TTL_MS;
+
+// Best-effort cleanup of a replaced upload; a missing/already-deleted key is not an error.
+const deletePreviousFile = (filePath) => {
+  if (!filePath) return;
+  deleteFile(filePath).catch((err) =>
+    console.error("[Upload] failed to delete replaced file:", filePath, err.message),
+  );
+};
 
 
 // Pre-OTP: validate Aadhaar format + checksum + uniqueness
@@ -220,6 +228,7 @@ export const uploadPhoto = async (req, res) => {
         .status(422)
         .json({ isOk: false, status: 422, message: "Photo file required" });
 
+    deletePreviousFile(req.session.candidateStep.data.photo_path);
     req.session.candidateStep.data.photo_path = req.file.path;
     const url = await resolveFileUrl(req.file.path);
     return res
@@ -245,6 +254,7 @@ export const uploadSignature = async (req, res) => {
         .status(422)
         .json({ isOk: false, status: 422, message: "Signature file required" });
 
+    deletePreviousFile(req.session.candidateStep.data.signature_path);
     req.session.candidateStep.data.signature_path = req.file.path;
     const url = await resolveFileUrl(req.file.path);
     return res
@@ -371,6 +381,7 @@ export const uploadCasteCert = async (req, res) => {
         message: "Caste certificate file required",
       });
 
+    deletePreviousFile(req.session.candidateStep.data.caste_cert_path);
     req.session.candidateStep.data.caste_cert_path = req.file.path;
     const url = await resolveFileUrl(req.file.path);
     return res
@@ -398,6 +409,7 @@ export const uploadUdidCert = async (req, res) => {
         message: "UDID certificate file required",
       });
 
+    deletePreviousFile(req.session.candidateStep.data.udid_cert_path);
     req.session.candidateStep.data.udid_cert_path = req.file.path;
     const url = await resolveFileUrl(req.file.path);
     return res

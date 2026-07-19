@@ -28,6 +28,8 @@ Format: [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 - `uploadFile` used bare `fetch` with relative URL, ignoring `VITE_API_URL` — prefixed with `API_BASE`
 - OTR submit showed `'—'` for Registration ID (backend sends ID via SMS/email) — replaced with correct confirmation message
 - Application auth check called `/api/v1/applications/my` (wrong endpoint); corrected to `/api/v1/applications/me`
+- Registration photo/signature upload steps kept showing the previous file's name/preview after using Back and re-uploading — file input and preview state now reset on Back navigation
+- Re-uploading a photo, signature, caste certificate, or UDID certificate left the old file orphaned in S3 — the previous object is now deleted when it's replaced
 
 - Candidate login via mobile OTP — replaced password-based login with 2-step phone + OTP flow; dev mode accepts `000000` and auto-fills from API response
 - `POST /api/v1/otp/candidates/login/send` and `/verify` endpoints with rate limiting and session fixation prevention

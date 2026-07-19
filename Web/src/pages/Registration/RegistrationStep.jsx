@@ -126,7 +126,20 @@ export default function RegistrationStep() {
       [field]: e.target.value.replace(/[^A-Za-z\s.']/g, "").slice(0, 100),
     }));
   const go = (n) => navigate(`/registration/apply/step/${n}`);
-  const back = (n) => go(n);
+  // Clear the file inputs' own stale selection/preview when leaving a step so
+  // returning to it doesn't show a previous file's name/preview before a new pick.
+  const back = (n) => {
+    if (photoRef.current) photoRef.current.value = "";
+    if (sigRef.current) sigRef.current.value = "";
+    setData((p) => ({
+      ...p,
+      photoFile: undefined,
+      photoPreview: undefined,
+      sigFile: undefined,
+      sigPreview: undefined,
+    }));
+    go(n);
+  };
 
   // After a successful submit the server has already logged the candidate in.
   // This page is GuestOnly, so hydrating auth state while the success screen
