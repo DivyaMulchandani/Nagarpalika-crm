@@ -299,6 +299,7 @@ export const deleteAdvertisement = async (req, res) => {
         message: `Cannot delete: ${applicationCount} application(s) reference this advertisement.`,
       });
 
+    if (adv.pdf_path) await deleteFile(adv.pdf_path);
     await Advertisement.findByIdAndDelete(req.params.id);
     return res
       .status(200)

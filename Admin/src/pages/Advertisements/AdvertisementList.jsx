@@ -89,8 +89,12 @@ const AdvertisementList = () => {
     setStatusLoadingId(id);
     updateAdvertisementStatus(id, status)
       .then((r) => {
-        if (r.data.isOk) { toast.success(`Status changed to ${status}`); fetchData(); }
-        else toast.error(r.data.message || "Status change failed");
+        if (r.data.isOk) {
+          toast.success(`Status changed to ${status}`);
+          setData((prev) => prev.map((row) => (row._id === id ? { ...row, status } : row)));
+        } else {
+          toast.error(r.data.message || "Status change failed");
+        }
       })
       .catch((err) => toast.error(err?.response?.data?.message || "Status change failed"))
       .finally(() => setStatusLoadingId(null));
