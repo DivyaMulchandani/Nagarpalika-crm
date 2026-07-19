@@ -1,7 +1,10 @@
 import bcrypt from "bcrypt";
 import crypto from "crypto";
 import Candidate from "../../models/Candidate.js";
-import { attachFileUrls, CANDIDATE_FILE_FIELDS } from "../../services/storage.service.js";
+import {
+  attachFileUrls,
+  CANDIDATE_FILE_FIELDS,
+} from "../../services/storage.service.js";
 
 const hashAadhaar = (raw) =>
   crypto.createHash("sha256").update(raw.replace(/\s/g, "")).digest("hex");
@@ -446,24 +449,62 @@ export const searchCandidates = async (req, res) => {
   }
 };
 
+const csvCell = (value) => {
+  const str = value === null || value === undefined ? "" : String(value);
+  return /[",\n]/.test(str) ? `"${str.replace(/"/g, '""')}"` : str;
+};
+
 export const exportCandidates = async (req, res) => {
   try {
-    const { otr_status, category } = req.body || {};
+    const { match, otr_status, category } = req.body || {};
     const filter = {};
     if (otr_status) filter.otr_status = otr_status;
     if (category) filter.category = category;
+    if (match) {
+      filter.$or = [
+        { name: { $regex: match, $options: "i" } },
+        { registration_id: { $regex: match, $options: "i" } },
+        { email: { $regex: match, $options: "i" } },
+        { mobile: { $regex: match, $options: "i" } },
+      ];
+    }
 
     const candidates = await Candidate.find(filter)
-      .select("-password -aadhaar_hash -login_attempts -lockout_until")
+      .select("registration_id name category mobile otr_status createdAt")
+      .sort({ createdAt: -1 })
       .lean();
 
-    // Return JSON — CSV conversion deferred to Phase 7 admin panel
-    return res.status(200).json({
-      isOk: true,
-      status: 200,
-      count: candidates.length,
-      data: candidates,
-    });
+    if (!candidates.length)
+      return res.status(404).json({
+        isOk: false,
+        status: 404,
+        message: "No candidates found for export",
+      });
+
+    const header = [
+      "Reg ID",
+      "Name",
+      "Category",
+      "Mobile",
+      "OTR Status",
+      "Registered At",
+    ];
+    const rows = candidates.map((c) => [
+      c.registration_id,
+      c.name,
+      c.category || "",
+      c.mobile,
+      c.otr_status,
+      new Date(c.createdAt).toISOString(),
+    ]);
+    const csv = [header, ...rows]
+      .map((row) => row.map(csvCell).join(","))
+      .join("\r\n");
+
+    const filename = `candidates-export-${Date.now()}.csv`;
+    res.setHeader("Content-Type", "text/csv; charset=utf-8");
+    res.setHeader("Content-Disposition", `attachment; filename="${filename}"`);
+    return res.status(200).send(csv);
   } catch (error) {
     return res
       .status(500)

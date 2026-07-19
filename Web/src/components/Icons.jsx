@@ -87,3 +87,19 @@ export const IconClock = (props) => (
     <path d="M12 6v6l4 2" />
   </Svg>
 )
+
+export const IconEye = (props) => (
+  <Svg {...props}>
+    <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z" />
+    <circle cx="12" cy="12" r="3" />
+  </Svg>
+)
+
+export const IconEyeOff = (props) => (
+  <Svg {...props}>
+    <path d="M9.88 9.88a3 3 0 1 0 4.24 4.24" />
+    <path d="M10.73 5.08A10.43 10.43 0 0 1 12 5c7 0 11 8 11 8a17 17 0 0 1-3.06 4.06" />
+    <path d="M6.61 6.61A17.26 17.26 0 0 0 1 13s4 8 11 8a10.5 10.5 0 0 0 5.39-1.61" />
+    <path d="M2 2l20 20" />
+  </Svg>
+)

@@ -1,7 +1,7 @@
 import { useState, useRef, useEffect } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import StepIndicator from "./StepIndicator";
-import { IconPdf, IconCheckCircle } from "../../components/Icons";
+import { IconPdf, IconCheckCircle, IconEye, IconEyeOff } from "../../components/Icons";
 import { get, post } from "../../api/index";
 import { useAuth } from "../../context/AuthContext";
 import { transliterateToGujarati } from "../../utils/gujaratiTransliterate";
@@ -77,6 +77,8 @@ export default function RegistrationStep() {
   const [otp, setOtp] = useState("");
   const [otpSent, setOtpSent] = useState(false);
   const [detailsVerified, setDetailsVerified] = useState(false);
+  const [showPassword, setShowPassword] = useState(false);
+  const [showPasswordConfirm, setShowPasswordConfirm] = useState(false);
   const [loading, setLoading] = useState(false);
   const [errors, setErrors] = useState({});
   const [registrationId, setRegId] = useState(null);
@@ -353,24 +355,70 @@ export default function RegistrationStep() {
               </div>
               <div className="form-field">
                 <label>Create Password *</label>
-                <input
-                  type="password"
-                  value={data.password || ""}
-                  onChange={set("password")}
-                  placeholder="Min 8 chars, 1 uppercase, 1 digit, 1 special"
-                  disabled={detailsVerified}
-                />
+                <div style={{ position: "relative" }}>
+                  <input
+                    type={showPassword ? "text" : "password"}
+                    value={data.password || ""}
+                    onChange={set("password")}
+                    placeholder="Min 8 chars, 1 uppercase, 1 digit, 1 special"
+                    disabled={detailsVerified}
+                    style={{ paddingRight: 36, width: "100%" }}
+                  />
+                  <button
+                    type="button"
+                    onClick={() => setShowPassword((v) => !v)}
+                    aria-label={showPassword ? "Hide password" : "Show password"}
+                    disabled={detailsVerified}
+                    style={{
+                      position: "absolute",
+                      right: 8,
+                      top: "50%",
+                      transform: "translateY(-50%)",
+                      background: "none",
+                      border: "none",
+                      cursor: detailsVerified ? "default" : "pointer",
+                      padding: 0,
+                      display: "flex",
+                      color: "var(--ojas-ink-3)",
+                    }}
+                  >
+                    {showPassword ? <IconEyeOff /> : <IconEye />}
+                  </button>
+                </div>
                 <FieldError msg={errors.password} />
               </div>
               <div className="form-field">
                 <label>Confirm Password *</label>
-                <input
-                  type="password"
-                  value={data.passwordConfirm || ""}
-                  onChange={set("passwordConfirm")}
-                  placeholder="Re-enter password"
-                  disabled={detailsVerified}
-                />
+                <div style={{ position: "relative" }}>
+                  <input
+                    type={showPasswordConfirm ? "text" : "password"}
+                    value={data.passwordConfirm || ""}
+                    onChange={set("passwordConfirm")}
+                    placeholder="Re-enter password"
+                    disabled={detailsVerified}
+                    style={{ paddingRight: 36, width: "100%" }}
+                  />
+                  <button
+                    type="button"
+                    onClick={() => setShowPasswordConfirm((v) => !v)}
+                    aria-label={showPasswordConfirm ? "Hide password" : "Show password"}
+                    disabled={detailsVerified}
+                    style={{
+                      position: "absolute",
+                      right: 8,
+                      top: "50%",
+                      transform: "translateY(-50%)",
+                      background: "none",
+                      border: "none",
+                      cursor: detailsVerified ? "default" : "pointer",
+                      padding: 0,
+                      display: "flex",
+                      color: "var(--ojas-ink-3)",
+                    }}
+                  >
+                    {showPasswordConfirm ? <IconEyeOff /> : <IconEye />}
+                  </button>
+                </div>
                 <FieldError msg={errors.passwordConfirm} />
               </div>
               <FieldError msg={errors._} />

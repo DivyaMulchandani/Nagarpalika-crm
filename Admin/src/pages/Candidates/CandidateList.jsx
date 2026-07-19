@@ -53,12 +53,42 @@ const CandidateList = () => {
 
   React.useEffect(() => { fetchData(); }, [fetchData]);
 
-  const handleExport = () => {
+  const handleExport = async () => {
     setExporting(true);
-    exportCandidates({ match: query, otr_status: otrFilter?.value })
-      .then(() => toast.success("Export initiated"))
-      .catch(() => toast.error("Export failed"))
-      .finally(() => setExporting(false));
+    try {
+      const res = await exportCandidates({ match: query || undefined, otr_status: otrFilter?.value });
+      const blob = res.data;
+      if (blob?.type?.includes("application/json")) {
+        const json = JSON.parse(await blob.text());
+        throw new Error(json?.message || "Export failed");
+      }
+      const disposition = res.headers?.["content-disposition"] || "";
+      const match = disposition.match(/filename="?([^";]+)"?/i);
+      const filename = match?.[1] || "candidates-export.csv";
+      const url = window.URL.createObjectURL(blob);
+      const link = document.createElement("a");
+      link.href = url;
+      link.download = filename;
+      document.body.appendChild(link);
+      link.click();
+      link.remove();
+      window.URL.revokeObjectURL(url);
+      toast.success("Candidates exported");
+    } catch (err) {
+      const errBlob = err?.response?.data;
+      if (errBlob instanceof Blob && errBlob.type?.includes("application/json")) {
+        try {
+          const json = JSON.parse(await errBlob.text());
+          toast.error(json?.message || "Export failed");
+        } catch {
+          toast.error("Export failed");
+        }
+      } else {
+        toast.error(err?.message || "Export failed");
+      }
+    } finally {
+      setExporting(false);
+    }
   };
 
   const columns = [
