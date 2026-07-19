@@ -21,7 +21,13 @@ async function request(path, options = {}) {
     // Let the auth context drop the cached user immediately
     window.dispatchEvent(new CustomEvent("auth:unauthorized"));
     const isPublicPath = PUBLIC_PATH_PREFIXES.some((p) => path.startsWith(p));
-    if (!isPublicPath && !silent401) {
+    if (isPublicPath) {
+      // Public endpoints return meaningful 401s (e.g. "Invalid OTP") —
+      // surface the server message instead of a session-expiry error.
+      const json = await res.json().catch(() => null);
+      throw new Error(json?.message || "Unauthorized");
+    }
+    if (!silent401) {
       const redirect = encodeURIComponent(
         window.location.pathname + window.location.search,
       );
