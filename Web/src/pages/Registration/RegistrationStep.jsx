@@ -81,6 +81,7 @@ export default function RegistrationStep() {
   const [sessionMissing, setSessionMissing] = useState(false);
   const [portalConfig, setPortalConfig] = useState(DEFAULT_PORTAL_CONFIG);
   const [qualifications, setQualifications] = useState([]);
+  const [languages, setLanguages] = useState([]);
 
   const photoRef = useRef();
   const sigRef = useRef();
@@ -99,6 +100,12 @@ export default function RegistrationStep() {
       .then((res) => {
         const list = (res?.data || []).map((q) => q.name).filter(Boolean);
         setQualifications(list);
+      })
+      .catch(() => {});
+    get("/api/v1/languages/public")
+      .then((res) => {
+        const list = (res?.data || []).map((l) => l.name).filter(Boolean);
+        setLanguages(list);
       })
       .catch(() => {});
   }, []);
@@ -993,13 +1000,16 @@ export default function RegistrationStep() {
                   marginBottom: 8,
                 }}
               >
-                <input
-                  type="text"
-                  placeholder="Language"
+                <select
                   value={lang.language}
                   style={{ flex: 1 }}
                   onChange={(e) => updateLang(i, { language: e.target.value })}
-                />
+                >
+                  <option value="">Select Language…</option>
+                  {languages.map((l) => (
+                    <option key={l} value={l}>{l}</option>
+                  ))}
+                </select>
                 {["read", "write", "speak"].map((sk) => (
                   <label
                     key={sk}
