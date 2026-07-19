@@ -190,6 +190,12 @@ export const ENDPOINTS = {
         BY_ID:  (id) => `${V1}/qualifications/${id}`,
         SEARCH: `${V1}/qualifications/search`,
     },
+
+    LANGUAGES: {
+        BASE:   `${V1}/languages`,
+        BY_ID:  (id) => `${V1}/languages/${id}`,
+        SEARCH: `${V1}/languages/search`,
+    },
 };
 
 export default ENDPOINTS;
