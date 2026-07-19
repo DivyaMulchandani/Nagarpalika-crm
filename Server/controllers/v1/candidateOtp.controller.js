@@ -27,9 +27,9 @@ const generateOtp = () => crypto.randomInt(100000, 999999).toString();
 const CANDIDATE_SESSION_MS = 30 * 60 * 1000; // keep in sync with authMiddleware
 const MOBILE_RE = /^[6-9]\d{9}$/;
 const OTP_RE = /^\d{6}$/;
-const isDevOtpEnabled = () =>
-  process.env.NODE_ENV !== "production" &&
-  process.env.ENABLE_DEV_OTP === "true";
+// Opt-in flag; works regardless of NODE_ENV so it can be toggled on a
+// production-hosted server for testing. Defaults off — keep it off in real prod.
+const isDevOtpEnabled = () => process.env.ENABLE_DEV_OTP === "true";
 
 const isValidMobile = (m) => typeof m === "string" && MOBILE_RE.test(m);
 const isValidOtp = (o) => typeof o === "string" && OTP_RE.test(o);

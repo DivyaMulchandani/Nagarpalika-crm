@@ -83,25 +83,6 @@ export const initRegistration = async (req, res) => {
         message: "Aadhaar already registered",
       });
 
-
-    if (sanitized.qualification) {
-      const qualName = String(sanitized.qualification).trim();
-      const exact = await Qualification.findOne({ name: qualName, isActive: true });
-      if (!exact) {
-        const othersEntry = await Qualification.findOne({
-          name: { $regex: /^others$/i },
-          isActive: true,
-        });
-        if (!othersEntry || !qualName) {
-          return res.status(422).json({
-            isOk: false,
-            status: 422,
-            message: "Invalid qualification selected",
-          });
-        }
-      }
-    }
-
     req.session.candidateStep = { step: 1, aadhaar_hash, mobile, data: {} };
 
     return res.status(200).json({
