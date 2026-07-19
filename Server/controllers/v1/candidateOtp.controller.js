@@ -27,6 +27,9 @@ const generateOtp = () => crypto.randomInt(100000, 999999).toString();
 const CANDIDATE_SESSION_MS = 30 * 60 * 1000; // keep in sync with authMiddleware
 const MOBILE_RE = /^[6-9]\d{9}$/;
 const OTP_RE = /^\d{6}$/;
+const isDevOtpEnabled = () =>
+  process.env.NODE_ENV !== "production" &&
+  process.env.ENABLE_DEV_OTP === "true";
 
 const isValidMobile = (m) => typeof m === "string" && MOBILE_RE.test(m);
 const isValidOtp = (o) => typeof o === "string" && OTP_RE.test(o);
@@ -88,7 +91,7 @@ export const sendCandidateOtp = async (req, res) => {
     );
 
     const extra = {};
-    if (process.env.NODE_ENV !== "production") extra.dev_otp = otp;
+    if (isDevOtpEnabled()) extra.dev_otp = otp;
 
     return res.status(200).json({
       isOk: true,
@@ -114,8 +117,7 @@ export const verifyCandidateOtp = async (req, res) => {
         message: "A valid mobile number and 6-digit OTP are required",
       });
 
-    const isDevBypass =
-      process.env.NODE_ENV !== "production" && otp === "000000";
+    const isDevBypass = isDevOtpEnabled() && otp === "000000";
 
     if (!isDevBypass) {
       const stored = req.session.candidateOtp;
@@ -263,7 +265,7 @@ export const sendLoginOtp = async (req, res) => {
       deliverOtp({ mobile, otp, trigger: "otp_login" }).catch((err) =>
         console.error("[OTP] login delivery error:", err.message),
       );
-      if (process.env.NODE_ENV !== "production") extra.dev_otp = otp;
+      if (isDevOtpEnabled()) extra.dev_otp = otp;
     }
 
     return res.status(200).json({
@@ -291,8 +293,7 @@ export const verifyLoginOtp = async (req, res) => {
       });
 
     // Dev bypass: accept "000000" in non-production
-    const isDevBypass =
-      process.env.NODE_ENV !== "production" && otp === "000000";
+    const isDevBypass = isDevOtpEnabled() && otp === "000000";
 
     if (!isDevBypass) {
       const stored = req.session.candidateOtp;
