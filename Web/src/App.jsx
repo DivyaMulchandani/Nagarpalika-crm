@@ -24,6 +24,9 @@ import ApplicationForm from './pages/Application/ApplicationForm'
 import PrintApplication from './pages/Application/PrintApplication'
 import ApplyDirect from './pages/Application/ApplyDirect'
 import AdvertisementDetail from './pages/AdvertisementDetail'
+import ApplicationsList from './pages/Applications/ApplicationsList'
+import ApplicationDetail from './pages/Applications/ApplicationDetail'
+import Profile from './pages/Profile/Profile'
 
 function Layout({ children }) {
   return (
@@ -94,6 +97,10 @@ export default function App() {
             <Route path="/application"                   element={<Layout><RequireAuth><ApplicationEntry /></RequireAuth></Layout>} />
             <Route path="/application/apply"             element={<Layout><RequireAuth><ApplicationForm /></RequireAuth></Layout>} />
             <Route path="/application/print"             element={<Layout><RequireAuth><PrintApplication /></RequireAuth></Layout>} />
+
+            <Route path="/profile"                       element={<Layout><RequireAuth><Profile /></RequireAuth></Layout>} />
+            <Route path="/applications"                  element={<Layout><RequireAuth><ApplicationsList /></RequireAuth></Layout>} />
+            <Route path="/applications/:ref"             element={<Layout><RequireAuth><ApplicationDetail /></RequireAuth></Layout>} />
 
             <Route path="/login"                         element={<Navigate to="/registration/find" replace />} />
             <Route path="*"                              element={<Navigate to="/" replace />} />

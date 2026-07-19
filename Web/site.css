@@ -123,7 +123,7 @@ a:visited { color: var(--fg-link-visited); }
   padding: 6px;
   z-index: 50;
 }
-.nav-user-dropdown button {
+.nav-user-dropdown button, .nav-user-dropdown a {
   background: transparent;
   border: none;
   text-align: left;
@@ -134,8 +134,9 @@ a:visited { color: var(--fg-link-visited); }
   padding: 9px 12px;
   border-radius: 6px;
   cursor: pointer;
+  text-decoration: none !important;
 }
-.nav-user-dropdown button:hover { background: var(--ojas-saffron-soft, #fdf1e6); }
+.nav-user-dropdown button:hover, .nav-user-dropdown a:hover { background: var(--ojas-saffron-soft, #fdf1e6); }
 .nav-user-dropdown .nav-dropdown-logout {
   color: #c0392b;
   border-top: 1px solid #eee;
@@ -908,7 +909,7 @@ table.ojas { min-width: 540px; }
   .brand-utility { margin-left: 0; flex-wrap: wrap; gap: 6px; width: 100%; justify-content: center; }
   .nav-row { padding: 6px 12px; gap: 10px; font-size: 11px; justify-content: center; }
   .nav-user-dropdown { left: 50%; right: auto; transform: translateX(-50%); min-width: 200px; max-width: calc(100vw - 24px); }
-  .nav-user-dropdown button { padding: 11px 14px; font-size: 14px; }
+  .nav-user-dropdown button, .nav-user-dropdown a { padding: 11px 14px; font-size: 14px; }
   .hero-strip { text-align: center; }
   .hero-strip h1 { font-size: 18px; }
   .hero-strip .guj { font-size: 12px; }

@@ -82,8 +82,8 @@ function UserMenu({ user, onLogout }) {
       </button>
       {open && (
         <div className="nav-user-dropdown" role="menu">
-          <button type="button" role="menuitem" onClick={() => setOpen(false)}>My Profile</button>
-          <button type="button" role="menuitem" onClick={() => setOpen(false)}>My Applications</button>
+          <Link to="/profile" role="menuitem" onClick={() => setOpen(false)}>My Profile</Link>
+          <Link to="/applications" role="menuitem" onClick={() => setOpen(false)}>My Applications</Link>
           <button type="button" role="menuitem" className="nav-dropdown-logout" onClick={() => { setOpen(false); onLogout() }}>Logout</button>
         </div>
       )}
