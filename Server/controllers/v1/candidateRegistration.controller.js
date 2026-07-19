@@ -11,6 +11,7 @@ const hashAadhaar = (raw) =>
   crypto.createHash("sha256").update(raw.replace(/\s/g, "")).digest("hex");
 
 const VERIFY_TTL_MS = 15 * 60 * 1000;
+const CANDIDATE_SESSION_MS = 30 * 60 * 1000; // keep in sync with authMiddleware
 const MOBILE_RE = /^[6-9]\d{9}$/;
 const PASSWORD_RE = /^(?=.*[A-Z])(?=.*\d)(?=.*[!@#$%^&*(),.?":{}|<>_\-+=\[\]\\|;'`~]).{8,}$/;
 
@@ -321,14 +322,32 @@ export const submitRegistration = async (req, res) => {
       );
     }
 
-    delete req.session.candidateStep;
-    delete req.session.mobileOtpVerified;
+    // Auto-login: regenerate session (fixation prevention) and create a
+    // candidate session, same as verifyLoginOtp. Regeneration also discards
+    // the registration-step and OTP-verified state.
+    await new Promise((resolve, reject) =>
+      req.session.regenerate((err) => (err ? reject(err) : resolve())),
+    );
+
+    req.session.user = {
+      id: candidate._id.toString(),
+      role: "CANDIDATE",
+      registration_id: candidate.registration_id,
+      name: candidate.name,
+      loginAt: Date.now(),
+    };
+
+    // Absolute 30-minute session, fixed expiry — matches OTP login
+    req.session.cookie.maxAge = CANDIDATE_SESSION_MS;
 
     return res.status(201).json({
       isOk: true,
       status: 201,
       message: "Registration complete",
-      data: { registration_id: candidate.registration_id },
+      data: {
+        registration_id: candidate.registration_id,
+        name: candidate.name,
+      },
     });
   } catch (error) {
     return res

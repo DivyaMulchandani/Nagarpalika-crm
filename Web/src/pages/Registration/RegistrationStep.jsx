@@ -3,6 +3,7 @@ import { useParams, useNavigate } from "react-router-dom";
 import StepIndicator from "./StepIndicator";
 import { IconPdf, IconCheckCircle } from "../../components/Icons";
 import { get, post } from "../../api/index";
+import { useAuth } from "../../context/AuthContext";
 import { transliterateToGujarati } from "../../utils/gujaratiTransliterate";
 
 const API_BASE = import.meta.env.VITE_API_URL || "";
@@ -69,6 +70,7 @@ function persistData(data) {
 export default function RegistrationStep() {
   const { step: stepStr } = useParams();
   const navigate = useNavigate();
+  const { refresh: refreshAuth } = useAuth();
   const step = Math.max(1, Math.min(parseInt(stepStr) || 1, TOTAL_STEPS));
 
   const [data, setData] = useState(() => loadPersistedData());
@@ -125,6 +127,15 @@ export default function RegistrationStep() {
     }));
   const go = (n) => navigate(`/registration/apply/step/${n}`);
   const back = (n) => go(n);
+
+  // After a successful submit the server has already logged the candidate in.
+  // This page is GuestOnly, so hydrating auth state while the success screen
+  // is visible would redirect away and hide the registration ID — instead,
+  // refresh on unmount, whichever way the user leaves.
+  useEffect(() => {
+    if (!registrationId || registrationId === "pending") return;
+    return () => refreshAuth();
+  }, [registrationId, refreshAuth]);
 
   // ── Session guard: steps 3+ require an active registration session ──
   useEffect(() => {
@@ -1294,8 +1305,8 @@ export default function RegistrationStep() {
                     marginTop: 8,
                   }}
                 >
-                  Keep that ID safe — you will need it to login and apply for
-                  posts.
+                  You are now logged in. Keep that ID safe — you will need it
+                  for future logins.
                 </p>
                 <div style={{ marginTop: 16 }}>
                   <button
