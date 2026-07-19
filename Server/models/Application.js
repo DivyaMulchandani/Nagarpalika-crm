@@ -1,5 +1,6 @@
 import mongoose from "mongoose";
 import Counter from "./Counter.js";
+import { APPLICATION_STATUSES } from "../constants/applicationStatus.js";
 
 const ApplicationSchema = new mongoose.Schema(
   {
@@ -21,13 +22,7 @@ const ApplicationSchema = new mongoose.Schema(
     },
     status: {
       type: String,
-      enum: [
-        "submitted",
-        "under_review",
-        "shortlisted",
-        "rejected",
-        "selected",
-      ],
+      enum: APPLICATION_STATUSES,
       default: "submitted",
     },
     // Scaffold fields — finalize with municipality before launch

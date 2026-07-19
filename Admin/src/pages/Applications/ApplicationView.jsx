@@ -3,10 +3,11 @@ import {
   Card, CardBody, CardHeader, Col, Container, Row, Badge, Button,
 } from "reactstrap";
 import { useParams, useNavigate } from "react-router-dom";
-import { getApplicationByRef } from "../../api/applications.api";
+import { getApplicationByRef, updateApplicationStatus } from "../../api/applications.api";
 import BreadCrumb from "../../Components/Common/BreadCrumb";
 import { toast } from "react-toastify";
 import { AuthContext } from "../../context/AuthContext";
+import { MenuContext } from "../../context/MenuContext";
 import StoredFileViewer from "../../Components/Common/StoredFileViewer";
 
 const fmtDate = (d) => d ? new Date(d).toLocaleDateString("en-IN") : "—";
@@ -19,6 +20,15 @@ const statusColor = {
   shortlisted: "warning",
   rejected: "danger",
   selected: "success",
+};
+
+// Mirrors Server/constants/applicationStatus.js — admin-initiated transitions only.
+const ALLOWED_TRANSITIONS = {
+  submitted: ["under_review", "rejected"],
+  under_review: ["shortlisted", "rejected"],
+  shortlisted: ["selected", "rejected"],
+  rejected: [],
+  selected: [],
 };
 
 const Field = ({ label, value, mono, span }) => (
@@ -42,8 +52,10 @@ const ApplicationView = () => {
   const { ref } = useParams();
   const navigate = useNavigate();
   const { adminData } = useContext(AuthContext);
+  const { currentPagePermissions } = useContext(MenuContext);
   const [rec, setRec] = useState(null);
   const [loading, setLoading] = useState(true);
+  const [statusUpdating, setStatusUpdating] = useState(false);
 
   useEffect(() => {
     getApplicationByRef(ref)
@@ -51,6 +63,19 @@ const ApplicationView = () => {
       .catch(() => toast.error("Failed to load application"))
       .finally(() => setLoading(false));
   }, [ref]);
+
+  const handleStatusChange = async (nextStatus) => {
+    setStatusUpdating(true);
+    try {
+      const res = await updateApplicationStatus(rec.application._id, nextStatus);
+      setRec((prev) => ({ ...prev, application: { ...prev.application, status: res.data.data.status, edit_log: res.data.data.edit_log } }));
+      toast.success("Status updated");
+    } catch (err) {
+      toast.error(err?.response?.data?.message || "Failed to update status");
+    } finally {
+      setStatusUpdating(false);
+    }
+  };
 
   document.title = `Application ${ref} | ${adminData?.companyName}`;
 
@@ -182,9 +207,27 @@ const ApplicationView = () => {
         <SectionCard
           title="Application Details"
           badge={
-            <Badge color={statusColor[app?.status] || "secondary"} className="text-uppercase">
-              {app?.status?.replace(/_/g, " ")}
-            </Badge>
+            <div className="d-flex align-items-center gap-2">
+              <Badge color={statusColor[app?.status] || "secondary"} className="text-uppercase">
+                {app?.status?.replace(/_/g, " ")}
+              </Badge>
+              {currentPagePermissions.edit && ALLOWED_TRANSITIONS[app?.status]?.length > 0 && (
+                <div className="d-flex gap-1">
+                  {ALLOWED_TRANSITIONS[app.status].map((next) => (
+                    <Button
+                      key={next}
+                      size="sm"
+                      color={statusColor[next] || "secondary"}
+                      outline
+                      disabled={statusUpdating}
+                      onClick={() => handleStatusChange(next)}
+                    >
+                      Mark {next.replace(/_/g, " ")}
+                    </Button>
+                  ))}
+                </div>
+              )}
+            </div>
           }
         >
           <Row>
@@ -197,6 +240,25 @@ const ApplicationView = () => {
             <Field label="Declaration Accepted" value={app?.declaration_accepted ? "Yes" : "No"} span={6} />
           </Row>
         </SectionCard>
+
+        {app?.edit_log?.some((e) => e.field === "status") && (
+          <SectionCard title="Status History">
+            <table className="table table-sm table-bordered mb-0" style={{ fontSize: 13 }}>
+              <thead className="table-light">
+                <tr><th>From</th><th>To</th><th>Changed At</th></tr>
+              </thead>
+              <tbody>
+                {app.edit_log.filter((e) => e.field === "status").map((e, i) => (
+                  <tr key={i}>
+                    <td className="text-uppercase">{e.old_value?.replace(/_/g, " ") || "—"}</td>
+                    <td className="text-uppercase">{e.new_value?.replace(/_/g, " ") || "—"}</td>
+                    <td>{fmtDateTime(e.changed_at)}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </SectionCard>
+        )}
 
         {advt && (
           <SectionCard title="Advertisement Details">
