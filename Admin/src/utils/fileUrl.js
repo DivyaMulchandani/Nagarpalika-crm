@@ -15,7 +15,7 @@ export const getSignedFileUrl = async (filePath) => {
   const hit = cache.get(key);
   if (hit && hit.exp > Date.now()) return hit.url;
 
-  const res = await api.get("/documents/signed-url", { params: { key } });
+  const res = await api.get("/api/v1/documents/signed-url", { params: { key } });
   const url = res.data?.data?.url;
   if (url) cache.set(key, { url, exp: Date.now() + CACHE_MS });
   return url || null;

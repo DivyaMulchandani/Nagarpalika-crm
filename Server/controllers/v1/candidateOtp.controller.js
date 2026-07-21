@@ -51,15 +51,35 @@ export const sendCandidateOtp = async (req, res) => {
     const mobileOk = req.session.mobileFormatVerified;
 
     if (!aadhaarOk || !isFresh(aadhaarOk.at))
-      return res.status(403).json({ isOk: false, status: 403, message: "Aadhaar verification required before OTP" });
+      return res
+        .status(403)
+        .json({
+          isOk: false,
+          status: 403,
+          message: "Aadhaar verification required before OTP",
+        });
     if (!mobileOk || !isFresh(mobileOk.at) || mobileOk.mobile !== mobile)
-      return res.status(403).json({ isOk: false, status: 403, message: "Mobile verification required before OTP" });
+      return res
+        .status(403)
+        .json({
+          isOk: false,
+          status: 403,
+          message: "Mobile verification required before OTP",
+        });
     if (aadhaar && aadhaarOk.hash) {
-      const hash = crypto.createHash("sha256").update(String(aadhaar).replace(/\s/g, "")).digest("hex");
+      const hash = crypto
+        .createHash("sha256")
+        .update(String(aadhaar).replace(/\s/g, ""))
+        .digest("hex");
       if (hash !== aadhaarOk.hash)
-        return res.status(403).json({ isOk: false, status: 403, message: "Aadhaar does not match verified number" });
+        return res
+          .status(403)
+          .json({
+            isOk: false,
+            status: 403,
+            message: "Aadhaar does not match verified number",
+          });
     }
-
 
     if (await Candidate.findOne({ mobile }))
       return res.status(409).json({
@@ -208,7 +228,12 @@ export const sendPasswordResetOtp = async (req, res) => {
         attempts: 0,
       };
 
-      deliverOtp({ mobile: candidate.mobile, otp, trigger: "otp_password_reset", email: candidate.email }).catch((err) =>
+      deliverOtp({
+        mobile: candidate.mobile,
+        otp,
+        trigger: "otp_password_reset",
+        email: candidate.email,
+      }).catch((err) =>
         console.error("[OTP] reset delivery error:", err.message),
       );
     }
@@ -238,40 +263,46 @@ export const sendLoginOtp = async (req, res) => {
         message: "A valid 10-digit mobile number is required",
       });
 
-    // Enumeration-safe: same response regardless of whether candidate exists
+    // Login requires an existing account — reject unknown numbers so the client
+    // never advances to the OTP step for a mobile that can't log in.
     const candidate = await Candidate.findOne({ mobile }).select("_id");
+    if (!candidate)
+      return res.status(404).json({
+        isOk: false,
+        status: 404,
+        message:
+          "No account found with this mobile number. Please register first.",
+      });
 
-    if (candidate && !checkOtpRate(`login:${mobile}`))
+    if (!checkOtpRate(`login:${mobile}`))
       return res.status(429).json({
         isOk: false,
         status: 429,
         message: "Too many OTP requests. Try again in 1 hour.",
       });
 
+    const otp = generateOtp();
+    const expires_at = Date.now() + OTP_EXPIRE_MS;
+
+    req.session.candidateOtp = {
+      target: mobile,
+      type: "login",
+      hash: crypto.createHash("sha256").update(otp).digest("hex"),
+      expires_at,
+      attempts: 0,
+    };
+
+    deliverOtp({ mobile, otp, trigger: "otp_login" }).catch((err) =>
+      console.error("[OTP] login delivery error:", err.message),
+    );
+
     const extra = {};
-
-    if (candidate) {
-      const otp = generateOtp();
-      const expires_at = Date.now() + OTP_EXPIRE_MS;
-
-      req.session.candidateOtp = {
-        target: mobile,
-        type: "login",
-        hash: crypto.createHash("sha256").update(otp).digest("hex"),
-        expires_at,
-        attempts: 0,
-      };
-
-      deliverOtp({ mobile, otp, trigger: "otp_login" }).catch((err) =>
-        console.error("[OTP] login delivery error:", err.message),
-      );
-      if (isDevOtpEnabled()) extra.dev_otp = otp;
-    }
+    if (isDevOtpEnabled()) extra.dev_otp = otp;
 
     return res.status(200).json({
       isOk: true,
       status: 200,
-      message: "If this mobile number is registered, an OTP has been sent.",
+      message: "OTP sent to your registered mobile number.",
       ...(Object.keys(extra).length ? { data: extra } : {}),
     });
   } catch (error) {

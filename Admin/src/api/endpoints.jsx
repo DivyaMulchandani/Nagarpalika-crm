@@ -145,6 +145,7 @@ export const ENDPOINTS = {
         BY_ID:   (id) => `${V1}/candidates/${id}`,
         SEARCH:  `${V1}/candidates/search`,
         EXPORT:  `${V1}/candidates/export`,
+        EXPORT_ZIP: `${V1}/candidates/export-zip`,
     },
 
     APPLICATIONS: {

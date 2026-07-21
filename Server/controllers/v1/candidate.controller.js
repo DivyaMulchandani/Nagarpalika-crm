@@ -5,6 +5,27 @@ import {
   attachFileUrls,
   CANDIDATE_FILE_FIELDS,
 } from "../../services/storage.service.js";
+import {
+  streamCandidatesZip,
+  buildCandidatesZipFilename,
+} from "../../services/candidateExport.service.js";
+
+// Max candidates a single ZIP export may bundle (matches the list's largest page size).
+const ZIP_MAX_CANDIDATES = 100;
+
+/** Build the same Mongo filter searchCandidates uses, so exports match the list. */
+const buildCandidateListFilter = ({ match, otr_status }) => {
+  const filter = {};
+  if (otr_status) filter.otr_status = otr_status;
+  if (match) {
+    filter.$or = [
+      { name: { $regex: match, $options: "i" } },
+      { registration_id: { $regex: match, $options: "i" } },
+      { email: { $regex: match, $options: "i" } },
+    ];
+  }
+  return filter;
+};
 
 const hashAadhaar = (raw) =>
   crypto.createHash("sha256").update(raw.replace(/\s/g, "")).digest("hex");
@@ -506,6 +527,62 @@ export const exportCandidates = async (req, res) => {
     res.setHeader("Content-Disposition", `attachment; filename="${filename}"`);
     return res.status(200).send(csv);
   } catch (error) {
+    return res
+      .status(500)
+      .json({ isOk: false, status: 500, message: error.message });
+  }
+};
+
+/**
+ * Stream a ZIP of the candidates on the current list page. The frontend passes
+ * the same skip/per_page/sort/filter it uses for the table, so the archive
+ * mirrors exactly what the admin sees (e.g. 20 rows → 20 candidate folders).
+ * Each candidate folder holds a details PDF plus their uploaded documents.
+ */
+export const exportCandidatesZip = async (req, res) => {
+  try {
+    const {
+      match,
+      otr_status,
+      sorton,
+      sortdir,
+      skip = 0,
+      per_page = 20,
+    } = req.body || {};
+
+    const filter = buildCandidateListFilter({ match, otr_status });
+    const start = Math.max(Number(skip) || 0, 0);
+    const limit = Math.min(
+      Math.max(Number(per_page) || 20, 1),
+      ZIP_MAX_CANDIDATES,
+    );
+
+    const candidates = await Candidate.find(filter)
+      .select("-password -aadhaar_hash -login_attempts -lockout_until")
+      .sort({ [sorton || "createdAt"]: sortdir === "asc" ? 1 : -1 })
+      .skip(start)
+      .limit(limit)
+      .lean();
+
+    if (!candidates.length)
+      return res.status(404).json({
+        isOk: false,
+        status: 404,
+        message: "No candidates found for export",
+      });
+
+    const filename = buildCandidatesZipFilename(candidates.length);
+    res.setHeader("Content-Type", "application/zip");
+    res.setHeader("Content-Disposition", `attachment; filename="${filename}"`);
+
+    await streamCandidatesZip(candidates, res);
+  } catch (error) {
+    // Once the archive has started streaming we can't switch to a JSON error;
+    // destroy the socket so the client sees a failed/incomplete download.
+    if (res.headersSent) {
+      res.destroy(error);
+      return;
+    }
     return res
       .status(500)
       .json({ isOk: false, status: 500, message: error.message });
