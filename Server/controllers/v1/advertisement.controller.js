@@ -318,12 +318,15 @@ export const searchAdvertisements = async (req, res) => {
       per_page = 10,
       match,
       status,
+      department,
       sorton,
       sortdir,
     } = req.body;
 
     const matchCond = {};
     if (status) matchCond.status = status;
+    if (department && mongoose.Types.ObjectId.isValid(department))
+      matchCond.department = new mongoose.Types.ObjectId(department);
 
     const pipeline = [];
     if (match) {
