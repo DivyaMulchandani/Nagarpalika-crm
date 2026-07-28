@@ -159,7 +159,7 @@ export const getCorsConfig = (allowedOrigins = []) => {
       "Accept",
       "Authorization",
     ],
-    exposedHeaders: [],
+    exposedHeaders: ["Content-Disposition"],
     maxAge: 86400, // Cache preflight for 24 hours
   };
 };

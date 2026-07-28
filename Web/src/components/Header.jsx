@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import { Link, useLocation, useNavigate } from 'react-router-dom'
 import { useLang } from '../context/LangContext'
 import { useAuth } from '../context/AuthContext'
@@ -47,6 +47,46 @@ function FontSizeControls() {
       <button type="button" onClick={() => step(-1)} disabled={scale <= FONT_MIN} title="Decrease font size" aria-label="Decrease font size">A−</button>
       <button type="button" onClick={() => setScale(1)} title="Reset font size" aria-label="Reset font size">A</button>
       <button type="button" onClick={() => step(1)} disabled={scale >= FONT_MAX} title="Increase font size" aria-label="Increase font size">A+</button>
+    </div>
+  )
+}
+
+function UserMenu({ user, onLogout }) {
+  const [open, setOpen] = useState(false)
+  const ref = useRef(null)
+
+  useEffect(() => {
+    if (!open) return
+    const onClickOutside = (e) => {
+      if (ref.current && !ref.current.contains(e.target)) setOpen(false)
+    }
+    const onEscape = (e) => { if (e.key === 'Escape') setOpen(false) }
+    document.addEventListener('mousedown', onClickOutside)
+    document.addEventListener('keydown', onEscape)
+    return () => {
+      document.removeEventListener('mousedown', onClickOutside)
+      document.removeEventListener('keydown', onEscape)
+    }
+  }, [open])
+
+  return (
+    <div className="nav-user-menu" ref={ref}>
+      <button
+        type="button"
+        className="nav-login-pill nav-user-trigger"
+        onClick={() => setOpen((o) => !o)}
+        aria-haspopup="menu"
+        aria-expanded={open}
+      >
+        {user.name ? user.name.split(' ')[0] : user.registration_id}
+      </button>
+      {open && (
+        <div className="nav-user-dropdown" role="menu">
+          <Link to="/profile" role="menuitem" onClick={() => setOpen(false)}>My Profile</Link>
+          <Link to="/applications" role="menuitem" onClick={() => setOpen(false)}>My Applications</Link>
+          <button type="button" role="menuitem" className="nav-dropdown-logout" onClick={() => { setOpen(false); onLogout() }}>Logout</button>
+        </div>
+      )}
     </div>
   )
 }
@@ -115,12 +155,7 @@ export default function Header() {
           )
         })}
         {user ? (
-          <span className="nav-user">
-            <Link to="/application" className="nav-login-pill" title="My applications">
-              {user.name ? user.name.split(' ')[0] : user.registration_id}
-            </Link>
-            <button type="button" className="nav-logout" onClick={handleLogout}>Logout</button>
-          </span>
+          <UserMenu user={user} onLogout={handleLogout} />
         ) : (
           <Link to="/registration/find" className="nav-login-pill">
             {t('nav.login') || 'Login'}

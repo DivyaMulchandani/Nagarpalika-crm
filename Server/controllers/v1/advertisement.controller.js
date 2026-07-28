@@ -1,6 +1,7 @@
 import crypto from "crypto";
 import mongoose from "mongoose";
 import Advertisement from "../../models/Advertisement.js";
+import Application from "../../models/Application.js";
 import {
   getReadStream,
   uploadBuffer,
@@ -149,7 +150,9 @@ export const listAdvertisements = async (req, res) => {
       query,
     ]);
 
-    const data = await Promise.all(raw.map((item) => attachFileUrls(item, ["pdf_path"])));
+    const data = await Promise.all(
+      raw.map((item) => attachFileUrls(item, ["pdf_path"])),
+    );
 
     return res.status(200).json({
       isOk: true,
@@ -285,12 +288,22 @@ export const deleteAdvertisement = async (req, res) => {
       return res
         .status(404)
         .json({ isOk: false, status: 404, message: "Not found" });
-    adv.status = "Archived";
-    adv.updatedBy = req.user.id;
-    await adv.save();
+
+    const applicationCount = await Application.countDocuments({
+      advt_no: adv.advt_no,
+    });
+    if (applicationCount > 0)
+      return res.status(409).json({
+        isOk: false,
+        status: 409,
+        message: `Cannot delete: ${applicationCount} application(s) reference this advertisement.`,
+      });
+
+    if (adv.pdf_path) await deleteFile(adv.pdf_path);
+    await Advertisement.findByIdAndDelete(req.params.id);
     return res
       .status(200)
-      .json({ isOk: true, status: 200, message: "Archived" });
+      .json({ isOk: true, status: 200, message: "Deleted" });
   } catch (error) {
     return res
       .status(500)
@@ -305,12 +318,15 @@ export const searchAdvertisements = async (req, res) => {
       per_page = 10,
       match,
       status,
+      department,
       sorton,
       sortdir,
     } = req.body;
 
     const matchCond = {};
     if (status) matchCond.status = status;
+    if (department && mongoose.Types.ObjectId.isValid(department))
+      matchCond.department = new mongoose.Types.ObjectId(department);
 
     const pipeline = [];
     if (match) {
@@ -377,7 +393,7 @@ export const searchAdvertisements = async (req, res) => {
 
 const STATUS_TRANSITIONS = {
   Draft: ["Published"],
-  Published: ["Closed"],
+  Published: ["Archived"],
   Closed: ["Archived"],
   Archived: ["Published"],
 };

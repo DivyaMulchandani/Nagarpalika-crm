@@ -15,6 +15,7 @@ import {
   getCandidateById,
   searchCandidates,
   exportCandidates,
+  exportCandidatesZip,
 } from "../../controllers/v1/candidate.controller.js";
 import {
   initRegistration,
@@ -105,6 +106,11 @@ router.post(
   searchCandidates,
 );
 router.post("/candidates/export", authMiddleware(["ADMIN"]), exportCandidates);
+router.post(
+  "/candidates/export-zip",
+  authMiddleware(["ADMIN"]),
+  exportCandidatesZip,
+);
 router.get(
   "/candidates/:id",
   authMiddleware(["ADMIN", "EMPLOYEE", "DEPT_ADMIN"]),

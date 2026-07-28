@@ -1,6 +1,11 @@
 import crypto from "crypto";
 import path from "path";
 import Application from "../../models/Application.js";
+import {
+  APPLICATION_STATUSES,
+  ALLOWED_TRANSITIONS,
+  EDITABLE_STATUSES,
+} from "../../constants/applicationStatus.js";
 import Advertisement from "../../models/Advertisement.js";
 import Candidate from "../../models/Candidate.js";
 import { generateApplicationPdf } from "../../services/applicationPdf.service.js";
@@ -23,6 +28,8 @@ const EDITABLE_FIELDS = [
   "experience_years",
   "additional_fields",
 ];
+
+const isEditableStatus = (status) => EDITABLE_STATUSES.includes(status);
 
 // ── Strict input validation (public-facing API can be called directly) ───────
 const ADVT_NO_RE = /^[A-Z]{2,6}\/\d{4}\/\d{1,8}$/;
@@ -287,6 +294,12 @@ export const editApplication = async (req, res) => {
         status: 400,
         message: "Edit deadline has passed",
       });
+    if (!isEditableStatus(app.status))
+      return res.status(400).json({
+        isOk: false,
+        status: 400,
+        message: "Application is locked and can no longer be edited",
+      });
 
     EDITABLE_FIELDS.forEach((f) => {
       if (f in req.body && String(app[f]) !== String(req.body[f])) {
@@ -504,15 +517,26 @@ export const exportApplications = async (req, res) => {
   }
 };
 
-// Legacy — kept for backward compat, routes below use ref-based endpoints
 export const updateApplicationStatus = async (req, res) => {
   try {
     const { status } = req.body;
+    if (!APPLICATION_STATUSES.includes(status))
+      return res
+        .status(422)
+        .json({ isOk: false, status: 422, message: "Invalid status" });
+
     const app = await Application.findById(req.params.id);
     if (!app)
       return res
         .status(404)
         .json({ isOk: false, status: 404, message: "Not found" });
+
+    if (!ALLOWED_TRANSITIONS[app.status]?.includes(status))
+      return res.status(400).json({
+        isOk: false,
+        status: 400,
+        message: `Cannot transition from "${app.status}" to "${status}"`,
+      });
 
     app.edit_log.push({
       field: "status",
@@ -632,6 +656,11 @@ export const uploadApplicationDocument = async (req, res) => {
       return res
         .status(404)
         .json({ isOk: false, message: "Application not found" });
+    if (!isEditableStatus(app.status))
+      return res.status(400).json({
+        isOk: false,
+        message: "Application is locked and can no longer be edited",
+      });
 
     // Replace existing document with same label
     app.documents = app.documents.filter((d) => d.label !== label.trim());

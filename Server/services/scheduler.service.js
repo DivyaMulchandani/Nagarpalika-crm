@@ -4,23 +4,21 @@ import Advertisement from "../models/Advertisement.js";
 const RUN_INTERVAL_MS = 15 * 60 * 1000; // every 15 minutes
 
 /**
- * Close Published advertisements whose end_date has passed.
- * Status lifecycle stays consistent with the admin transition map
- * (Published → Closed); applications under a Closed advertisement keep
- * their own status untouched.
+ * Archive Published advertisements whose end_date has passed.
+ * Status lifecycle: Draft → Published → Archived → (Published if reopened).
  */
-export async function closeExpiredAdvertisements() {
+export async function archiveExpiredAdvertisements() {
   // end_date is inclusive: an ad ending 2026-06-06 stays open through
-  // 23:59:59 that day, so only close ads whose end_date is before today.
+  // 23:59:59 that day, so only archive ads whose end_date is before today.
   const startOfToday = new Date();
   startOfToday.setHours(0, 0, 0, 0);
   const result = await Advertisement.updateMany(
     { status: "Published", end_date: { $lt: startOfToday } },
-    { $set: { status: "Closed" } },
+    { $set: { status: "Archived" } },
   );
   if (result.modifiedCount > 0)
     console.log(
-      `[CRON] Closed ${result.modifiedCount} expired advertisement(s)`,
+      `[CRON] Archived ${result.modifiedCount} expired advertisement(s)`,
     );
   return result.modifiedCount;
 }
@@ -28,9 +26,9 @@ export async function closeExpiredAdvertisements() {
 async function runJobs() {
   if (mongoose.connection.readyState !== 1) return; // DB not connected yet
   try {
-    await closeExpiredAdvertisements();
+    await archiveExpiredAdvertisements();
   } catch (err) {
-    console.error("[CRON] closeExpiredAdvertisements failed:", err.message);
+    console.error("[CRON] archiveExpiredAdvertisements failed:", err.message);
   }
 }
 

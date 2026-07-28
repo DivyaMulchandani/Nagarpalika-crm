@@ -1,8 +1,9 @@
 import { useState, useRef, useEffect } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import StepIndicator from "./StepIndicator";
-import { IconPdf, IconCheckCircle } from "../../components/Icons";
+import { IconPdf, IconCheckCircle, IconEye, IconEyeOff } from "../../components/Icons";
 import { get, post } from "../../api/index";
+import { useAuth } from "../../context/AuthContext";
 import { transliterateToGujarati } from "../../utils/gujaratiTransliterate";
 
 const API_BASE = import.meta.env.VITE_API_URL || "";
@@ -69,18 +70,22 @@ function persistData(data) {
 export default function RegistrationStep() {
   const { step: stepStr } = useParams();
   const navigate = useNavigate();
+  const { refresh: refreshAuth } = useAuth();
   const step = Math.max(1, Math.min(parseInt(stepStr) || 1, TOTAL_STEPS));
 
   const [data, setData] = useState(() => loadPersistedData());
   const [otp, setOtp] = useState("");
   const [otpSent, setOtpSent] = useState(false);
   const [detailsVerified, setDetailsVerified] = useState(false);
+  const [showPassword, setShowPassword] = useState(false);
+  const [showPasswordConfirm, setShowPasswordConfirm] = useState(false);
   const [loading, setLoading] = useState(false);
   const [errors, setErrors] = useState({});
   const [registrationId, setRegId] = useState(null);
   const [sessionMissing, setSessionMissing] = useState(false);
   const [portalConfig, setPortalConfig] = useState(DEFAULT_PORTAL_CONFIG);
   const [qualifications, setQualifications] = useState([]);
+  const [languages, setLanguages] = useState([]);
 
   const photoRef = useRef();
   const sigRef = useRef();
@@ -101,6 +106,12 @@ export default function RegistrationStep() {
         setQualifications(list);
       })
       .catch(() => {});
+    get("/api/v1/languages/public")
+      .then((res) => {
+        const list = (res?.data || []).map((l) => l.name).filter(Boolean);
+        setLanguages(list);
+      })
+      .catch(() => {});
   }, []);
 
   const set = (field) => (e) =>
@@ -117,7 +128,29 @@ export default function RegistrationStep() {
       [field]: e.target.value.replace(/[^A-Za-z\s.']/g, "").slice(0, 100),
     }));
   const go = (n) => navigate(`/registration/apply/step/${n}`);
-  const back = (n) => go(n);
+  // Clear the file inputs' own stale selection/preview when leaving a step so
+  // returning to it doesn't show a previous file's name/preview before a new pick.
+  const back = (n) => {
+    if (photoRef.current) photoRef.current.value = "";
+    if (sigRef.current) sigRef.current.value = "";
+    setData((p) => ({
+      ...p,
+      photoFile: undefined,
+      photoPreview: undefined,
+      sigFile: undefined,
+      sigPreview: undefined,
+    }));
+    go(n);
+  };
+
+  // After a successful submit the server has already logged the candidate in.
+  // This page is GuestOnly, so hydrating auth state while the success screen
+  // is visible would redirect away and hide the registration ID — instead,
+  // refresh on unmount, whichever way the user leaves.
+  useEffect(() => {
+    if (!registrationId || registrationId === "pending") return;
+    return () => refreshAuth();
+  }, [registrationId, refreshAuth]);
 
   // ── Session guard: steps 3+ require an active registration session ──
   useEffect(() => {
@@ -322,24 +355,70 @@ export default function RegistrationStep() {
               </div>
               <div className="form-field">
                 <label>Create Password *</label>
-                <input
-                  type="password"
-                  value={data.password || ""}
-                  onChange={set("password")}
-                  placeholder="Min 8 chars, 1 uppercase, 1 digit, 1 special"
-                  disabled={detailsVerified}
-                />
+                <div style={{ position: "relative" }}>
+                  <input
+                    type={showPassword ? "text" : "password"}
+                    value={data.password || ""}
+                    onChange={set("password")}
+                    placeholder="Min 8 chars, 1 uppercase, 1 digit, 1 special"
+                    disabled={detailsVerified}
+                    style={{ paddingRight: 36, width: "100%" }}
+                  />
+                  <button
+                    type="button"
+                    onClick={() => setShowPassword((v) => !v)}
+                    aria-label={showPassword ? "Hide password" : "Show password"}
+                    disabled={detailsVerified}
+                    style={{
+                      position: "absolute",
+                      right: 8,
+                      top: "50%",
+                      transform: "translateY(-50%)",
+                      background: "none",
+                      border: "none",
+                      cursor: detailsVerified ? "default" : "pointer",
+                      padding: 0,
+                      display: "flex",
+                      color: "var(--ojas-ink-3)",
+                    }}
+                  >
+                    {showPassword ? <IconEyeOff /> : <IconEye />}
+                  </button>
+                </div>
                 <FieldError msg={errors.password} />
               </div>
               <div className="form-field">
                 <label>Confirm Password *</label>
-                <input
-                  type="password"
-                  value={data.passwordConfirm || ""}
-                  onChange={set("passwordConfirm")}
-                  placeholder="Re-enter password"
-                  disabled={detailsVerified}
-                />
+                <div style={{ position: "relative" }}>
+                  <input
+                    type={showPasswordConfirm ? "text" : "password"}
+                    value={data.passwordConfirm || ""}
+                    onChange={set("passwordConfirm")}
+                    placeholder="Re-enter password"
+                    disabled={detailsVerified}
+                    style={{ paddingRight: 36, width: "100%" }}
+                  />
+                  <button
+                    type="button"
+                    onClick={() => setShowPasswordConfirm((v) => !v)}
+                    aria-label={showPasswordConfirm ? "Hide password" : "Show password"}
+                    disabled={detailsVerified}
+                    style={{
+                      position: "absolute",
+                      right: 8,
+                      top: "50%",
+                      transform: "translateY(-50%)",
+                      background: "none",
+                      border: "none",
+                      cursor: detailsVerified ? "default" : "pointer",
+                      padding: 0,
+                      display: "flex",
+                      color: "var(--ojas-ink-3)",
+                    }}
+                  >
+                    {showPasswordConfirm ? <IconEyeOff /> : <IconEye />}
+                  </button>
+                </div>
                 <FieldError msg={errors.passwordConfirm} />
               </div>
               <FieldError msg={errors._} />
@@ -993,13 +1072,16 @@ export default function RegistrationStep() {
                   marginBottom: 8,
                 }}
               >
-                <input
-                  type="text"
-                  placeholder="Language"
+                <select
                   value={lang.language}
                   style={{ flex: 1 }}
                   onChange={(e) => updateLang(i, { language: e.target.value })}
-                />
+                >
+                  <option value="">Select Language…</option>
+                  {languages.map((l) => (
+                    <option key={l} value={l}>{l}</option>
+                  ))}
+                </select>
                 {["read", "write", "speak"].map((sk) => (
                   <label
                     key={sk}
@@ -1284,8 +1366,8 @@ export default function RegistrationStep() {
                     marginTop: 8,
                   }}
                 >
-                  Keep that ID safe — you will need it to login and apply for
-                  posts.
+                  You are now logged in. Keep that ID safe — you will need it
+                  for future logins.
                 </p>
                 <div style={{ marginTop: 16 }}>
                   <button
