@@ -6,25 +6,56 @@ import EmailTemplate from "../models/EmailTemplate.js";
 
 const buildTransporter = (smtp) => {
   if (!smtp?.host) {
-    return nodemailer.createTransport({
-      host: process.env.SMTP_HOST,
-      port: parseInt(process.env.SMTP_PORT || "587"),
-      secure: process.env.SMTP_SECURE === "true",
-      auth: { user: process.env.SMTP_USER, pass: process.env.SMTP_PASS },
-    });
+    const host = process.env.SMTP_HOST || "127.0.0.1";
+    const port = parseInt(process.env.SMTP_PORT || "25");
+    const secure = process.env.SMTP_SECURE === "true";
+
+    const options = {
+      host,
+      port,
+      secure,
+      tls: {
+        rejectUnauthorized: false,
+      },
+    };
+
+    if (process.env.SMTP_USER && process.env.SMTP_PASS) {
+      options.auth = {
+        user: process.env.SMTP_USER,
+        pass: process.env.SMTP_PASS,
+      };
+    }
+
+    return nodemailer.createTransport(options);
   }
+
   if (smtp.host.toLowerCase().includes("gmail")) {
     return nodemailer.createTransport({
       service: "gmail",
       auth: { user: smtp.email, pass: smtp.appPassword },
+      tls: {
+        rejectUnauthorized: false,
+      },
     });
   }
-  return nodemailer.createTransport({
+
+  const options = {
     host: smtp.host,
-    port: smtp.port,
-    secure: smtp.SSL,
-    auth: { user: smtp.email, pass: smtp.appPassword },
-  });
+    port: smtp.port || 25,
+    secure: smtp.SSL || false,
+    tls: {
+      rejectUnauthorized: false,
+    },
+  };
+
+  if (smtp.email && smtp.appPassword) {
+    options.auth = {
+      user: smtp.email,
+      pass: smtp.appPassword,
+    };
+  }
+
+  return nodemailer.createTransport(options);
 };
 
 const substitute = (str, vars) =>
@@ -34,7 +65,7 @@ const substitute = (str, vars) =>
   );
 
 /**
- * Send a plain email using the active EmailSetup record or .env SMTP fallback.
+ * Send a plain email using the active EmailSetup record or local Postfix / .env SMTP fallback.
  */
 export const sendEmail = async ({
   to,
@@ -47,16 +78,20 @@ export const sendEmail = async ({
     .select("+appPassword")
     .lean();
   const transport = buildTransporter(smtp);
-  const from = smtp
-    ? `"Nagar Palika Recruitment" <${smtp.email}>`
-    : `"Nagar Palika Recruitment" <${process.env.SMTP_USER}>`;
-  await transport.sendMail({ from, to, subject, html, text, attachments });
+  const defaultFrom =
+    process.env.SMTP_FROM ||
+    process.env.SMTP_USER ||
+    "admin@onlinejobportal.org";
+  const from = smtp?.email
+    ? `"${smtp.mailerName || "Nagar Palika Recruitment"}" <${smtp.email}>`
+    : `"Nagar Palika Recruitment" <${defaultFrom}>`;
+  return await transport.sendMail({ from, to, subject, html, text, attachments });
 };
 
 /**
  * Look up an EmailFor record by templateKey string, find its linked EmailTemplate,
  * substitute {{VARIABLE}} placeholders in subject and body, then send.
- * Uses the template's own emailFrom (EmailSetup) for SMTP.
+ * Uses the template's own emailFrom (EmailSetup) for SMTP, falling back to local Postfix if unconfigured.
  */
 export const sendTemplatedEmail = async (
   templateKey,
@@ -80,8 +115,15 @@ export const sendTemplatedEmail = async (
   const smtp = template.emailFrom;
 
   const transport = buildTransporter(smtp);
-  await transport.sendMail({
-    from: `"${template.mailerName}" <${smtp.email}>`,
+  const defaultFrom =
+    process.env.SMTP_FROM ||
+    process.env.SMTP_USER ||
+    "admin@onlinejobportal.org";
+  const fromEmail = smtp?.email || defaultFrom;
+  const mailerName = template.mailerName || "Nagar Palika Recruitment";
+
+  return await transport.sendMail({
+    from: `"${mailerName}" <${fromEmail}>`,
     to,
     cc: template.emailCC || undefined,
     bcc: template.emailBCC || undefined,

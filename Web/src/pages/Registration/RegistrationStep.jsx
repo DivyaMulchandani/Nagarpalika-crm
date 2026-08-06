@@ -10,6 +10,7 @@ const API_BASE = import.meta.env.VITE_API_URL || "";
 
 const TOTAL_STEPS = 10;
 const PASSWORD_RE = /^(?=.*[A-Z])(?=.*\d)(?=.*[!@#$%^&*(),.?":{}|<>_\-+=\[\]\\|;'`~]).{8,}$/;
+const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 const CATEGORIES = ["General", "OBC", "SC", "ST", "EWS"];
 const GENDERS = ["Male", "Female", "Other"];
 const CERT_REQUIRED_CATS = new Set(["OBC", "SC", "ST", "EWS"]);
@@ -76,6 +77,7 @@ export default function RegistrationStep() {
   const [data, setData] = useState(() => loadPersistedData());
   const [otp, setOtp] = useState("");
   const [otpSent, setOtpSent] = useState(false);
+  const [deliveryChannel, setDeliveryChannel] = useState(null);
   const [detailsVerified, setDetailsVerified] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
   const [showPasswordConfirm, setShowPasswordConfirm] = useState(false);
@@ -354,6 +356,17 @@ export default function RegistrationStep() {
                 <FieldError msg={errors.mobile} />
               </div>
               <div className="form-field">
+                <label>Email Address *</label>
+                <input
+                  type="email"
+                  value={data.email || ""}
+                  onChange={set("email")}
+                  placeholder="example@domain.com"
+                  disabled={detailsVerified}
+                />
+                <FieldError msg={errors.email} />
+              </div>
+              <div className="form-field">
                 <label>Create Password *</label>
                 <div style={{ position: "relative" }}>
                   <input
@@ -432,6 +445,7 @@ export default function RegistrationStep() {
                       const e = {};
                       if (!/^\d{12}$/.test(data.aadhaar || "")) e.aadhaar = "Enter a valid 12-digit Aadhaar number.";
                       if (!/^[6-9]\d{9}$/.test(data.mobile || "")) e.mobile = "Enter a valid 10-digit mobile number.";
+                      if (!data.email || !EMAIL_RE.test(data.email)) e.email = "Enter a valid email address.";
                       if (!data.password || !PASSWORD_RE.test(data.password))
                         e.password = "Password must be 8+ chars with uppercase, digit, and special character.";
                       if (data.password !== data.passwordConfirm)
@@ -467,7 +481,9 @@ export default function RegistrationStep() {
                         const res = await post("/api/v1/otp/candidates/send", {
                           mobile: data.mobile,
                           aadhaar: data.aadhaar,
+                          email: data.email,
                         });
+                        if (res?.data?.channel) setDeliveryChannel(res.data.channel);
                         if (import.meta.env.DEV && res?.data?.dev_otp) setOtp(res.data.dev_otp);
                         setOtpSent(true);
                       } catch (err) {
@@ -484,7 +500,10 @@ export default function RegistrationStep() {
               ) : (
                 <>
                   <div className="form-field">
-                    <label>OTP (sent to {data.mobile}) *</label>
+                    <label>
+                      OTP (sent to {deliveryChannel === "email" && data.email ? data.email : data.mobile}
+                      {deliveryChannel ? ` via ${deliveryChannel.toUpperCase()}` : ""}) *
+                    </label>
                     <p style={{ fontSize: 12, margin: "2px 0 6px", color: "var(--ojas-ink-3)" }}>
                       Up to {portalConfig.otp.maxVerifyAttempts} verification attempts allowed.
                     </p>
