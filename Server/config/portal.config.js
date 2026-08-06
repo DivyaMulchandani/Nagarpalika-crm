@@ -33,15 +33,28 @@ export const uploadLimits = {
 };
 
 export const otpSettings = {
-  maxVerifyAttempts: parsePositiveInt(process.env.OTP_MAX_ATTEMPTS, 3),
-  expireMinutes: parsePositiveInt(process.env.OTP_EXPIRE_MINUTES, 10),
-  perHourLimit: parsePositiveInt(process.env.OTP_PER_HOUR_LIMIT, 3),
-  primaryChannel: (process.env.OTP_PRIMARY_CHANNEL || "whatsapp").toLowerCase(),
-  fallbackChain: (process.env.OTP_FALLBACK_CHAIN || "whatsapp,sms,email")
-    .toLowerCase()
-    .split(",")
-    .map((c) => c.trim())
-    .filter(Boolean),
+  get maxVerifyAttempts() {
+    return parsePositiveInt(process.env.OTP_MAX_ATTEMPTS, 3);
+  },
+  get expireMinutes() {
+    return parsePositiveInt(process.env.OTP_EXPIRE_MINUTES, 10);
+  },
+  get perHourLimit() {
+    return parsePositiveInt(process.env.OTP_PER_HOUR_LIMIT, 3);
+  },
+  get primaryChannel() {
+    return (process.env.OTP_PRIMARY_CHANNEL || "email").toLowerCase();
+  },
+  get enableFallback() {
+    return process.env.OTP_ENABLE_FALLBACK === "true";
+  },
+  get fallbackChain() {
+    return (process.env.OTP_FALLBACK_CHAIN || "email,whatsapp,sms")
+      .toLowerCase()
+      .split(",")
+      .map((c) => c.trim())
+      .filter(Boolean);
+  },
 };
 
 export const getPortalConfigPayload = () => ({

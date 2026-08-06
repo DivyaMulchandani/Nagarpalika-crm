@@ -7,7 +7,8 @@ import { otpSettings } from "../config/portal.config.js";
 const logMessage = async (payload) => WhatsAppMessage.create(payload);
 
 /**
- * Deliver OTP via configurable multi-channel strategy (WhatsApp, SMS, Email).
+ * Deliver OTP via targeted single-channel provider or optional fallback strategy.
+ * Primary channel is set by OTP_PRIMARY_CHANNEL (default: email).
  * Never logs raw OTP values.
  */
 export const deliverOtp = async ({
@@ -28,19 +29,72 @@ export const deliverOtp = async ({
     </div>
   `;
 
-  // Determine delivery attempt order based on preferredChannel + fallbackChain
-  const defaultChain = otpSettings.fallbackChain || ["whatsapp", "sms", "email"];
-  const initialChannel = (preferredChannel || otpSettings.primaryChannel || "whatsapp").toLowerCase();
+  // 1. Determine primary targeted channel
+  const primary = (preferredChannel || otpSettings.primaryChannel || "email").toLowerCase();
+  const validChannels = ["email", "whatsapp", "sms"];
 
-  const channelsToTry = Array.from(
-    new Set([initialChannel, ...defaultChain]),
-  ).filter((ch) => ["whatsapp", "sms", "email"].includes(ch));
+  // 2. Build list of channels to attempt
+  let channelsToTry = [];
+  if (validChannels.includes(primary)) {
+    channelsToTry.push(primary);
+  }
+
+  // If explicit fallback is enabled in config, append fallback chain
+  if (otpSettings.enableFallback) {
+    const chain = otpSettings.fallbackChain || [];
+    for (const ch of chain) {
+      if (validChannels.includes(ch) && !channelsToTry.includes(ch)) {
+        channelsToTry.push(ch);
+      }
+    }
+  }
+
+  if (channelsToTry.length === 0) {
+    channelsToTry = ["email"];
+  }
 
   let lastError = null;
 
   for (const channel of channelsToTry) {
-    if (channel === "whatsapp") {
-      if (!mobile) continue;
+    if (channel === "email") {
+      if (!email) {
+        lastError = "Email address is required to send OTP via email.";
+        continue;
+      }
+
+      try {
+        const mailResult = await sendEmail({
+          to: email,
+          subject: emailSubject,
+          html: emailHtml,
+          text: `Your Nagarpalika portal OTP is ${otp}. Valid for 10 minutes.`,
+        });
+
+        await logMessage({
+          recipient: email,
+          messageBody: "[OTP REDACTED]",
+          trigger,
+          status: "sent",
+          channel: "email",
+          externalId: mailResult?.messageId,
+          sentAt: new Date(),
+          metadata: { trigger },
+        });
+
+        return {
+          ok: true,
+          channel: "email",
+          messageId: mailResult?.messageId || `mail-${Date.now()}`,
+        };
+      } catch (err) {
+        console.error("[OTP] Email delivery failed:", err.message);
+        lastError = `Email delivery failed: ${err.message}`;
+      }
+    } else if (channel === "whatsapp") {
+      if (!mobile) {
+        lastError = "Mobile number is required to send OTP via WhatsApp.";
+        continue;
+      }
 
       const msg = await logMessage({
         recipient: mobile,
@@ -72,9 +126,12 @@ export const deliverOtp = async ({
         status: "failed",
         errorMessage: waResult.error,
       });
-      lastError = waResult.error;
+      lastError = `WhatsApp delivery failed: ${waResult.error}`;
     } else if (channel === "sms") {
-      if (!mobile) continue;
+      if (!mobile) {
+        lastError = "Mobile number is required to send OTP via SMS.";
+        continue;
+      }
 
       const smsResult = await sendSms({ to: mobile, message: smsText });
       if (smsResult.ok) {
@@ -86,47 +143,19 @@ export const deliverOtp = async ({
           channel: "sms",
           externalId: smsResult.messageId,
           sentAt: new Date(),
-          metadata: { trigger, fallbackFrom: "whatsapp" },
+          metadata: { trigger },
         });
         return { ok: true, channel: "sms", messageId: smsResult.messageId };
       }
-      lastError = smsResult.error;
-    } else if (channel === "email") {
-      if (!email) continue;
-
-      try {
-        const mailResult = await sendEmail({
-          to: email,
-          subject: emailSubject,
-          html: emailHtml,
-          text: `Your Nagarpalika portal OTP is ${otp}. Valid for 10 minutes.`,
-        });
-
-        await logMessage({
-          recipient: email,
-          messageBody: "[OTP REDACTED]",
-          trigger,
-          status: "sent",
-          channel: "email",
-          externalId: mailResult?.messageId,
-          sentAt: new Date(),
-          metadata: { trigger },
-        });
-
-        return {
-          ok: true,
-          channel: "email",
-          messageId: mailResult?.messageId || `mail-${Date.now()}`,
-        };
-      } catch (err) {
-        lastError = err.message;
-      }
+      lastError = `SMS delivery failed: ${smsResult.error}`;
     }
   }
 
+  // Non-production fallback stub if active provider fails or is unconfigured
   if (process.env.NODE_ENV !== "production") {
-    return { ok: true, channel: "dev", stub: true };
+    console.log(`[OTP DEV STUB] Primary channel (${primary}) targeted. Dev stub fallback active.`);
+    return { ok: true, channel: primary, stub: true };
   }
 
-  return { ok: false, channel: "none", error: lastError || "All notification channels failed" };
+  return { ok: false, channel: "none", error: lastError || "OTP delivery failed" };
 };

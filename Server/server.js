@@ -27,7 +27,8 @@ import { startScheduler } from "./services/scheduler.service.js";
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
-dotenv.config();
+// Targeted OTP Architecture: Reload dotenv with override
+dotenv.config({ override: true });
 
 global.__basedir = __dirname;
 
