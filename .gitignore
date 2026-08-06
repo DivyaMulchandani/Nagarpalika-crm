@@ -13,3 +13,7 @@ knowledge_base/.obsidian/
 .env
 .env.local
 .env.production
+
+job_application_guide.md
+OTR_Registration_guide.md
+Prerequisites_Checklist.md

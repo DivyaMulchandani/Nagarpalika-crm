@@ -483,8 +483,11 @@ export default function RegistrationStep() {
                           aadhaar: data.aadhaar,
                           email: data.email,
                         });
-                        if (res?.data?.channel) setDeliveryChannel(res.data.channel);
-                        if (import.meta.env.DEV && res?.data?.dev_otp) setOtp(res.data.dev_otp);
+                        const returnedChannel = res?.data?.channel;
+                        const activeChannel = (returnedChannel && returnedChannel !== "dev")
+                          ? returnedChannel
+                          : (portalConfig?.otp?.primaryChannel || "email");
+                        setDeliveryChannel(activeChannel);
                         setOtpSent(true);
                       } catch (err) {
                         const msg = err.message || "Failed to send OTP.";
@@ -501,8 +504,8 @@ export default function RegistrationStep() {
                 <>
                   <div className="form-field">
                     <label>
-                      OTP (sent to {deliveryChannel === "email" && data.email ? data.email : data.mobile}
-                      {deliveryChannel ? ` via ${deliveryChannel.toUpperCase()}` : ""}) *
+                      OTP (sent to {((deliveryChannel || portalConfig?.otp?.primaryChannel) === "email" && data.email) ? data.email : data.mobile}
+                      {` via ${(deliveryChannel || portalConfig?.otp?.primaryChannel || "email").toUpperCase()}`}) *
                     </label>
                     <p style={{ fontSize: 12, margin: "2px 0 6px", color: "var(--ojas-ink-3)" }}>
                       Up to {portalConfig.otp.maxVerifyAttempts} verification attempts allowed.
@@ -517,7 +520,7 @@ export default function RegistrationStep() {
                     />
                   </div>
                   <div className="form-actions">
-                    <button className="btn" onClick={() => setOtpSent(false)}>← Resend OTP</button>
+                    <button className="btn" onClick={() => { setOtpSent(false); setOtp(""); setDeliveryChannel(null); }}>← Resend OTP</button>
                     <button
                       className="btn primary"
                       disabled={loading || otp.length < 6}
