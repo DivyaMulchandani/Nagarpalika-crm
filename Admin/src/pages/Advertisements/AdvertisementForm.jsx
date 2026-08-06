@@ -2,14 +2,13 @@ import React, { useState, useEffect, useContext } from "react";
 import {
   Card, CardBody, CardHeader, Col, Container, Row,
   Form, Input, Label, Button, Nav, NavItem, NavLink, TabContent, TabPane, Badge,
-  Modal, ModalHeader, ModalBody, ModalFooter,
 } from "reactstrap";
 import classnames from "classnames";
 import Select from "react-select";
 import { useParams, useNavigate, useLocation } from "react-router-dom";
 import {
   getAdvertisement, createAdvertisement, updateAdvertisement,
-  updateAdvertisementStatus, uploadAdvertisementPdf,
+  uploadAdvertisementPdf,
 } from "../../api/advertisements.api";
 import { getAllDepartments } from "../../api/departments.api";
 import { getAllQualifications } from "../../api/qualifications.api";
@@ -23,7 +22,6 @@ const CLASS_OPTIONS = [
   { value: "I", label: "Class I" }, { value: "II", label: "Class II" },
   { value: "III", label: "Class III" }, { value: "IV", label: "Class IV" },
 ];
-const STATUS_TRANSITIONS = { Draft: ["Published"], Published: ["Closed"], Closed: ["Archived"], Archived: ["Published"] };
 const statusColor = { Draft: "secondary", Published: "success", Closed: "warning", Archived: "dark" };
 
 const empty = {
@@ -56,10 +54,7 @@ const AdvertisementForm = () => {
   const [record, setRecord] = useState(null);
   const [pdfFile, setPdfFile] = useState(null);
   const [pdfUploading, setPdfUploading] = useState(false);
-  const [statusLoading, setStatusLoading] = useState(false);
   const [qualificationOptions, setQualificationOptions] = useState([]);
-  // Status change is dropdown-driven and must be confirmed in a modal
-  const [pendingStatus, setPendingStatus] = useState(null);
 
   useEffect(() => {
     getAllDepartments()
@@ -158,28 +153,6 @@ const AdvertisementForm = () => {
       .finally(() => setIsLoading(false));
   };
 
-  const handleStatusChange = (newStatus) => {
-    setStatusLoading(true);
-    updateAdvertisementStatus(id, newStatus)
-      .then((r) => {
-        if (r.data.isOk) {
-          setRecord((p) => ({ ...p, status: r.data.data?.status ?? newStatus }));
-          toast.success(`Status changed to ${r.data.data?.status ?? newStatus}`);
-        } else {
-          toast.error(r.data.message || "Status change failed");
-        }
-      })
-      .catch((err) => toast.error(err?.response?.data?.message || "Status change failed"))
-      .finally(() => {
-        setStatusLoading(false);
-        setPendingStatus(null);
-      });
-  };
-
-  const statusOptions = record
-    ? (STATUS_TRANSITIONS[record.status] ?? []).map((s) => ({ value: s, label: s }))
-    : [];
-
   const handlePdfUpload = () => {
     if (!pdfFile) return;
     const fd = new FormData();
@@ -218,17 +191,6 @@ const AdvertisementForm = () => {
                 <Button color="success" size="sm" onClick={() => navigate(`/advertisements/${id}/edit`)}>
                   <i className="ri-edit-line me-1"></i>Edit
                 </Button>
-              )}
-              {record && statusOptions.length > 0 && (
-                <div style={{ minWidth: 180 }}>
-                  <Select
-                    options={statusOptions}
-                    value={null}
-                    placeholder="Change status..."
-                    isDisabled={statusLoading}
-                    onChange={(opt) => opt && setPendingStatus(opt.value)}
-                  />
-                </div>
               )}
             </div>
           </CardHeader>
@@ -463,37 +425,6 @@ const AdvertisementForm = () => {
           </CardBody>
         </Card>
       </Container>
-
-      {/* Status change confirmation */}
-      <Modal isOpen={!!pendingStatus} toggle={() => !statusLoading && setPendingStatus(null)} centered>
-        <ModalHeader toggle={() => !statusLoading && setPendingStatus(null)}>
-          Confirm status change
-        </ModalHeader>
-        <ModalBody>
-          Change advertisement <strong>{record?.advt_no}</strong> from{" "}
-          <Badge color={statusColor[record?.status] || "secondary"}>{record?.status}</Badge> to{" "}
-          <Badge color={statusColor[pendingStatus] || "secondary"}>{pendingStatus}</Badge>?
-          {pendingStatus === "Published" && (
-            <p className="text-muted mt-2 mb-0" style={{ fontSize: 13 }}>
-              Publishing makes this advertisement visible on the public website and opens it for applications.
-            </p>
-          )}
-          {pendingStatus === "Closed" && (
-            <p className="text-muted mt-2 mb-0" style={{ fontSize: 13 }}>
-              Closing stops new applications immediately.
-            </p>
-          )}
-        </ModalBody>
-        <ModalFooter>
-          <Button color="light" onClick={() => setPendingStatus(null)} disabled={statusLoading}>
-            Cancel
-          </Button>
-          <Button color="primary" onClick={() => handleStatusChange(pendingStatus)} disabled={statusLoading}>
-            {statusLoading && <span className="spinner-border spinner-border-sm me-1"></span>}
-            Confirm
-          </Button>
-        </ModalFooter>
-      </Modal>
     </div>
   );
 };

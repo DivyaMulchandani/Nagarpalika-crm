@@ -92,9 +92,8 @@ const ApplicationList = () => {
     try {
       const res = await exportApplications({ advt_no: advtFilter?.value });
       const blob = res.data;
-      if (blob?.type === "application/json") {
-        const text = await blob.text();
-        const json = JSON.parse(text);
+      if (blob?.type?.includes("application/json")) {
+        const json = JSON.parse(await blob.text());
         throw new Error(json?.message || "Export failed");
       }
       const disposition = res.headers?.["content-disposition"] || "";
@@ -110,7 +109,17 @@ const ApplicationList = () => {
       window.URL.revokeObjectURL(url);
       toast.success("ZIP export downloaded");
     } catch (err) {
-      toast.error(err?.message || "Export failed");
+      const errBlob = err?.response?.data;
+      if (errBlob instanceof Blob && errBlob.type?.includes("application/json")) {
+        try {
+          const json = JSON.parse(await errBlob.text());
+          toast.error(json?.message || "Export failed");
+        } catch {
+          toast.error("Export failed");
+        }
+      } else {
+        toast.error(err?.message || "Export failed");
+      }
     } finally {
       setExporting(false);
     }

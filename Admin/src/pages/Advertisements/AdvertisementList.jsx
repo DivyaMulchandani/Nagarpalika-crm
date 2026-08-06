@@ -3,7 +3,7 @@ import { Card, CardBody, CardHeader, Col, Container, Row, Badge, Button } from "
 import DataTable from "react-data-table-component";
 import Select from "react-select";
 import { useNavigate } from "react-router-dom";
-import { searchAdvertisements, deleteAdvertisement } from "../../api/advertisements.api";
+import { searchAdvertisements, deleteAdvertisement, updateAdvertisementStatus } from "../../api/advertisements.api";
 import { getAllDepartments } from "../../api/departments.api";
 import BreadCrumb from "../../Components/Common/BreadCrumb";
 import DeleteModal from "../../Components/Common/DeleteModal";
@@ -19,6 +19,13 @@ const STATUS_OPTIONS = [
 ];
 
 const statusColor = { Draft: "secondary", Published: "success", Closed: "warning", Archived: "dark" };
+
+const STATUS_TRANSITIONS = {
+  Draft: ["Published"],
+  Published: ["Archived"],
+  Closed: ["Archived"],
+  Archived: ["Published"],
+};
 
 const AdvertisementList = () => {
   const { adminData } = useContext(AuthContext);
@@ -39,6 +46,7 @@ const AdvertisementList = () => {
   const [deleteId, setDeleteId] = useState("");
   const [showDelete, setShowDelete] = useState(false);
   const [deleteLoading, setDeleteLoading] = useState(false);
+  const [statusLoadingId, setStatusLoadingId] = useState(null);
 
   useEffect(() => {
     getAllDepartments()
@@ -72,9 +80,24 @@ const AdvertisementList = () => {
   const handleDelete = () => {
     setDeleteLoading(true);
     deleteAdvertisement(deleteId)
-      .then(() => { toast.success("Advertisement archived"); setShowDelete(false); fetchData(); })
-      .catch(() => toast.error("Could not archive advertisement"))
+      .then(() => { toast.success("Advertisement deleted"); setShowDelete(false); fetchData(); })
+      .catch((err) => toast.error(err?.response?.data?.message || "Could not delete advertisement"))
       .finally(() => setDeleteLoading(false));
+  };
+
+  const handleStatusChange = (id, status) => {
+    setStatusLoadingId(id);
+    updateAdvertisementStatus(id, status)
+      .then((r) => {
+        if (r.data.isOk) {
+          toast.success(`Status changed to ${status}`);
+          setData((prev) => prev.map((row) => (row._id === id ? { ...row, status } : row)));
+        } else {
+          toast.error(r.data.message || "Status change failed");
+        }
+      })
+      .catch((err) => toast.error(err?.response?.data?.message || "Status change failed"))
+      .finally(() => setStatusLoadingId(null));
   };
 
   const columns = [
@@ -113,12 +136,34 @@ const AdvertisementList = () => {
           {currentPagePermissions.edit && (
             <button className="btn btn-sm btn-success" onClick={() => navigate(`/advertisements/${r._id}/edit`)}>Edit</button>
           )}
-          {currentPagePermissions.delete && r.status !== "Archived" && (
-            <button className="btn btn-sm btn-danger" onClick={() => { setDeleteId(r._id); setShowDelete(true); }}>Archive</button>
+          {currentPagePermissions.delete && (
+            <button className="btn btn-sm btn-danger" onClick={() => { setDeleteId(r._id); setShowDelete(true); }}>Delete</button>
           )}
         </div>
       ),
-      width: "230px",
+      width: "180px",
+    },
+    {
+      name: "Change Status",
+      cell: (r) => {
+        const options = (STATUS_TRANSITIONS[r.status] ?? []).map((s) => ({ value: s, label: s }));
+        if (!currentPagePermissions.edit) return "—";
+        return (
+          <div style={{ width: 150 }}>
+            <Select
+              options={options}
+              value={null}
+              placeholder={r.status}
+              isDisabled={statusLoadingId === r._id || options.length === 0}
+              isSearchable={false}
+              onChange={(opt) => opt && handleStatusChange(r._id, opt.value)}
+              menuPortalTarget={document.body}
+              styles={{ menuPortal: (base) => ({ ...base, zIndex: 9999 }) }}
+            />
+          </div>
+        );
+      },
+      width: "180px",
     },
   ];
 

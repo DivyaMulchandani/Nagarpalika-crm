@@ -39,6 +39,8 @@ import RoleMaster from "../pages/Master/RoleMaster";
 import RoleMasterForm from "../pages/Master/RoleMasterForm";
 import Qualification from "../pages/Master/Qualification";
 import QualificationForm from "../pages/Master/QualificationForm";
+import Language from "../pages/Master/Language";
+import LanguageForm from "../pages/Master/LanguageForm";
 import WhatsAppMessages from "../pages/WhatsApp/WhatsAppMessages";
 import HelpQueryList from "../pages/HelpQueries/HelpQueryList";
 
@@ -104,6 +106,12 @@ const authProtectedRoutes = [
     { path: "/qualification/add",      component: <QualificationForm /> },
     { path: "/qualification/:id",      component: <QualificationForm /> },
     { path: "/qualification/:id/edit", component: <QualificationForm /> },
+
+    // Language Master
+    { path: "/language",          component: <Language /> },
+    { path: "/language/add",      component: <LanguageForm /> },
+    { path: "/language/:id",      component: <LanguageForm /> },
+    { path: "/language/:id/edit", component: <LanguageForm /> },
 
     // Notifications
     { path: "/whatsapp", component: <WhatsAppMessages /> },

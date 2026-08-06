@@ -1,16 +1,15 @@
 import path from "path";
 import { PassThrough } from "stream";
-import { createRequire } from "module";
+import { ZipArchive } from "archiver";
 import { generateApplicationPdf } from "./applicationPdf.service.js";
 import { getReadStream, normalizeKey } from "./storage.service.js";
-
-const require = createRequire(import.meta.url);
-const archiver = require("archiver");
 
 const UNSAFE_CHARS = /[<>:"/\\|?*\x00-\x1f]/g;
 
 export const sanitizeFolderName = (ref) =>
-  String(ref || "application").replace(UNSAFE_CHARS, "_").slice(0, 120);
+  String(ref || "application")
+    .replace(UNSAFE_CHARS, "_")
+    .slice(0, 120);
 
 const sanitizeFileName = (label) =>
   String(label || "document")
@@ -61,7 +60,7 @@ const candidateDocumentEntries = (candidate) => {
  * containing application.pdf and all uploaded documents.
  */
 export const streamApplicationsZip = async (items, res) => {
-  const archive = archiver("zip", { zlib: { level: 6 } });
+  const archive = new ZipArchive({ zlib: { level: 6 } });
   const archiveDone = new Promise((resolve, reject) => {
     archive.on("error", reject);
     archive.on("end", resolve);
@@ -70,37 +69,42 @@ export const streamApplicationsZip = async (items, res) => {
   archive.pipe(res);
 
   for (const item of items) {
-          const folder = sanitizeFolderName(item.application?.application_ref_no);
-          const used = new Set();
+    const folder = sanitizeFolderName(item.application?.application_ref_no);
+    const used = new Set();
 
-          const pdfBuffer = await pdfToBuffer(item);
-          const pdfName = `${folder}/application.pdf`;
-          used.add(pdfName);
-          archive.append(pdfBuffer, { name: pdfName });
+    const pdfBuffer = await pdfToBuffer(item);
+    const pdfName = `${folder}/application.pdf`;
+    used.add(pdfName);
+    archive.append(pdfBuffer, { name: pdfName });
 
-          for (const doc of item.application?.documents || []) {
-            const buf = await readFileBuffer(doc.file_path);
-            if (!buf) continue;
-            const key = normalizeKey(doc.file_path) || "";
-            const ext = path.extname(key) || ".pdf";
-            const entry = uniqueEntryName(
-              folder,
-              sanitizeFileName(doc.label),
-              ext,
-              used,
-            );
-            archive.append(buf, { name: entry });
-          }
+    for (const doc of item.application?.documents || []) {
+      const buf = await readFileBuffer(doc.file_path);
+      if (!buf) continue;
+      const key = normalizeKey(doc.file_path) || "";
+      const ext = path.extname(key) || ".pdf";
+      const entry = uniqueEntryName(
+        folder,
+        sanitizeFileName(doc.label),
+        ext,
+        used,
+      );
+      archive.append(buf, { name: entry });
+    }
 
-          for (const doc of candidateDocumentEntries(item.candidate)) {
-            const buf = await readFileBuffer(doc.path);
-            if (!buf) continue;
-            const key = normalizeKey(doc.path) || "";
-            const ext = path.extname(key) || ".pdf";
-            const entry = uniqueEntryName(folder, sanitizeFileName(doc.label), ext, used);
-            archive.append(buf, { name: entry });
-          }
-        }
+    for (const doc of candidateDocumentEntries(item.candidate)) {
+      const buf = await readFileBuffer(doc.path);
+      if (!buf) continue;
+      const key = normalizeKey(doc.path) || "";
+      const ext = path.extname(key) || ".pdf";
+      const entry = uniqueEntryName(
+        folder,
+        sanitizeFileName(doc.label),
+        ext,
+        used,
+      );
+      archive.append(buf, { name: entry });
+    }
+  }
 
   await archive.finalize();
   await archiveDone;

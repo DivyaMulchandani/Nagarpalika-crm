@@ -3,7 +3,7 @@ import path from "path";
 import Candidate from "../../models/Candidate.js";
 import Qualification from "../../models/Qualification.js";
 import { sendTemplatedEmail } from "../../services/email.service.js";
-import { resolveFileUrl } from "../../services/storage.service.js";
+import { resolveFileUrl, deleteFile } from "../../services/storage.service.js";
 
 const EDIT_WINDOW_HOURS = 72;
 
@@ -11,10 +11,19 @@ const hashAadhaar = (raw) =>
   crypto.createHash("sha256").update(raw.replace(/\s/g, "")).digest("hex");
 
 const VERIFY_TTL_MS = 15 * 60 * 1000;
+const CANDIDATE_SESSION_MS = 30 * 60 * 1000; // keep in sync with authMiddleware
 const MOBILE_RE = /^[6-9]\d{9}$/;
 const PASSWORD_RE = /^(?=.*[A-Z])(?=.*\d)(?=.*[!@#$%^&*(),.?":{}|<>_\-+=\[\]\\|;'`~]).{8,}$/;
 
 const isVerifyFresh = (at) => at && Date.now() - at < VERIFY_TTL_MS;
+
+// Best-effort cleanup of a replaced upload; a missing/already-deleted key is not an error.
+const deletePreviousFile = (filePath) => {
+  if (!filePath) return;
+  deleteFile(filePath).catch((err) =>
+    console.error("[Upload] failed to delete replaced file:", filePath, err.message),
+  );
+};
 
 
 // Pre-OTP: validate Aadhaar format + checksum + uniqueness
@@ -82,25 +91,6 @@ export const initRegistration = async (req, res) => {
         status: 409,
         message: "Aadhaar already registered",
       });
-
-
-    if (sanitized.qualification) {
-      const qualName = String(sanitized.qualification).trim();
-      const exact = await Qualification.findOne({ name: qualName, isActive: true });
-      if (!exact) {
-        const othersEntry = await Qualification.findOne({
-          name: { $regex: /^others$/i },
-          isActive: true,
-        });
-        if (!othersEntry || !qualName) {
-          return res.status(422).json({
-            isOk: false,
-            status: 422,
-            message: "Invalid qualification selected",
-          });
-        }
-      }
-    }
 
     req.session.candidateStep = { step: 1, aadhaar_hash, mobile, data: {} };
 
@@ -238,6 +228,7 @@ export const uploadPhoto = async (req, res) => {
         .status(422)
         .json({ isOk: false, status: 422, message: "Photo file required" });
 
+    deletePreviousFile(req.session.candidateStep.data.photo_path);
     req.session.candidateStep.data.photo_path = req.file.path;
     const url = await resolveFileUrl(req.file.path);
     return res
@@ -263,6 +254,7 @@ export const uploadSignature = async (req, res) => {
         .status(422)
         .json({ isOk: false, status: 422, message: "Signature file required" });
 
+    deletePreviousFile(req.session.candidateStep.data.signature_path);
     req.session.candidateStep.data.signature_path = req.file.path;
     const url = await resolveFileUrl(req.file.path);
     return res
@@ -340,14 +332,32 @@ export const submitRegistration = async (req, res) => {
       );
     }
 
-    delete req.session.candidateStep;
-    delete req.session.mobileOtpVerified;
+    // Auto-login: regenerate session (fixation prevention) and create a
+    // candidate session, same as verifyLoginOtp. Regeneration also discards
+    // the registration-step and OTP-verified state.
+    await new Promise((resolve, reject) =>
+      req.session.regenerate((err) => (err ? reject(err) : resolve())),
+    );
+
+    req.session.user = {
+      id: candidate._id.toString(),
+      role: "CANDIDATE",
+      registration_id: candidate.registration_id,
+      name: candidate.name,
+      loginAt: Date.now(),
+    };
+
+    // Absolute 30-minute session, fixed expiry — matches OTP login
+    req.session.cookie.maxAge = CANDIDATE_SESSION_MS;
 
     return res.status(201).json({
       isOk: true,
       status: 201,
       message: "Registration complete",
-      data: { registration_id: candidate.registration_id },
+      data: {
+        registration_id: candidate.registration_id,
+        name: candidate.name,
+      },
     });
   } catch (error) {
     return res
@@ -371,6 +381,7 @@ export const uploadCasteCert = async (req, res) => {
         message: "Caste certificate file required",
       });
 
+    deletePreviousFile(req.session.candidateStep.data.caste_cert_path);
     req.session.candidateStep.data.caste_cert_path = req.file.path;
     const url = await resolveFileUrl(req.file.path);
     return res
@@ -398,6 +409,7 @@ export const uploadUdidCert = async (req, res) => {
         message: "UDID certificate file required",
       });
 
+    deletePreviousFile(req.session.candidateStep.data.udid_cert_path);
     req.session.candidateStep.data.udid_cert_path = req.file.path;
     const url = await resolveFileUrl(req.file.path);
     return res

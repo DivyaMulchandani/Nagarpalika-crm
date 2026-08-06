@@ -1,7 +1,12 @@
 import fs from "fs";
 import path from "path";
 import crypto from "crypto";
-import { S3Client, PutObjectCommand, GetObjectCommand, DeleteObjectCommand } from "@aws-sdk/client-s3";
+import {
+  S3Client,
+  PutObjectCommand,
+  GetObjectCommand,
+  DeleteObjectCommand,
+} from "@aws-sdk/client-s3";
 import { getSignedUrl } from "@aws-sdk/s3-request-presigner";
 
 const S3_PREFIX = process.env.S3_PREFIX || "";
@@ -9,7 +14,11 @@ const S3_PREFIX = process.env.S3_PREFIX || "";
 let s3Client = null;
 
 export const isS3Enabled = () =>
-  !!(process.env.S3_BUCKET && process.env.AWS_ACCESS_KEY_ID && process.env.AWS_SECRET_ACCESS_KEY);
+  !!(
+    process.env.S3_BUCKET &&
+    process.env.AWS_ACCESS_KEY_ID &&
+    process.env.AWS_SECRET_ACCESS_KEY
+  );
 
 const requireS3 = () => {
   if (!isS3Enabled()) {
@@ -36,7 +45,9 @@ const getS3 = () => {
 /** Normalize DB path to storage key (no uploads/ prefix) */
 export const normalizeKey = (filePath) => {
   if (!filePath) return null;
-  return String(filePath).replace(/\\/g, "/").replace(/^uploads\//, "");
+  return String(filePath)
+    .replace(/\\/g, "/")
+    .replace(/^uploads\//, "");
 };
 
 /** Map multer destination folder to S3 module prefix */
@@ -46,7 +57,8 @@ export const moduleFromDestination = (destination = "") => {
   if (d.includes("candidates")) return "candidates";
   if (d.includes("advertisements")) return "advertisements";
   if (d.includes("notices")) return "notices";
-  if (d.includes("companyMaster") || d.includes("company-master")) return "company-master";
+  if (d.includes("companyMaster") || d.includes("company-master"))
+    return "company-master";
   if (d.includes("email-template")) return "cms/email-template/signature";
   return d.replace(/^uploads\/?/, "") || "misc";
 };
@@ -56,7 +68,12 @@ const s3Key = (module, filename) => {
   return parts.join("/");
 };
 
-export const uploadBuffer = async ({ module, buffer, filename, contentType }) => {
+export const uploadBuffer = async ({
+  module,
+  buffer,
+  filename,
+  contentType,
+}) => {
   requireS3();
   const key = s3Key(module, filename);
   const client = getS3();
@@ -96,15 +113,26 @@ export const getSignedDownloadUrl = async (filePath, ttlSeconds = 3600) => {
   );
 };
 
-/** Direct public URL when CDN/public bucket base is configured; otherwise presigned S3 URL. */
+/**
+ * Resolve a browser-usable URL for a stored file.
+ *
+ * The S3 bucket is private, so by default we return a short-lived presigned
+ * URL: the `X-Amz-Signature` query param is the access token that authorizes
+ * the request, and it works directly in <img>/<a> tags without cookies or
+ * exposing credentials.
+ *
+ * Only use the plain public URL when S3_PUBLIC_BASE_URL points at a genuinely
+ * public CDN/bucket in front of the same objects AND S3_PUBLIC_CDN=true is set.
+ * Stored keys already include S3_PREFIX, so the key is appended as-is (no extra
+ * prefix — doing otherwise produces a doubled `<prefix>/<prefix>/...` path).
+ */
 export const resolveFileUrl = async (filePath, ttlSeconds = 3600) => {
   const key = normalizeKey(filePath);
   if (!key) return null;
 
   const publicBase = process.env.S3_PUBLIC_BASE_URL?.replace(/\/$/, "");
-  if (publicBase) {
-    const prefix = S3_PREFIX ? `${S3_PREFIX}/` : "";
-    return `${publicBase}/${prefix}${key}`.replace(/([^:]\/)\/+/g, "$1");
+  if (publicBase && process.env.S3_PUBLIC_CDN === "true") {
+    return `${publicBase}/${key}`.replace(/([^:]\/)\/+/g, "$1");
   }
 
   return getSignedDownloadUrl(key, ttlSeconds);
@@ -130,14 +158,20 @@ export const attachDocumentListUrls = async (documents, ttlSeconds = 3600) => {
   return Promise.all(
     documents.map(async (doc) => ({
       ...(doc.toObject ? doc.toObject() : doc),
-      file_url: doc.file_path ? await resolveFileUrl(doc.file_path, ttlSeconds) : null,
+      file_url: doc.file_path
+        ? await resolveFileUrl(doc.file_path, ttlSeconds)
+        : null,
     })),
   );
 };
 
 export const generateAccessToken = (key, registrationId = null) => {
   const exp = Date.now() + 15 * 60 * 1000;
-  const payload = JSON.stringify({ key: normalizeKey(key), exp, registrationId });
+  const payload = JSON.stringify({
+    key: normalizeKey(key),
+    exp,
+    registrationId,
+  });
   const sig = crypto
     .createHmac("sha256", process.env.SESSION_SECRET || "dev-secret")
     .update(payload)
@@ -170,7 +204,9 @@ export const deleteFile = async (filePath) => {
   if (!key) return;
 
   const client = getS3();
-  await client.send(new DeleteObjectCommand({ Bucket: process.env.S3_BUCKET, Key: key }));
+  await client.send(
+    new DeleteObjectCommand({ Bucket: process.env.S3_BUCKET, Key: key }),
+  );
 };
 
 export const CANDIDATE_FILE_FIELDS = [

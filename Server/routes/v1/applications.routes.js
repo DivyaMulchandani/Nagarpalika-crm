@@ -88,7 +88,6 @@ router.post(
   exportApplications,
 );
 
-// ── Legacy ────────────────────────────────────────────────────────────────────
 router.put(
   "/applications/:id/status",
   authMiddleware(["ADMIN", "EMPLOYEE", "DEPT_ADMIN"]),

@@ -3,8 +3,9 @@ import { Card, CardBody, CardHeader, Col, Container, Row, Badge, Button } from "
 import DataTable from "react-data-table-component";
 import Select from "react-select";
 import { useNavigate } from "react-router-dom";
-import { searchCandidates, exportCandidates } from "../../api/candidates.api";
+import { searchCandidates, exportCandidates, exportCandidatesZip } from "../../api/candidates.api";
 import BreadCrumb from "../../Components/Common/BreadCrumb";
+import { saveBlobResponse, parseBlobError } from "../../utils/downloadBlob";
 import { toast } from "react-toastify";
 import { AuthContext } from "../../context/AuthContext";
 import { MenuContext } from "../../context/MenuContext";
@@ -30,6 +31,7 @@ const CandidateList = () => {
   const [query, setQuery] = useState("");
   const [otrFilter, setOtrFilter] = useState(null);
   const [exporting, setExporting] = useState(false);
+  const [downloadingZip, setDownloadingZip] = useState(false);
 
   const fetchData = useCallback(async () => {
     setLoading(true);
@@ -53,12 +55,43 @@ const CandidateList = () => {
 
   React.useEffect(() => { fetchData(); }, [fetchData]);
 
-  const handleExport = () => {
+  const handleExport = async () => {
     setExporting(true);
-    exportCandidates({ match: query, otr_status: otrFilter?.value })
-      .then(() => toast.success("Export initiated"))
-      .catch(() => toast.error("Export failed"))
-      .finally(() => setExporting(false));
+    try {
+      const res = await exportCandidates({ match: query || undefined, otr_status: otrFilter?.value });
+      await saveBlobResponse(res, "candidates-export.csv");
+      toast.success("Candidates exported");
+    } catch (err) {
+      toast.error(await parseBlobError(err, "Export failed"));
+    } finally {
+      setExporting(false);
+    }
+  };
+
+  // Downloads a ZIP of exactly the candidates on the current page — same
+  // skip/per_page/sort/filter as the table, so the archive mirrors the view.
+  const handleDownloadZip = async () => {
+    if (!totalRows) {
+      toast.info("No candidates to download");
+      return;
+    }
+    setDownloadingZip(true);
+    try {
+      const res = await exportCandidatesZip({
+        skip: (pageNo - 1) * perPage,
+        per_page: perPage,
+        sorton: column,
+        sortdir: sortDir,
+        match: query || undefined,
+        otr_status: otrFilter?.value || undefined,
+      });
+      const filename = await saveBlobResponse(res, "candidates.zip");
+      toast.success(`Downloaded ${filename}`);
+    } catch (err) {
+      toast.error(await parseBlobError(err, "ZIP download failed"));
+    } finally {
+      setDownloadingZip(false);
+    }
   };
 
   const columns = [
@@ -106,10 +139,16 @@ const CandidateList = () => {
                     </div>
                   </div>
                   {currentPagePermissions.write && (
-                    <Button color="outline-primary" size="sm" onClick={handleExport} disabled={exporting}>
-                      {exporting ? <span className="spinner-border spinner-border-sm me-1"></span> : <i className="ri-download-2-line me-1"></i>}
-                      Export
-                    </Button>
+                    <div className="d-flex gap-2">
+                      <Button color="outline-primary" size="sm" onClick={handleExport} disabled={exporting || downloadingZip}>
+                        {exporting ? <span className="spinner-border spinner-border-sm me-1"></span> : <i className="ri-download-2-line me-1"></i>}
+                        Export
+                      </Button>
+                      <Button color="outline-success" size="sm" onClick={handleDownloadZip} disabled={downloadingZip || exporting}>
+                        {downloadingZip ? <span className="spinner-border spinner-border-sm me-1"></span> : <i className="ri-folder-zip-line me-1"></i>}
+                        {downloadingZip ? "Preparing ZIP…" : "Download ZIP"}
+                      </Button>
+                    </div>
                   )}
                 </div>
               </CardHeader>
