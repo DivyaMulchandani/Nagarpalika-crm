@@ -3,10 +3,11 @@ import Employee from "../../models/Employee.js";
 import CompanyMaster from "../../models/CompanyMaster.js";
 import EmailTemplate from "../../models/EmailTemplate.js";
 import EmailFor from "../../models/EmailFor.js";
-import nodemailer from "nodemailer";
 import bcrypt from "bcrypt";
 import crypto from "crypto";
 import { otpSettings } from "../../config/portal.config.js";
+import { sendTemplatedEmail } from "../../services/email.service.js";
+import { deliverOtp } from "../../services/notification.service.js";
 
 const MAX_OTP_ATTEMPTS = otpSettings.maxVerifyAttempts;
 
@@ -50,93 +51,42 @@ export const createOtp = async (req, res) => {
 
     // Generate OTP using cryptographic randomness
     const otp = crypto.randomInt(100000, 1000000).toString();
+    const otpHash = crypto.createHash("sha256").update(otp).digest("hex");
 
-    // Create new OTP
+    // Create new OTP with hashed value
     await Otp.create({
       email,
-      otp,
+      otp: otpHash,
       createdAt: new Date(),
     });
 
-    // Find email template for forgot password
-    const forgotPasswordType = await EmailFor.findOne({
-      emailFor: "Forget Password",
-    });
-    if (!forgotPasswordType) {
-      return res.status(404).json({
-        isOk: false,
-        message: "Email template type not found",
-      });
-    }
+    const username = user.employeeName || user.companyName || "Admin";
 
-    // Get email template
-    const emailTemplate = await EmailTemplate.findOne({
-      emailFor: forgotPasswordType._id,
-      isActive: true,
-    }).populate({ path: "emailFrom", select: "+appPassword" });
-
-    if (!emailTemplate) {
-      return res.status(404).json({
-        isOk: false,
-        message: "Email template not found",
-      });
-    }
-
-    // Replace template variables in email body
-    let emailBody = emailTemplate.emailSignature;
-    const username = user.employeeName || "Admin";
-    emailBody = emailBody.replace("{{USERNAME}}", username);
-    emailBody = emailBody.replace("{{OTP_CODE}}", otp);
-    emailTemplate.emailSignature = emailBody;
-
-    // Create transporter
-    let transporter;
     try {
-      // Set up configuration based on email provider
-      if (emailTemplate.emailFrom.host.toLowerCase().includes("gmail")) {
-        transporter = nodemailer.createTransport({
-          service: "gmail",
-          auth: {
-            user: emailTemplate.emailFrom.email,
-            pass: emailTemplate.emailFrom.appPassword,
-          },
-        });
-      } else {
-        transporter = nodemailer.createTransport({
-          host: emailTemplate.emailFrom.host,
-          port: emailTemplate.emailFrom.port,
-          secure: emailTemplate.emailFrom.SSL,
-          auth: {
-            user: emailTemplate.emailFrom.email,
-            pass: emailTemplate.emailFrom.appPassword,
-          },
-        });
-      }
-
-      // Send email
-      await transporter.sendMail({
-        from: `"${emailTemplate.mailerName}" <${emailTemplate.emailFrom.email}>`,
-        to: email,
-        cc: emailTemplate.emailCC || "",
-        bcc: emailTemplate.emailBCC || "",
-        subject: emailTemplate.emailSubject,
-        html: emailTemplate.emailSignature,
+      // Try sending via DB EmailTemplate first
+      await sendTemplatedEmail("Forget Password", email, {
+        USERNAME: username,
+        OTP_CODE: otp,
       });
-
-      console.log("Email sent successfully");
-
-      return res.status(200).json({
-        isOk: true,
-        message: "OTP sent to your email",
-      });
-    } catch (emailError) {
-      console.error("Error sending email:", emailError);
-      return res.status(500).json({
-        isOk: false,
-        message: "Failed to send OTP email",
-        error: emailError.message,
+    } catch (templateError) {
+      console.warn(
+        "[OTP] Templated email failed, falling back to multi-channel deliverOtp:",
+        templateError.message,
+      );
+      // Fallback to central deliverOtp router (Email / Postfix / SMS / WhatsApp)
+      await deliverOtp({
+        email,
+        mobile: user.mobile || user.phone,
+        otp,
+        trigger: "otp_password_reset",
+        preferredChannel: "email",
       });
     }
+
+    return res.status(200).json({
+      isOk: true,
+      message: "OTP sent successfully to your email",
+    });
   } catch (error) {
     console.error("Error in createOtp:", error);
     return res.status(500).json({
@@ -173,7 +123,15 @@ export const verifyOtp = async (req, res) => {
       });
     }
 
-    if (otpRecord.otp !== otp) {
+    const inputHash = crypto.createHash("sha256").update(otp || "").digest("hex");
+    const storedBuf = Buffer.from(otpRecord.otp, "hex");
+    const inputBuf = Buffer.from(inputHash, "hex");
+
+    const match =
+      (storedBuf.length === inputBuf.length && crypto.timingSafeEqual(storedBuf, inputBuf)) ||
+      otpRecord.otp === otp;
+
+    if (!match) {
       otpRecord.attempts = (otpRecord.attempts || 0) + 1;
       if (otpRecord.attempts >= MAX_OTP_ATTEMPTS) {
         await Otp.deleteOne({ email });
@@ -218,7 +176,15 @@ export const resetPassword = async (req, res) => {
       });
     }
 
-    if (otpRecord.otp !== otp) {
+    const inputHash = crypto.createHash("sha256").update(otp || "").digest("hex");
+    const storedBuf = Buffer.from(otpRecord.otp, "hex");
+    const inputBuf = Buffer.from(inputHash, "hex");
+
+    const match =
+      (storedBuf.length === inputBuf.length && crypto.timingSafeEqual(storedBuf, inputBuf)) ||
+      otpRecord.otp === otp;
+
+    if (!match) {
       otpRecord.attempts = (otpRecord.attempts || 0) + 1;
       if (otpRecord.attempts >= MAX_OTP_ATTEMPTS) {
         await Otp.deleteOne({ email });

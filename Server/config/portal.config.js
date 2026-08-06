@@ -36,6 +36,12 @@ export const otpSettings = {
   maxVerifyAttempts: parsePositiveInt(process.env.OTP_MAX_ATTEMPTS, 3),
   expireMinutes: parsePositiveInt(process.env.OTP_EXPIRE_MINUTES, 10),
   perHourLimit: parsePositiveInt(process.env.OTP_PER_HOUR_LIMIT, 3),
+  primaryChannel: (process.env.OTP_PRIMARY_CHANNEL || "whatsapp").toLowerCase(),
+  fallbackChain: (process.env.OTP_FALLBACK_CHAIN || "whatsapp,sms,email")
+    .toLowerCase()
+    .split(",")
+    .map((c) => c.trim())
+    .filter(Boolean),
 };
 
 export const getPortalConfigPayload = () => ({
@@ -49,5 +55,7 @@ export const getPortalConfigPayload = () => ({
   },
   otp: {
     maxVerifyAttempts: otpSettings.maxVerifyAttempts,
+    primaryChannel: otpSettings.primaryChannel,
+    fallbackChain: otpSettings.fallbackChain,
   },
 });

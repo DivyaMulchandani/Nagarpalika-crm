@@ -18,21 +18,23 @@ const fmtDate = (d) =>
 // ─────────────────────────────────────────────────────────────
 function OtpLogin({ onSuccess }) {
   const [step, setStep]       = useState('phone')   // 'phone' | 'otp'
-  const [mobile, setMobile]   = useState('')
+  const [identifier, setIdentifier] = useState('')
   const [otp, setOtp]         = useState('')
   const [devOtp, setDevOtp]   = useState(null)
+  const [deliveryChannel, setDeliveryChannel] = useState(null)
   const [loading, setLoading] = useState(false)
   const [error, setError]     = useState(null)
 
   const sendOtp = async (e) => {
     e.preventDefault()
-    if (!/^\d{10}$/.test(mobile)) { setError('Enter valid 10-digit mobile number.'); return }
+    if (!identifier.trim()) { setError('Enter Mobile, Email, or OTR Number.'); return }
     setError(null); setLoading(true)
     try {
-      const res = await post('/api/v1/otp/candidates/login/send', { mobile })
+      const res = await post('/api/v1/otp/candidates/login/send', { identifier })
+      if (res?.data?.channel) setDeliveryChannel(res.data.channel)
       if (DEV && res?.data?.dev_otp) { setDevOtp(res.data.dev_otp); setOtp(res.data.dev_otp) }
       setStep('otp')
-      toast.info('OTP sent to your mobile number.')
+      toast.info(res?.message || 'OTP sent to your registered contact.')
     } catch (err) {
       setError(err.message || 'Failed to send OTP. Try again.')
     } finally { setLoading(false) }
@@ -43,7 +45,7 @@ function OtpLogin({ onSuccess }) {
     if (!otp.trim()) { setError('Enter the OTP.'); return }
     setError(null); setLoading(true)
     try {
-      await post('/api/v1/otp/candidates/login/verify', { mobile, otp: otp.trim() })
+      await post('/api/v1/otp/candidates/login/verify', { identifier: identifier.trim(), otp: otp.trim() })
       toast.success('Login successful.')
       onSuccess()
     } catch (err) {
@@ -52,7 +54,7 @@ function OtpLogin({ onSuccess }) {
     } finally { setLoading(false) }
   }
 
-  const reset = () => { setStep('phone'); setOtp(''); setDevOtp(null); setError(null) }
+  const reset = () => { setStep('phone'); setOtp(''); setDevOtp(null); setError(null); setDeliveryChannel(null) }
 
   return (
     <div className="box" style={{ maxWidth: 440, margin: '0 auto' }}>
@@ -71,23 +73,22 @@ function OtpLogin({ onSuccess }) {
           <form onSubmit={sendOtp}>
             <div className="form-row">
               <div className="form-field">
-                <label>Registered Mobile Number *</label>
+                <label>Login Identifier *</label>
                 <input
-                  type="tel"
-                  placeholder="10-digit mobile number"
-                  value={mobile}
-                  onChange={(e) => setMobile(e.target.value.replace(/\D/g, '').slice(0, 10))}
-                  autoComplete="tel"
-                  maxLength={10}
+                  type="text"
+                  placeholder="Mobile / Email / OTR Number"
+                  value={identifier}
+                  onChange={(e) => setIdentifier(e.target.value)}
+                  autoComplete="username"
                   autoFocus
                 />
                 <span style={{ fontSize: 11, color: 'var(--ojas-ink-3)' }}>
-                  Mobile number used during OTR registration
+                  Enter Mobile Number, Email Address, or OTR Registration ID
                 </span>
               </div>
               {error && <p style={{ color: 'var(--ojas-red)', fontSize: 13, margin: '4px 0 0' }}>{error}</p>}
               <div className="form-actions">
-                <button type="submit" className="btn primary" disabled={loading || mobile.length !== 10}>
+                <button type="submit" className="btn primary" disabled={loading || !identifier.trim()}>
                   {loading ? 'Sending…' : 'Send OTP ▶'}
                 </button>
               </div>
@@ -99,7 +100,8 @@ function OtpLogin({ onSuccess }) {
           <form onSubmit={verifyOtp}>
             <div className="form-row">
               <div style={{ fontSize: 13, color: 'var(--ojas-ink-2)', marginBottom: 12 }}>
-                OTP sent to <strong>+91 {mobile}</strong>.{' '}
+                OTP sent for <strong>{identifier}</strong>
+                {deliveryChannel ? ` via ${deliveryChannel.toUpperCase()}` : ''}.{' '}
                 <button type="button" className="btn-link" onClick={reset}>Change</button>
               </div>
 

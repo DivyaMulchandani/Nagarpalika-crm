@@ -31,18 +31,28 @@ const OTP_RE = /^\d{6}$/;
 // production-hosted server for testing. Defaults off — keep it off in real prod.
 const isDevOtpEnabled = () => process.env.ENABLE_DEV_OTP === "true";
 
+const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+
 const isValidMobile = (m) => typeof m === "string" && MOBILE_RE.test(m);
 const isValidOtp = (o) => typeof o === "string" && OTP_RE.test(o);
+const isValidEmail = (e) => typeof e === "string" && e.length <= 254 && EMAIL_RE.test(e.trim());
 
 // Send OTP to candidate mobile (pre-registration — verified by phone number)
 export const sendCandidateOtp = async (req, res) => {
   try {
-    const { mobile, aadhaar } = req.body;
+    const { mobile, aadhaar, email, preferredChannel } = req.body;
     if (!isValidMobile(mobile))
       return res.status(422).json({
         isOk: false,
         status: 422,
         message: "A valid 10-digit mobile number is required",
+      });
+
+    if (email && !isValidEmail(email))
+      return res.status(422).json({
+        isOk: false,
+        status: 422,
+        message: "Please provide a valid email address",
       });
 
     const VERIFY_TTL_MS = 15 * 60 * 1000;
@@ -106,17 +116,27 @@ export const sendCandidateOtp = async (req, res) => {
       attempts: 0,
     };
 
-    deliverOtp({ mobile, otp, trigger: "otp_registration" }).catch((err) =>
-      console.error("[OTP] delivery error:", err.message),
-    );
+    const deliveryResult = await deliverOtp({
+      mobile,
+      email,
+      otp,
+      trigger: "otp_registration",
+      preferredChannel,
+    }).catch((err) => {
+      console.error("[OTP] delivery error:", err.message);
+      return { channel: "none", error: err.message };
+    });
 
     const extra = {};
+    if (deliveryResult?.channel) extra.channel = deliveryResult.channel;
     if (isDevOtpEnabled()) extra.dev_otp = otp;
 
     return res.status(200).json({
       isOk: true,
       status: 200,
-      message: "OTP sent to your mobile number",
+      message: deliveryResult?.channel && deliveryResult.channel !== "none"
+        ? `OTP sent successfully via ${deliveryResult.channel.toUpperCase()}`
+        : "OTP sent to your mobile number",
       ...(Object.keys(extra).length ? { data: extra } : {}),
     });
   } catch (error) {
@@ -196,7 +216,7 @@ export const verifyCandidateOtp = async (req, res) => {
 // Send OTP for password reset — candidate must exist
 export const sendPasswordResetOtp = async (req, res) => {
   try {
-    const { registration_id } = req.body;
+    const { registration_id, preferredChannel } = req.body;
     if (!registration_id)
       return res.status(422).json({
         isOk: false,
@@ -233,6 +253,7 @@ export const sendPasswordResetOtp = async (req, res) => {
         otp,
         trigger: "otp_password_reset",
         email: candidate.email,
+        preferredChannel,
       }).catch((err) =>
         console.error("[OTP] reset delivery error:", err.message),
       );
@@ -250,31 +271,42 @@ export const sendPasswordResetOtp = async (req, res) => {
   }
 };
 
-// ── Login via mobile OTP ──────────────────────────────────────────────────────
+// ── Login via mobile / email / registration_id OTP ─────────────────────────────
 
 // Send OTP for login — candidate must already be registered
 export const sendLoginOtp = async (req, res) => {
   try {
-    const { mobile } = req.body;
-    if (!isValidMobile(mobile))
+    const { identifier, mobile, preferredChannel } = req.body;
+    const input = String(identifier || mobile || "").trim();
+
+    if (!input) {
       return res.status(422).json({
         isOk: false,
         status: 422,
-        message: "A valid 10-digit mobile number is required",
+        message: "Mobile number, Email address, or Registration ID is required",
       });
+    }
 
-    // Login requires an existing account — reject unknown numbers so the client
-    // never advances to the OTP step for a mobile that can't log in.
-    const candidate = await Candidate.findOne({ mobile }).select("_id");
+    let query = {};
+    if (/^\d{10}$/.test(input)) {
+      query = { mobile: input };
+    } else if (/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(input)) {
+      query = { email: input.toLowerCase() };
+    } else {
+      query = { registration_id: input.toUpperCase() };
+    }
+
+    // Login requires an existing account — reject unknown identifiers
+    const candidate = await Candidate.findOne(query).select("_id mobile email registration_id name");
     if (!candidate)
       return res.status(404).json({
         isOk: false,
         status: 404,
         message:
-          "No account found with this mobile number. Please register first.",
+          "No account found with this Mobile, Email, or Registration ID. Please register first.",
       });
 
-    if (!checkOtpRate(`login:${mobile}`))
+    if (!checkOtpRate(`login:${candidate._id.toString()}`))
       return res.status(429).json({
         isOk: false,
         status: 429,
@@ -285,24 +317,36 @@ export const sendLoginOtp = async (req, res) => {
     const expires_at = Date.now() + OTP_EXPIRE_MS;
 
     req.session.candidateOtp = {
-      target: mobile,
+      target: input,
+      candidateId: candidate._id.toString(),
       type: "login",
       hash: crypto.createHash("sha256").update(otp).digest("hex"),
       expires_at,
       attempts: 0,
     };
 
-    deliverOtp({ mobile, otp, trigger: "otp_login" }).catch((err) =>
-      console.error("[OTP] login delivery error:", err.message),
-    );
+    const deliveryResult = await deliverOtp({
+      mobile: candidate.mobile,
+      email: candidate.email,
+      otp,
+      trigger: "otp_login",
+      preferredChannel,
+    }).catch((err) => {
+      console.error("[OTP] login delivery error:", err.message);
+      return { channel: "none", error: err.message };
+    });
 
     const extra = {};
+    if (deliveryResult?.channel) extra.channel = deliveryResult.channel;
     if (isDevOtpEnabled()) extra.dev_otp = otp;
+    extra.target_type = /^\d{10}$/.test(input) ? "mobile" : input.includes("@") ? "email" : "registration_id";
 
     return res.status(200).json({
       isOk: true,
       status: 200,
-      message: "OTP sent to your registered mobile number.",
+      message: deliveryResult?.channel && deliveryResult.channel !== "none"
+        ? `OTP sent via ${deliveryResult.channel.toUpperCase()}`
+        : "OTP sent to your registered contact details.",
       ...(Object.keys(extra).length ? { data: extra } : {}),
     });
   } catch (error) {
@@ -315,24 +359,27 @@ export const sendLoginOtp = async (req, res) => {
 // Verify login OTP — creates candidate session
 export const verifyLoginOtp = async (req, res) => {
   try {
-    const { mobile, otp } = req.body;
-    if (!isValidMobile(mobile) || !isValidOtp(otp))
+    const { identifier, mobile, otp } = req.body;
+    const input = String(identifier || mobile || "").trim();
+
+    if (!input || !isValidOtp(otp))
       return res.status(422).json({
         isOk: false,
         status: 422,
-        message: "A valid mobile number and 6-digit OTP are required",
+        message: "A valid login identifier and 6-digit OTP are required",
       });
 
     // Dev bypass: accept "000000" in non-production
     const isDevBypass = isDevOtpEnabled() && otp === "000000";
 
+    const stored = req.session.candidateOtp;
+
     if (!isDevBypass) {
-      const stored = req.session.candidateOtp;
-      if (!stored || stored.target !== mobile || stored.type !== "login")
+      if (!stored || stored.type !== "login")
         return res.status(400).json({
           isOk: false,
           status: 400,
-          message: "No pending OTP for this mobile",
+          message: "No pending OTP for this login request",
         });
 
       if (Date.now() > stored.expires_at) {
@@ -367,14 +414,29 @@ export const verifyLoginOtp = async (req, res) => {
           .json({ isOk: false, status: 401, message: "Invalid OTP" });
     }
 
-    const candidate = await Candidate.findOne({ mobile }).select(
+    let query = {};
+    if (/^\d{10}$/.test(input)) {
+      query = { mobile: input };
+    } else if (/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(input)) {
+      query = { email: input.toLowerCase() };
+    } else {
+      query = { registration_id: input.toUpperCase() };
+    }
+
+    let candidate = await Candidate.findOne(query).select(
       "_id registration_id name",
     );
+    if (!candidate && stored?.candidateId) {
+      candidate = await Candidate.findById(stored.candidateId).select(
+        "_id registration_id name",
+      );
+    }
+
     if (!candidate)
       return res.status(401).json({
         isOk: false,
         status: 401,
-        message: "No account found for this mobile number",
+        message: "No candidate account found",
       });
 
     delete req.session.candidateOtp;
@@ -392,8 +454,6 @@ export const verifyLoginOtp = async (req, res) => {
       loginAt: Date.now(),
     };
 
-    // Absolute 30-minute session from login — fixed expiry, not extended
-    // by activity or refreshes. Stored in MongoDB via connect-mongo.
     req.session.cookie.maxAge = CANDIDATE_SESSION_MS;
 
     return res.status(200).json({
