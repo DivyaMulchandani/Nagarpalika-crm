@@ -295,6 +295,40 @@ export const submitRegistration = async (req, res) => {
 
     const { aadhaar_hash, mobile, data } = stepSession;
 
+    // Server-side required profile fields validation
+    const candidateName = (name || data.name || "").trim();
+    const candidateDob = req.body.dob || data.dob;
+    const candidateGender = req.body.gender || data.gender;
+    const candidateCategory = req.body.category || data.category;
+
+    if (!candidateName)
+      return res.status(422).json({
+        isOk: false,
+        status: 422,
+        message: "Candidate name is required",
+      });
+
+    if (!candidateDob)
+      return res.status(422).json({
+        isOk: false,
+        status: 422,
+        message: "Date of Birth (dob) is required",
+      });
+
+    if (!candidateGender)
+      return res.status(422).json({
+        isOk: false,
+        status: 422,
+        message: "Gender is required",
+      });
+
+    if (!candidateCategory)
+      return res.status(422).json({
+        isOk: false,
+        status: 422,
+        message: "Category is required",
+      });
+
     // Re-check duplicate in case another request registered the same Aadhaar during this session
     if (await Candidate.findOne({ aadhaar_hash }))
       return res.status(409).json({
