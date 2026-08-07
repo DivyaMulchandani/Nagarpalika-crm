@@ -157,48 +157,44 @@ export const verifyCandidateOtp = async (req, res) => {
         message: "A valid mobile number and 6-digit OTP are required",
       });
 
-    const isDevBypass = isDevOtpEnabled() && otp === "000000";
+    const stored = req.session.candidateOtp;
+    if (!stored || stored.target !== mobile || stored.type !== "mobile")
+      return res.status(400).json({
+        isOk: false,
+        status: 400,
+        message: "No pending OTP for this mobile",
+      });
 
-    if (!isDevBypass) {
-      const stored = req.session.candidateOtp;
-      if (!stored || stored.target !== mobile || stored.type !== "mobile")
-        return res.status(400).json({
-          isOk: false,
-          status: 400,
-          message: "No pending OTP for this mobile",
-        });
-
-      if (Date.now() > stored.expires_at) {
-        delete req.session.candidateOtp;
-        return res
-          .status(400)
-          .json({ isOk: false, status: 400, message: "OTP has expired" });
-      }
-
-      if (stored.attempts >= MAX_VERIFY_ATTEMPTS) {
-        delete req.session.candidateOtp;
-        return res.status(429).json({
-          isOk: false,
-          status: 429,
-          message: "Too many incorrect attempts. Request a new OTP.",
-        });
-      }
-
-      stored.attempts += 1;
-
-      const inputHash = crypto.createHash("sha256").update(otp).digest("hex");
-      const storedHashBuf = Buffer.from(stored.hash, "hex");
-      const inputHashBuf = Buffer.from(inputHash, "hex");
-
-      const match =
-        storedHashBuf.length === inputHashBuf.length &&
-        crypto.timingSafeEqual(storedHashBuf, inputHashBuf);
-
-      if (!match)
-        return res
-          .status(401)
-          .json({ isOk: false, status: 401, message: "Invalid OTP" });
+    if (Date.now() > stored.expires_at) {
+      delete req.session.candidateOtp;
+      return res
+        .status(400)
+        .json({ isOk: false, status: 400, message: "OTP has expired" });
     }
+
+    if (stored.attempts >= MAX_VERIFY_ATTEMPTS) {
+      delete req.session.candidateOtp;
+      return res.status(429).json({
+        isOk: false,
+        status: 429,
+        message: "Too many incorrect attempts. Request a new OTP.",
+      });
+    }
+
+    stored.attempts += 1;
+
+    const inputHash = crypto.createHash("sha256").update(otp).digest("hex");
+    const storedHashBuf = Buffer.from(stored.hash, "hex");
+    const inputHashBuf = Buffer.from(inputHash, "hex");
+
+    const match =
+      storedHashBuf.length === inputHashBuf.length &&
+      crypto.timingSafeEqual(storedHashBuf, inputHashBuf);
+
+    if (!match)
+      return res
+        .status(401)
+        .json({ isOk: false, status: 401, message: "Invalid OTP" });
 
     delete req.session.candidateOtp;
     req.session.mobileOtpVerified = mobile;
@@ -369,50 +365,45 @@ export const verifyLoginOtp = async (req, res) => {
         message: "A valid login identifier and 6-digit OTP are required",
       });
 
-    // Dev bypass: accept "000000" in non-production
-    const isDevBypass = isDevOtpEnabled() && otp === "000000";
-
     const stored = req.session.candidateOtp;
 
-    if (!isDevBypass) {
-      if (!stored || stored.type !== "login")
-        return res.status(400).json({
-          isOk: false,
-          status: 400,
-          message: "No pending OTP for this login request",
-        });
+    if (!stored || stored.type !== "login")
+      return res.status(400).json({
+        isOk: false,
+        status: 400,
+        message: "No pending OTP for this login request",
+      });
 
-      if (Date.now() > stored.expires_at) {
-        delete req.session.candidateOtp;
-        return res
-          .status(400)
-          .json({ isOk: false, status: 400, message: "OTP has expired" });
-      }
-
-      if (stored.attempts >= MAX_VERIFY_ATTEMPTS) {
-        delete req.session.candidateOtp;
-        return res.status(429).json({
-          isOk: false,
-          status: 429,
-          message: "Too many incorrect attempts. Request a new OTP.",
-        });
-      }
-
-      stored.attempts += 1;
-
-      const inputHash = crypto.createHash("sha256").update(otp).digest("hex");
-      const storedHashBuf = Buffer.from(stored.hash, "hex");
-      const inputHashBuf = Buffer.from(inputHash, "hex");
-
-      const match =
-        storedHashBuf.length === inputHashBuf.length &&
-        crypto.timingSafeEqual(storedHashBuf, inputHashBuf);
-
-      if (!match)
-        return res
-          .status(401)
-          .json({ isOk: false, status: 401, message: "Invalid OTP" });
+    if (Date.now() > stored.expires_at) {
+      delete req.session.candidateOtp;
+      return res
+        .status(400)
+        .json({ isOk: false, status: 400, message: "OTP has expired" });
     }
+
+    if (stored.attempts >= MAX_VERIFY_ATTEMPTS) {
+      delete req.session.candidateOtp;
+      return res.status(429).json({
+        isOk: false,
+        status: 429,
+        message: "Too many incorrect attempts. Request a new OTP.",
+      });
+    }
+
+    stored.attempts += 1;
+
+    const inputHash = crypto.createHash("sha256").update(otp).digest("hex");
+    const storedHashBuf = Buffer.from(stored.hash, "hex");
+    const inputHashBuf = Buffer.from(inputHash, "hex");
+
+    const match =
+      storedHashBuf.length === inputHashBuf.length &&
+      crypto.timingSafeEqual(storedHashBuf, inputHashBuf);
+
+    if (!match)
+      return res
+        .status(401)
+        .json({ isOk: false, status: 401, message: "Invalid OTP" });
 
     let query = {};
     if (/^\d{10}$/.test(input)) {

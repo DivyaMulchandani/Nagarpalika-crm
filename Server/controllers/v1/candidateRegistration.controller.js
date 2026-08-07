@@ -2,7 +2,7 @@ import crypto from "crypto";
 import path from "path";
 import Candidate from "../../models/Candidate.js";
 import Qualification from "../../models/Qualification.js";
-import { sendTemplatedEmail } from "../../services/email.service.js";
+import { sendEmail, sendTemplatedEmail } from "../../services/email.service.js";
 import { resolveFileUrl, deleteFile } from "../../services/storage.service.js";
 
 const EDIT_WINDOW_HOURS = 72;
@@ -327,9 +327,24 @@ export const submitRegistration = async (req, res) => {
         NAME: candidate.name,
         REGISTRATION_ID: candidate.registration_id,
         PORTAL_URL: process.env.PORTAL_URL || "",
-      }).catch((err) =>
-        console.error("[EMAIL] registration_id_issued:", err.message),
-      );
+      }).catch(async (err) => {
+        console.warn("[EMAIL] Templated email failed, falling back to direct sendEmail:", err.message);
+        await sendEmail({
+          to: candidate.email,
+          subject: "Your Nagarpalika OTR Registration ID Issued",
+          html: `
+            <div style="font-family: Arial, sans-serif; padding: 20px; color: #333;">
+              <h2 style="color: #1e3a8a;">Nagarpalika Recruitment Portal</h2>
+              <p>Dear <strong>${candidate.name || "Candidate"}</strong>,</p>
+              <p>Your One-Time Registration (OTR) has been successfully submitted.</p>
+              <p>Your Registration ID is:</p>
+              <div style="font-size: 24px; font-weight: bold; letter-spacing: 2px; color: #2563eb; margin: 15px 0;">${candidate.registration_id}</div>
+              <p>Please keep this Registration ID safe for future logins and job applications.</p>
+            </div>
+          `,
+          text: `Dear ${candidate.name || "Candidate"}, your Nagarpalika OTR Registration ID is ${candidate.registration_id}. Keep it safe.`,
+        }).catch((e) => console.error("[EMAIL] Fallback sendEmail failed:", e.message));
+      });
     }
 
     // Auto-login: regenerate session (fixation prevention) and create a
