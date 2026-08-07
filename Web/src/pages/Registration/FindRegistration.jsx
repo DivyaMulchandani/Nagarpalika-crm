@@ -2,8 +2,6 @@ import { useState } from 'react'
 import { useNavigate, useSearchParams, Link } from 'react-router-dom'
 import { toast } from 'react-toastify'
 import { post } from '../../api/index'
-import { useAuth } from '../../context/AuthContext'
-import { IconGear } from '../../components/Icons'
 
 const DEV = import.meta.env.DEV
 
@@ -76,11 +74,6 @@ export default function FindRegistration() {
       </div>
 
       <div style={{ maxWidth: 460, margin: '0 auto' }}>
-        {DEV && (
-          <div className="notice warn" style={{ marginBottom: 12, fontSize: 12 }}>
-            <strong><IconGear /> DEV MODE</strong> — OTP bypass active. Use <code>000000</code> or OTP is auto-filled from server response.
-          </div>
-        )}
 
         <div className="box">
           <div className="box-title">
