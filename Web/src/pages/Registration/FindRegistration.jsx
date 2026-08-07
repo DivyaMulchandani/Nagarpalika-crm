@@ -32,10 +32,6 @@ export default function FindRegistration() {
     try {
       const res = await post('/api/v1/otp/candidates/login/send', { identifier: val })
       if (res?.data?.channel) setDeliveryChannel(res.data.channel)
-      if (DEV && res?.data?.dev_otp) {
-        setDevOtp(res.data.dev_otp)
-        setOtp(res.data.dev_otp)
-      }
       setStep('otp')
       toast.info(res?.message || 'OTP sent to your registered contact details.')
     } catch (err) {

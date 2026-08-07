@@ -127,9 +127,12 @@ export const sendCandidateOtp = async (req, res) => {
       return { channel: "none", error: err.message };
     });
 
+    if (isDevOtpEnabled() && process.env.NODE_ENV !== "production") {
+      console.log(`[DEV OTP LOG] Generated OTP: ${otp}`);
+    }
+
     const extra = {};
     if (deliveryResult?.channel) extra.channel = deliveryResult.channel;
-    if (isDevOtpEnabled()) extra.dev_otp = otp;
 
     return res.status(200).json({
       isOk: true,
@@ -332,9 +335,12 @@ export const sendLoginOtp = async (req, res) => {
       return { channel: "none", error: err.message };
     });
 
+    if (isDevOtpEnabled() && process.env.NODE_ENV !== "production") {
+      console.log(`[DEV OTP LOG] Generated OTP: ${otp}`);
+    }
+
     const extra = {};
     if (deliveryResult?.channel) extra.channel = deliveryResult.channel;
-    if (isDevOtpEnabled()) extra.dev_otp = otp;
     extra.target_type = /^\d{10}$/.test(input) ? "mobile" : input.includes("@") ? "email" : "registration_id";
 
     return res.status(200).json({
