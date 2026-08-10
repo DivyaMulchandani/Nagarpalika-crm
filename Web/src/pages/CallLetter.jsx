@@ -25,9 +25,11 @@ export default function CallLetter() {
       </div>
 
       <div className="notice warn">
-        <div className="title">IMPORTANT · મહત્વપૂર્ણ</div>
-        Candidates are <strong>STRICTLY</strong> advised to bring the printed Call Letter, a valid photo identity proof (Aadhaar / PAN / Driving Licence / Passport), and two recent passport-size photographs to the examination centre. <strong>Entry without the call letter is not permitted.</strong>
-        <span style={{ display: 'block', marginTop: 6, fontFamily: 'var(--font-guj)' }}>કોલ લેટર વગર પ્રવેશ આપવામાં આવશે નહીં.</span>
+        <div className="title">CALL LETTERS AVAILABILITY NOTICE · કોલ લેટર ઉપલબ્ધતા સૂચના</div>
+        Call letters / Hall tickets are currently not issued. Call letters will be made available for download once the examination schedule is officially announced.
+        <span style={{ display: 'block', marginTop: 6, fontFamily: 'var(--font-guj)' }}>
+          પરીક્ષાનું સમયપત્રક સત્તાવાર રીતે જાહેર થયા પછી જ કોલ લેટર ડાઉનલોડ માટે ઉપલબ્ધ થશે.
+        </span>
       </div>
 
       <div className="two-col">
@@ -41,30 +43,33 @@ export default function CallLetter() {
               <div className="form-row">
                 <div className="form-field">
                   <label>Select Advertisement</label>
-                  <select>
-                    <option>UD/2026/04 — Town Planner / JE / Clerk (Prelim)</option>
-                    <option>UD/2026/04-3 — Municipal Commissioner (Mains)</option>
-                    <option>UD/2025/14 — Junior Engineer (Document Verification)</option>
+                  <select disabled>
+                    <option>No examinations scheduled for call letter download</option>
                   </select>
                 </div>
                 <div className="form-field">
                   <label>Confirmation Number / OTR ID</label>
-                  <input type="text" placeholder="10-digit Confirmation Number" />
+                  <input type="text" placeholder="10-digit Confirmation Number" disabled />
                 </div>
                 <div className="form-field">
                   <label>Date of Birth (DD/MM/YYYY)</label>
-                  <input type="text" placeholder="DD/MM/YYYY" />
-                </div>
-                <div className="form-field">
-                  <label>Captcha</label>
-                  <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
-                    <span style={{ fontFamily: 'var(--font-mono)', fontSize: 18, letterSpacing: 6, background: 'var(--ojas-cream)', padding: '6px 12px', border: '1px solid var(--ojas-line)', fontStyle: 'italic', textDecoration: 'line-through' }}>7K9X2P</span>
-                    <input type="text" placeholder="Enter captcha" style={{ flex: 1 }} />
-                  </div>
+                  <input type="text" placeholder="DD/MM/YYYY" disabled />
                 </div>
                 <div className="form-actions">
-                  <button className="btn primary">Download Call Letter</button>
-                  <a href="#" style={{ marginLeft: 10 }}>Forgot Confirmation Number?</a>
+                  <button
+                    type="button"
+                    className="btn"
+                    disabled={true}
+                    style={{
+                      background: 'var(--ojas-ink-4, #94a3b8)',
+                      color: '#ffffff',
+                      cursor: 'not-allowed',
+                      opacity: 0.85,
+                    }}
+                    title="Call letters will be enabled once exam dates are announced."
+                  >
+                    Find Call Letters (Currently Unavailable)
+                  </button>
                 </div>
               </div>
             </div>

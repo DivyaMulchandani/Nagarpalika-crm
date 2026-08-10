@@ -1,3 +1,4 @@
+import crypto from "crypto";
 import mongoose from "mongoose";
 import Counter from "./Counter.js";
 
@@ -91,7 +92,9 @@ CandidateSchema.pre("save", async function (next) {
       { upsert: true, new: true },
     );
     const year = new Date().getFullYear();
-    this.registration_id = `OTR${year}${String(counter.seq).padStart(7, "0")}`;
+    const random3 = String(crypto.randomInt(0, 1000)).padStart(3, "0");
+    const seq4 = String(counter.seq).padStart(4, "0");
+    this.registration_id = `OTR${year}${random3}${seq4}`;
   }
   next();
 });

@@ -190,7 +190,9 @@ export default function Home() {
                             {n.title}
                           </h3>
                           {n.body && n.body.replace(/<[^>]*>/g, '').trim() && (
-                            <div className="news-excerpt" dangerouslySetInnerHTML={{ __html: n.body }} />
+                            <div className="news-excerpt">
+                              {n.body.replace(/<[^>]*>/g, '').trim().slice(0, 160)}
+                            </div>
                           )}
                           <a href={href} target={n.pdf_path ? '_blank' : undefined} rel="noreferrer">Read full notice ▶</a>
                         </div>

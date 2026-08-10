@@ -1,3 +1,5 @@
+import { Link } from 'react-router-dom'
+
 export default function Results() {
   return (
     <>
@@ -6,10 +8,16 @@ export default function Results() {
         <span className="guj">પરીક્ષા પરિણામ અને ઉત્તરકૂંચી</span>
       </div>
 
-      <div className="notice info">
-        <div className="title">NOTE · નોંધ</div>
-        Results are published in PDF format. Candidates are advised to verify their roll number and category before raising any representation. Grievances against published results must be filed within <strong>15 days</strong> of declaration.{' '}
-        <span style={{ fontFamily: 'var(--font-guj)' }}>પરિણામ સામેની ફરિયાદ ૧૫ દિવસમાં દાખલ કરવી.</span>
+      <div className="notice warn">
+        <div className="title">RESULTS AVAILABILITY NOTICE · પરિણામ ઉપલબ્ધતા સૂચના</div>
+        Examination results, merit lists, and answer keys are currently not declared. Results will be made available for search and download here once the examination process is completed and officially declared by Patan Nagarpalika. Please check the{' '}
+        <Link to="/notices" style={{ color: 'inherit', textDecoration: 'underline', fontWeight: 700 }}>
+          Notices section
+        </Link>{' '}
+        regularly for announcements.
+        <span style={{ display: 'block', marginTop: 6, fontFamily: 'var(--font-guj)' }}>
+          પરીક્ષાના પરિણામો અને આન્સર-કી સત્તાવાર રીતે જાહેર થયા બાદ અહીંથી જોઈ અને ડાઉનલોડ કરી શકાશે.
+        </span>
       </div>
 
       <div className="box">
@@ -21,19 +29,31 @@ export default function Results() {
           <div className="form-row">
             <div className="form-field">
               <label>Advertisement No.</label>
-              <input type="text" placeholder="e.g. ADV/2026/0001" />
+              <input type="text" placeholder="e.g. ADV/2026/0001" disabled />
             </div>
             <div className="form-field">
-              <label>Confirmation Number</label>
-              <input type="text" placeholder="e.g. 1234567890" />
+              <label>Confirmation Number / Registration ID</label>
+              <input type="text" placeholder="e.g. OTR2026001234" disabled />
             </div>
             <div className="form-field">
               <label>Date of Birth (DD/MM/YYYY)</label>
-              <input type="text" placeholder="DD/MM/YYYY" />
+              <input type="text" placeholder="DD/MM/YYYY" disabled />
             </div>
             <div className="form-actions">
-              <button className="btn primary">View Result</button>
-              <button className="btn">Reset</button>
+              <button
+                type="button"
+                className="btn"
+                disabled={true}
+                style={{
+                  background: 'var(--ojas-ink-4, #94a3b8)',
+                  color: '#ffffff',
+                  cursor: 'not-allowed',
+                  opacity: 0.85,
+                }}
+                title="Results will be enabled once officially declared."
+              >
+                View Result (Currently Unavailable)
+              </button>
             </div>
           </div>
         </div>
@@ -59,7 +79,7 @@ export default function Results() {
           <tbody>
             <tr>
               <td colSpan={7} style={{ textAlign: 'center', padding: '24px', color: 'var(--ojas-ink-3)', fontStyle: 'italic' }}>
-                No results published yet.
+                No results published yet. Check back after exams are conducted.
               </td>
             </tr>
           </tbody>
@@ -78,11 +98,8 @@ export default function Results() {
         <div className="box">
           <div className="box-title"><span>Grievance / Representation</span><span className="guj">ફરિયાદ / રજૂઆત</span></div>
           <div className="box-body">
-            <p>Candidates may file objections against any provisional answer key by paying a non-refundable fee of <strong>Rs. 100/-</strong> per question. Representations against final results may be filed online within <strong>15 days</strong> of declaration.</p>
-            <p style={{ marginTop: 10 }}>For grievances, write to <a href="mailto:grievance.ud@gujarat.gov.in">grievance.ud@gujarat.gov.in</a> or visit the Sachivalaya Help Desk between 11:00 — 17:00 (Mon — Fri).</p>
-            <div className="form-actions">
-              <button className="btn primary">File Representation</button>
-            </div>
+            <p>Candidates may file objections against any provisional answer key or result within <strong>15 days</strong> of official declaration.</p>
+            <p style={{ marginTop: 10 }}>For grievances, write to <a href="mailto:np_patan@yahoo.co.in">np_patan@yahoo.co.in</a> or visit Patan Nagarpalika Help Desk (02766-233232) during office hours (Mon — Sat).</p>
           </div>
         </div>
       </div>

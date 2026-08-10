@@ -295,61 +295,52 @@ export const sendLoginOtp = async (req, res) => {
       query = { registration_id: input.toUpperCase() };
     }
 
-    // Login requires an existing account — reject unknown identifiers
+    // Candidate lookup for login
     const candidate = await Candidate.findOne(query).select("_id mobile email registration_id name");
-    if (!candidate)
-      return res.status(404).json({
-        isOk: false,
-        status: 404,
-        message:
-          "No account found with this Mobile, Email, or Registration ID. Please register first.",
+
+    if (candidate) {
+      if (!checkOtpRate(`login:${candidate._id.toString()}`))
+        return res.status(429).json({
+          isOk: false,
+          status: 429,
+          message: "Too many OTP requests. Try again in 1 hour.",
+        });
+
+      const otp = generateOtp();
+      const expires_at = Date.now() + OTP_EXPIRE_MS;
+
+      req.session.candidateOtp = {
+        target: input,
+        candidateId: candidate._id.toString(),
+        type: "login",
+        hash: crypto.createHash("sha256").update(otp).digest("hex"),
+        expires_at,
+        attempts: 0,
+      };
+
+      await deliverOtp({
+        mobile: candidate.mobile,
+        email: candidate.email,
+        otp,
+        trigger: "otp_login",
+        preferredChannel,
+      }).catch((err) => {
+        console.error("[OTP] login delivery error:", err.message);
+        return { channel: "none", error: err.message };
       });
 
-    if (!checkOtpRate(`login:${candidate._id.toString()}`))
-      return res.status(429).json({
-        isOk: false,
-        status: 429,
-        message: "Too many OTP requests. Try again in 1 hour.",
-      });
-
-    const otp = generateOtp();
-    const expires_at = Date.now() + OTP_EXPIRE_MS;
-
-    req.session.candidateOtp = {
-      target: input,
-      candidateId: candidate._id.toString(),
-      type: "login",
-      hash: crypto.createHash("sha256").update(otp).digest("hex"),
-      expires_at,
-      attempts: 0,
-    };
-
-    const deliveryResult = await deliverOtp({
-      mobile: candidate.mobile,
-      email: candidate.email,
-      otp,
-      trigger: "otp_login",
-      preferredChannel,
-    }).catch((err) => {
-      console.error("[OTP] login delivery error:", err.message);
-      return { channel: "none", error: err.message };
-    });
-
-    if (isDevOtpEnabled() && process.env.NODE_ENV !== "production") {
-      console.log(`[DEV OTP LOG] Generated OTP: ${otp}`);
+      if (isDevOtpEnabled() && process.env.NODE_ENV !== "production") {
+        console.log(`[DEV OTP LOG] Generated OTP: ${otp}`);
+      }
+    } else {
+      // Dummy processing to equalize execution timing and prevent account enumeration timing attacks
+      crypto.createHash("sha256").update("dummy_salt_" + input).digest("hex");
     }
-
-    const extra = {};
-    if (deliveryResult?.channel) extra.channel = deliveryResult.channel;
-    extra.target_type = /^\d{10}$/.test(input) ? "mobile" : input.includes("@") ? "email" : "registration_id";
 
     return res.status(200).json({
       isOk: true,
       status: 200,
-      message: deliveryResult?.channel && deliveryResult.channel !== "none"
-        ? `OTP sent via ${deliveryResult.channel.toUpperCase()}`
-        : "OTP sent to your registered contact details.",
-      ...(Object.keys(extra).length ? { data: extra } : {}),
+      message: "If an account matches those details, an OTP has been sent.",
     });
   } catch (error) {
     return res

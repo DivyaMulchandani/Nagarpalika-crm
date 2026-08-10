@@ -143,9 +143,7 @@ export const saveStep = async (req, res) => {
         .status(422)
         .json({ isOk: false, status: 422, message: "data payload too large" });
 
-    // Mass-assignment protection: session data is later spread into the
-    // Candidate document, so privileged/identity fields must never be
-    // settable through this endpoint.
+    // 1. Mass-assignment protection: explicitly forbidden system & identity keys
     const FORBIDDEN_KEYS = new Set([
       "_id",
       "registration_id",
@@ -170,6 +168,42 @@ export const saveStep = async (req, res) => {
         isOk: false,
         status: 422,
         message: `Fields not allowed: ${forbidden.join(", ")}`,
+      });
+
+    // 2. Strict Whitelist of valid Candidate profile fields for extra-field protection
+    const ALLOWED_PROFILE_KEYS = new Set([
+      "name",
+      "father_husband_name",
+      "dob",
+      "gender",
+      "category",
+      "nationality",
+      "religion",
+      "marital_status",
+      "address_permanent",
+      "address_current",
+      "alternate_mobile",
+      "email",
+      "ph_status",
+      "ph_type",
+      "ph_percentage",
+      "ex_serviceman",
+      "qualification",
+      "languages",
+      "mother_tongue",
+      "photo_path",
+      "signature_path",
+      "caste_cert_no",
+      "caste_cert_path",
+      "udid_cert_path",
+    ]);
+
+    const unknownKeys = Object.keys(data).filter((k) => !ALLOWED_PROFILE_KEYS.has(k));
+    if (unknownKeys.length)
+      return res.status(422).json({
+        isOk: false,
+        status: 422,
+        message: `Unknown or unauthorized profile fields: ${unknownKeys.join(", ")}`,
       });
 
     // Sanitize string values (strip HTML angle brackets, cap length)
@@ -301,6 +335,10 @@ export const submitRegistration = async (req, res) => {
     const candidateGender = req.body.gender || data.gender;
     const candidateCategory = req.body.category || data.category;
 
+    const candidateMotherTongue = req.body.mother_tongue || data.mother_tongue;
+    const candidatePhoto = data.photo_path;
+    const candidateSig = data.signature_path;
+
     if (!candidateName)
       return res.status(422).json({
         isOk: false,
@@ -327,6 +365,20 @@ export const submitRegistration = async (req, res) => {
         isOk: false,
         status: 422,
         message: "Category is required",
+      });
+
+    if (!candidatePhoto)
+      return res.status(422).json({
+        isOk: false,
+        status: 422,
+        message: "Candidate photo upload is required",
+      });
+
+    if (!candidateSig)
+      return res.status(422).json({
+        isOk: false,
+        status: 422,
+        message: "Candidate signature upload is required",
       });
 
     // Re-check duplicate in case another request registered the same Aadhaar during this session

@@ -1,5 +1,8 @@
 import crypto from "crypto";
+import mongoose from "mongoose";
 import Notice from "../../models/Notice.js";
+import { handleSafeError } from "../../middlewares/securityHeaders.js";
+import { sanitizeHtml } from "../../utils/sanitizeHtml.js";
 import {
   getReadStream,
   uploadBuffer,
@@ -8,6 +11,9 @@ import {
   attachFileUrls,
   resolveFileUrl,
 } from "../../services/storage.service.js";
+
+const PUBLIC_NOTICE_PROJECTION =
+  "title body pdf_path slug type publish_date expiry_date status is_important_instruction createdAt updatedAt";
 
 export const createNotice = async (req, res) => {
   try {
@@ -22,8 +28,8 @@ export const createNotice = async (req, res) => {
       is_important_instruction,
     } = req.body;
     const notice = new Notice({
-      title,
-      body,
+      title: typeof title === "string" ? title.trim() : title,
+      body: typeof body === "string" ? sanitizeHtml(body) : body,
       pdf_path,
       type,
       publish_date,
@@ -54,11 +60,13 @@ export const listNotices = async (req, res) => {
     const isAuthenticated = !!req.session?.user;
     const filter = {};
 
-    filter.status =
-      req.query.status || (isAuthenticated ? undefined : "published");
+    const rawStatus = typeof req.query.status === "string" ? req.query.status.trim() : null;
+    filter.status = rawStatus || (isAuthenticated ? undefined : "published");
     if (!filter.status) delete filter.status;
 
-    if (req.query.type) filter.type = req.query.type;
+    if (typeof req.query.type === "string" && req.query.type.trim()) {
+      filter.type = req.query.type.trim();
+    }
     if (req.query.is_important_instruction !== undefined) {
       filter.is_important_instruction =
         req.query.is_important_instruction === "true";
@@ -92,9 +100,7 @@ export const listNotices = async (req, res) => {
       pagination: { total, page, limit, pages: Math.ceil(total / limit) },
     });
   } catch (error) {
-    return res
-      .status(500)
-      .json({ isOk: false, status: 500, message: error.message });
+    return handleSafeError(res, error, "Failed to retrieve notices");
   }
 };
 
@@ -131,20 +137,31 @@ export const getNoticePdf = async (req, res) => {
 
 export const getNoticeById = async (req, res) => {
   try {
-    const notice = await Notice.findOne({
-      _id: req.params.id,
-      is_deleted: { $ne: true },
-    });
+    const { id } = req.params;
+    const isAuthenticated = !!req.session?.user;
+    const query = mongoose.Types.ObjectId.isValid(id)
+      ? { _id: id, is_deleted: { $ne: true } }
+      : { slug: id, is_deleted: { $ne: true } };
+
+    if (!isAuthenticated) query.status = "published";
+
+    let find = Notice.findOne(query);
+    if (!isAuthenticated) {
+      find = find.select(PUBLIC_NOTICE_PROJECTION);
+    } else {
+      find = find.select("-__v");
+    }
+
+    const notice = await find.lean();
     if (!notice)
       return res
         .status(404)
         .json({ isOk: false, status: 404, message: "Not found" });
+
     const data = await attachFileUrls(notice, ["pdf_path"]);
     return res.status(200).json({ isOk: true, status: 200, data });
   } catch (error) {
-    return res
-      .status(500)
-      .json({ isOk: false, status: 500, message: error.message });
+    return handleSafeError(res, error, "Failed to retrieve notice");
   }
 };
 
@@ -168,7 +185,15 @@ export const patchNotice = async (req, res) => {
       "is_important_instruction",
     ];
     for (const key of ALLOWED) {
-      if (req.body[key] !== undefined) notice[key] = req.body[key];
+      if (req.body[key] !== undefined) {
+        if (key === "body" && typeof req.body[key] === "string") {
+          notice[key] = sanitizeHtml(req.body[key]);
+        } else if (key === "title" && typeof req.body[key] === "string") {
+          notice[key] = req.body[key].trim();
+        } else {
+          notice[key] = req.body[key];
+        }
+      }
     }
     notice.updatedBy = req.user.id;
     await notice.save();
@@ -176,9 +201,7 @@ export const patchNotice = async (req, res) => {
       .status(200)
       .json({ isOk: true, status: 200, message: "Updated", data: notice });
   } catch (error) {
-    return res
-      .status(500)
-      .json({ isOk: false, status: 500, message: error.message });
+    return handleSafeError(res, error, "Failed to update notice");
   }
 };
 

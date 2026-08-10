@@ -80,6 +80,9 @@ function logError(error) {
 const app = express();
 let databasestatus = "In-Progress";
 
+// Trust reverse proxy (Nginx / Cloudflare) so Express correctly reads X-Forwarded-Proto for Secure cookies
+app.set("trust proxy", 1);
+
 // ============ SECURITY MIDDLEWARE (Apply FIRST) ============
 // 1. Security Headers (Helmet + custom headers)
 app.use(securityHeaders);
@@ -129,9 +132,11 @@ app.use(
       autoRemove: "native", // Use MongoDB TTL index for cleanup
     }),
     cookie: {
-      // Tied to COOKIE_SECURE, not NODE_ENV — browsers drop "secure" cookies
-      // over plain HTTP, so this must stay false until the site is on HTTPS.
-      secure: process.env.COOKIE_SECURE === "true",
+      // Enforce Secure flag in production or when COOKIE_SECURE is explicitly true
+      secure:
+        process.env.COOKIE_SECURE !== undefined
+          ? process.env.COOKIE_SECURE === "true"
+          : process.env.NODE_ENV === "production",
       httpOnly: true, // Prevents XSS attacks
       maxAge: 24 * 60 * 60 * 1000, // 24 hours
       sameSite: "strict", // CSRF protection
@@ -245,8 +250,6 @@ console.log("✅ V1 API routes loaded");
 app.get("/api", (req, res) => {
   res.json({
     status: "ok",
-    message: "API server is running",
-    database: databasestatus,
     timestamp: new Date().toISOString(),
   });
 });

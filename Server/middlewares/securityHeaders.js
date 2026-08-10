@@ -195,8 +195,15 @@ export const bodySizeLimit = (limit = 1024 * 1024) => {
  * @param {Object} res - Express response object
  * @param {Function} next - Express next function
  */
+/**
+ * Sanitize error messages to prevent information leakage
+ * @param {Error} err - Error object
+ * @param {Object} req - Express request object
+ * @param {Object} res - Express response object
+ * @param {Function} next - Express next function
+ */
 export const sanitizeErrors = (err, req, res, next) => {
-  // Log the full error for debugging
+  // Log the full error server-side for debugging
   console.error("[ERROR]", {
     message: err.message,
     stack: err.stack,
@@ -204,16 +211,29 @@ export const sanitizeErrors = (err, req, res, next) => {
     method: req.method,
   });
 
-  // Don't expose internal error details in production
   const isProduction = process.env.NODE_ENV === "production";
 
-  // Handle specific error types
+  // Handle CastError / malformed query parameters
+  if (
+    err.name === "CastError" ||
+    err.name === "BSONError" ||
+    err.message?.includes("Cast to")
+  ) {
+    return res.status(400).json({
+      isOk: false,
+      status: 400,
+      error: "Bad Request",
+      message: "Invalid parameter or query format",
+    });
+  }
+
+  // Handle Mongoose / schema validation errors
   if (err.name === "ValidationError") {
     return res.status(400).json({
       isOk: false,
       status: 400,
       error: "Validation Error",
-      message: isProduction ? "Invalid input data" : err.message,
+      message: "Invalid input data",
     });
   }
 
@@ -235,12 +255,54 @@ export const sanitizeErrors = (err, req, res, next) => {
     });
   }
 
-  // Generic error response
+  // Generic sanitized error response (never leak internal Mongoose/MongoDB messages)
   res.status(err.status || 500).json({
     isOk: false,
     status: err.status || 500,
-    error: isProduction ? "Internal Server Error" : err.name,
-    message: isProduction ? "An unexpected error occurred" : err.message,
+    error: isProduction ? "Internal Server Error" : err.name || "Internal Server Error",
+    message: "An unexpected error occurred",
+  });
+};
+
+/**
+ * Controller error handler helper to return clean sanitized errors
+ */
+export const handleSafeError = (
+  res,
+  error,
+  defaultMessage = "An unexpected error occurred",
+  statusCode = 500,
+) => {
+  console.error("[CONTROLLER ERROR]", error?.message || error);
+  if (
+    error?.name === "CastError" ||
+    error?.name === "BSONError" ||
+    error?.message?.includes("Cast to")
+  ) {
+    return res.status(400).json({
+      isOk: false,
+      status: 400,
+      message: "Invalid parameter or query format",
+    });
+  }
+  if (error?.name === "ValidationError") {
+    return res.status(400).json({
+      isOk: false,
+      status: 400,
+      message: "Invalid input data",
+    });
+  }
+  if (error?.name === "MongoServerError" && error?.code === 11000) {
+    return res.status(409).json({
+      isOk: false,
+      status: 409,
+      message: "A record with this information already exists",
+    });
+  }
+  return res.status(statusCode).json({
+    isOk: false,
+    status: statusCode,
+    message: defaultMessage,
   });
 };
 
@@ -250,4 +312,5 @@ export default {
   getCorsConfig,
   bodySizeLimit,
   sanitizeErrors,
+  handleSafeError,
 };

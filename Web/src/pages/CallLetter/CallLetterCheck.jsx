@@ -63,9 +63,15 @@ export default function CallLetterCheck() {
       </div>
 
       <div className="notice warn">
-        <div className="title">IMPORTANT · મહત્વપૂર્ણ</div>
-        Candidates are <strong>STRICTLY</strong> advised to bring the printed Call Letter and a valid photo identity proof to the examination centre.{' '}
-        <span style={{ display: 'block', marginTop: 6, fontFamily: 'var(--font-guj)' }}>કોલ લેટર વગર પ્રવેશ આપવામાં આવશે નહીં.</span>
+        <div className="title">CALL LETTERS AVAILABILITY NOTICE · કોલ લેટર ઉપલબ્ધતા સૂચના</div>
+        Call letters / Hall tickets are currently not issued. Call letters will be made available for download once the examination schedule is officially announced. Please check the{' '}
+        <Link to="/notices" style={{ color: 'inherit', textDecoration: 'underline', fontWeight: 700 }}>
+          Notices section
+        </Link>{' '}
+        regularly for upcoming exam dates and announcements.
+        <span style={{ display: 'block', marginTop: 6, fontFamily: 'var(--font-guj)' }}>
+          પરીક્ષાનું સમયપત્રક સત્તાવાર રીતે જાહેર થયા પછી જ કોલ લેટર ડાઉનલોડ માટે ઉપલબ્ધ થશે.
+        </span>
       </div>
 
       <div className="two-col">
@@ -105,8 +111,19 @@ export default function CallLetterCheck() {
                   </div>
                   {errors._ && <p style={{ color: 'var(--ojas-red)', fontSize: 13, margin: '4px 0 0' }}>{errors._}</p>}
                   <div className="form-actions">
-                    <button type="submit" className="btn primary" disabled={loading}>
-                      {loading ? 'Checking…' : 'Find Call Letters'}
+                    <button
+                      type="button"
+                      className="btn"
+                      disabled={true}
+                      style={{
+                        background: 'var(--ojas-ink-4, #94a3b8)',
+                        color: '#ffffff',
+                        cursor: 'not-allowed',
+                        opacity: 0.85,
+                      }}
+                      title="Call letters will be enabled once exam dates are announced."
+                    >
+                      Find Call Letters (Currently Unavailable)
                     </button>
                   </div>
                 </div>
