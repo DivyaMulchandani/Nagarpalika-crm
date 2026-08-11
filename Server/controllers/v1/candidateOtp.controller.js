@@ -2,6 +2,7 @@ import crypto from "crypto";
 import Candidate from "../../models/Candidate.js";
 import { deliverOtp } from "../../services/notification.service.js";
 import { otpSettings } from "../../config/portal.config.js";
+import { isValidVerhoeff } from "../../utils/verhoeff.js";
 
 // In-memory rate limiter: target → { count, windowStart }
 const otpRateMap = new Map();
@@ -23,6 +24,15 @@ const checkOtpRate = (target) => {
 };
 
 const generateOtp = () => crypto.randomInt(100000, 999999).toString();
+
+const hashAadhaar = (raw) => {
+  const pepper =
+    process.env.AADHAAR_PEPPER || process.env.SESSION_SECRET || "default_pepper";
+  return crypto
+    .createHmac("sha256", pepper)
+    .update(String(raw).replace(/\s/g, ""))
+    .digest("hex");
+};
 
 const CANDIDATE_SESSION_MS = 30 * 60 * 1000; // keep in sync with authMiddleware
 const MOBILE_RE = /^[6-9]\d{9}$/;
@@ -55,41 +65,39 @@ export const sendCandidateOtp = async (req, res) => {
         message: "Please provide a valid email address",
       });
 
-    const VERIFY_TTL_MS = 15 * 60 * 1000;
-    const isFresh = (at) => at && Date.now() - at < VERIFY_TTL_MS;
-    const aadhaarOk = req.session.aadhaarVerified;
-    const mobileOk = req.session.mobileFormatVerified;
-
-    if (!aadhaarOk || !isFresh(aadhaarOk.at))
-      return res
-        .status(403)
-        .json({
+    let aadhaarHash = null;
+    if (aadhaar) {
+      const cleanAadhaar = String(aadhaar).replace(/\s/g, "");
+      if (!/^\d{12}$/.test(cleanAadhaar) || !isValidVerhoeff(cleanAadhaar)) {
+        return res.status(422).json({
           isOk: false,
-          status: 403,
-          message: "Aadhaar verification required before OTP",
+          status: 422,
+          message: "A valid 12-digit Aadhaar number is required",
         });
-    if (!mobileOk || !isFresh(mobileOk.at) || mobileOk.mobile !== mobile)
-      return res
-        .status(403)
-        .json({
+      }
+      aadhaarHash = hashAadhaar(cleanAadhaar);
+      if (await Candidate.findOne({ aadhaar_hash: aadhaarHash })) {
+        return res.status(409).json({
           isOk: false,
-          status: 403,
-          message: "Mobile verification required before OTP",
+          status: 409,
+          message: "Aadhaar already registered",
         });
-    if (aadhaar && aadhaarOk.hash) {
-      const hash = crypto
-        .createHash("sha256")
-        .update(String(aadhaar).replace(/\s/g, ""))
-        .digest("hex");
-      if (hash !== aadhaarOk.hash)
-        return res
-          .status(403)
-          .json({
-            isOk: false,
-            status: 403,
-            message: "Aadhaar does not match verified number",
-          });
+      }
+      req.session.aadhaarVerified = { hash: aadhaarHash, at: Date.now() };
+    } else {
+      const VERIFY_TTL_MS = 15 * 60 * 1000;
+      const aadhaarOk = req.session.aadhaarVerified;
+      if (!aadhaarOk || !aadhaarOk.at || Date.now() - aadhaarOk.at >= VERIFY_TTL_MS) {
+        return res.status(422).json({
+          isOk: false,
+          status: 422,
+          message: "A valid 12-digit Aadhaar number is required",
+        });
+      }
+      aadhaarHash = aadhaarOk.hash;
     }
+
+    req.session.mobileFormatVerified = { mobile, at: Date.now() };
 
     if (await Candidate.findOne({ mobile }))
       return res.status(409).json({
@@ -114,6 +122,7 @@ export const sendCandidateOtp = async (req, res) => {
       hash: crypto.createHash("sha256").update(otp).digest("hex"),
       expires_at,
       attempts: 0,
+      aadhaar_hash: aadhaarHash,
     };
 
     const deliveryResult = await deliverOtp({
