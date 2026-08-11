@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react'
 import { get } from '../api/index'
 
-const HELPLINE_TEXT = 'OJAS Helpdesk: 1800 233 5500 (Toll Free)  ·  Monday to Saturday, 09:00 – 18:00  ·  For portal support and recruitment queries'
+const HELPLINE_TEXT = 'Patan Nagarpalika Helpdesk: 02766-233232  ·  Email: np_patan@yahoo.co.in  ·  Monday to Saturday, 10:30 – 18:10  ·  For portal support and recruitment queries'
 const HELPLINE_ITEMS = Array(6).fill(HELPLINE_TEXT)
 
 const fmtDate = (d) => d ? new Date(d).toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' }) : ''

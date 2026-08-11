@@ -432,9 +432,9 @@ export const getCurrentUser = async (req, res) => {
     }
 
     let user = null;
-    user = await EmployeeModels.findById(userId);
+    user = await EmployeeModels.findById(userId).populate("roleId");
     if (user) {
-      role = "EMPLOYEE";
+      role = user.roleId?.roleName || "EMPLOYEE";
     }
 
     if (!user) {
