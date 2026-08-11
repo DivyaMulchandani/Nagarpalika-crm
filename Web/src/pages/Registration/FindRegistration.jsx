@@ -2,6 +2,7 @@ import { useState } from 'react'
 import { useNavigate, useSearchParams, Link } from 'react-router-dom'
 import { toast } from 'react-toastify'
 import { post } from '../../api/index'
+import { useAuth } from '../../context/AuthContext'
 
 const DEV = import.meta.env.DEV
 
