@@ -9,15 +9,15 @@ import { toast } from "react-toastify";
 import { AuthContext } from "../../context/AuthContext";
 
 const TYPE_OPTIONS = [
-  { value: "general",     label: "General" },
+  { value: "general", label: "General" },
   { value: "recruitment", label: "Recruitment" },
-  { value: "tender",      label: "Tender" },
-  { value: "result",      label: "Result" },
+  { value: "tender", label: "Tender" },
+  { value: "result", label: "Result" },
 ];
 
 const STATUS_OPTIONS = [
-  { value: "draft",       label: "Draft" },
-  { value: "published",   label: "Published" },
+  { value: "draft", label: "Draft" },
+  { value: "published", label: "Published" },
   { value: "unpublished", label: "Unpublished" },
 ];
 
@@ -30,13 +30,13 @@ const NoticeForm = () => {
   const isEdit = id && id !== "new";
   const editor = useRef(null);
 
-  const [form, setForm]         = useState(EMPTY);
-  const [errors, setErrors]     = useState({});
-  const [saving, setSaving]     = useState(false);
+  const [form, setForm] = useState(EMPTY);
+  const [errors, setErrors] = useState({});
+  const [saving, setSaving] = useState(false);
   const [loadingInit, setLoadingInit] = useState(isEdit);
-  const [pdfFile, setPdfFile]   = useState(null);
+  const [pdfFile, setPdfFile] = useState(null);
   const [pdfUploading, setPdfUploading] = useState(false);
-  const [savedId, setSavedId]   = useState(id || null);
+  const [savedId, setSavedId] = useState(id || null);
   const [existingPdf, setExistingPdf] = useState(null);
 
   useEffect(() => {
@@ -48,7 +48,7 @@ const NoticeForm = () => {
           title: n.title || "",
           type: TYPE_OPTIONS.find((o) => o.value === n.type) || null,
           publish_date: n.publish_date ? n.publish_date.slice(0, 10) : "",
-          expiry_date:  n.expiry_date  ? n.expiry_date.slice(0, 10)  : "",
+          expiry_date: n.expiry_date ? n.expiry_date.slice(0, 10) : "",
           is_important_instruction: !!n.is_important_instruction,
           body: n.body || "",
           status: n.status || "draft",
@@ -78,7 +78,7 @@ const NoticeForm = () => {
       title: form.title,
       type: form.type?.value,
       publish_date: form.publish_date || undefined,
-      expiry_date:  form.expiry_date  || undefined,
+      expiry_date: form.expiry_date || undefined,
       is_important_instruction: form.is_important_instruction,
       body: form.body,
       status: form.status,
@@ -137,9 +137,9 @@ const NoticeForm = () => {
           <CardHeader className="d-flex align-items-center justify-content-between">
             <h6 className="mb-0">Notice Details</h6>
             <div className="d-flex gap-1">
-              {form.status !== "published"   && <Button size="sm" color="success"   onClick={() => handleStatusChange("published")}>Publish</Button>}
-              {form.status === "published"   && <Button size="sm" color="warning"   onClick={() => handleStatusChange("unpublished")}>Unpublish</Button>}
-              {form.status !== "draft"       && <Button size="sm" color="secondary" onClick={() => handleStatusChange("draft")}>Revert to Draft</Button>}
+              {form.status !== "published" && <Button size="sm" color="success" onClick={() => handleStatusChange("published")}>Publish</Button>}
+              {form.status === "published" && <Button size="sm" color="warning" onClick={() => handleStatusChange("unpublished")}>Unpublish</Button>}
+              {form.status !== "draft" && <Button size="sm" color="secondary" onClick={() => handleStatusChange("draft")}>Revert to Draft</Button>}
             </div>
           </CardHeader>
           <CardBody>
