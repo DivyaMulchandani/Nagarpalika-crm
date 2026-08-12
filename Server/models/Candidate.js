@@ -83,7 +83,6 @@ const CandidateSchema = new mongoose.Schema(
   { timestamps: true },
 );
 
-CandidateSchema.index({ aadhaar_hash: 1 }, { unique: true });
 CandidateSchema.index({ mobile: 1 }, { unique: true, sparse: true });
 
 CandidateSchema.pre("save", async function (next) {

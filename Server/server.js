@@ -155,8 +155,6 @@ const dbURI = process.env.DATABASE;
 
 mongoose
   .connect(dbURI, {
-    useNewUrlParser: true,
-    useUnifiedTopology: true,
     serverSelectionTimeoutMS: 10000,
   })
   .then(() => {

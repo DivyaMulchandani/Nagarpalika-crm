@@ -144,23 +144,28 @@ export const securityHeaders = helmet({
  * @param {Function} next - Express next function
  */
 export const additionalSecurityHeaders = (req, res, next) => {
-  // Permissions-Policy: Control browser features
-  res.setHeader(
-    "Permissions-Policy",
-    "accelerometer=(), camera=(), geolocation=(), gyroscope=(), magnetometer=(), microphone=(), payment=(), usb=()",
-  );
+  try {
+    if (!res.headersSent) {
+      // Permissions-Policy: Control browser features
+      res.setHeader(
+        "Permissions-Policy",
+        "accelerometer=(), camera=(), geolocation=(), gyroscope=(), magnetometer=(), microphone=(), payment=(), usb=()",
+      );
 
-  // Cache-Control: Prevent caching of sensitive data
-  if (req.path.includes("/api/")) {
-    res.setHeader(
-      "Cache-Control",
-      "no-store, no-cache, must-revalidate, proxy-revalidate",
-    );
-    res.setHeader("Pragma", "no-cache");
-    res.setHeader("Expires", "0");
-    res.setHeader("Surrogate-Control", "no-store");
+      // Cache-Control: Prevent caching of sensitive data
+      if (req?.path && req.path.includes("/api/")) {
+        res.setHeader(
+          "Cache-Control",
+          "no-store, no-cache, must-revalidate, proxy-revalidate",
+        );
+        res.setHeader("Pragma", "no-cache");
+        res.setHeader("Expires", "0");
+        res.setHeader("Surrogate-Control", "no-store");
+      }
+    }
+  } catch (error) {
+    console.error("[SECURITY MIDDLEWARE ERROR]", error);
   }
-
   next();
 };
 
