@@ -3,6 +3,7 @@ import crypto from "crypto";
 import Candidate from "../../models/Candidate.js";
 import {
   attachFileUrls,
+  resolveFileUrl,
   CANDIDATE_FILE_FIELDS,
 } from "../../services/storage.service.js";
 import {
@@ -253,70 +254,108 @@ export const getMyProfile = async (req, res) => {
   }
 };
 
-// PATCH — edit window enforced, locked fields rejected
+// PATCH / PUT — candidate profile update with 1-time lifetime limit and immutable identity fields
 export const editCandidate = async (req, res) => {
   try {
     const candidate = await Candidate.findById(req.user.id);
     if (!candidate)
       return res
         .status(404)
-        .json({ isOk: false, status: 404, message: "Not found" });
+        .json({ isOk: false, status: 404, message: "Candidate not found" });
 
-    if (
-      candidate.edit_window_expires_at &&
-      new Date() > candidate.edit_window_expires_at
-    )
-      return res.status(400).json({
+    // 1-Time Lifetime Edit Check
+    if ((candidate.profile_edit_count || 0) >= 1) {
+      return res.status(403).json({
         isOk: false,
-        status: 400,
-        message: "Edit window has closed",
-        expired_at: candidate.edit_window_expires_at,
+        status: 403,
+        message:
+          "You have already used your 1-time profile edit allowance. Further modifications cannot be made online. Please contact the Nagarpalika Helpline (Phone: 02766-233232 / Email: np_patan@yahoo.co.in) for assistance.",
       });
+    }
 
-    const LOCKED = [
+    // Strictly immutable fields (Aadhaar, Mobile, Email, Registration ID, Security credentials)
+    const IMMUTABLE = [
       "aadhaar_hash",
-      "dob",
-      "name",
+      "aadhaar_number",
+      "mobile",
+      "mobile_verified",
+      "email",
+      "email_verified",
       "registration_id",
       "password",
       "login_attempts",
       "lockout_until",
+      "profile_edit_count",
+      "profile_edited_at",
     ];
-    const attempted_locked = LOCKED.filter((f) => f in req.body);
-    if (attempted_locked.length)
+
+    const attemptedLocked = IMMUTABLE.filter(
+      (f) => f in req.body && req.body[f] !== undefined && req.body[f] !== candidate[f],
+    );
+
+    if (attemptedLocked.length) {
       return res.status(422).json({
         isOk: false,
         status: 422,
-        message: `Cannot edit locked fields: ${attempted_locked.join(", ")}`,
+        message: `Cannot edit locked fields: ${attemptedLocked.join(", ")}. Aadhaar Number, Mobile Number, and Email Address are permanently locked.`,
       });
+    }
 
+    // Whitelist of allowed editable fields
     const EDITABLE = [
-      "address_current",
+      "name",
+      "father_husband_name",
+      "dob",
+      "gender",
+      "category",
+      "nationality",
+      "religion",
+      "marital_status",
+      "mother_tongue",
+      "alternate_mobile",
       "address_permanent",
-      "mobile",
-      "email",
+      "address_current",
+      "qualification",
+      "languages",
+      "ph_status",
+      "ph_type",
+      "ph_percentage",
+      "ex_serviceman",
+      "caste_cert_no",
+      "caste_cert_path",
+      "udid_cert_path",
       "photo_path",
       "signature_path",
-      "languages",
-      "alternate_mobile",
-      "mother_tongue",
     ];
-    EDITABLE.forEach((f) => {
-      if (f in req.body) candidate[f] = req.body[f];
+
+    EDITABLE.forEach((field) => {
+      if (field in req.body) {
+        candidate[field] = req.body[field];
+      }
     });
 
+    candidate.profile_edit_count = (candidate.profile_edit_count || 0) + 1;
+    candidate.profile_edited_at = new Date();
+
     await candidate.save();
+
+    if (candidate.name && req.session?.user) {
+      req.session.user.name = candidate.name;
+    }
+
+    const data = await attachFileUrls(candidate, CANDIDATE_FILE_FIELDS);
     const {
       password: _pw,
       aadhaar_hash: _ah,
       login_attempts: _la,
       lockout_until: _lu,
       ...safe
-    } = candidate.toObject();
+    } = data;
+
     return res.status(200).json({
       isOk: true,
       status: 200,
-      message: "Profile updated",
+      message: "Profile updated successfully.",
       data: safe,
     });
   } catch (error) {
@@ -328,6 +367,105 @@ export const editCandidate = async (req, res) => {
 
 // Legacy PUT — kept for Phase 1 compatibility
 export const updateMyProfile = editCandidate;
+
+// Profile Photo Upload (enforces 1-time edit rule)
+export const uploadProfilePhoto = async (req, res) => {
+  try {
+    const candidate = await Candidate.findById(req.user.id);
+    if (!candidate)
+      return res.status(404).json({ isOk: false, status: 404, message: "Candidate not found" });
+
+    if ((candidate.profile_edit_count || 0) >= 1) {
+      return res.status(403).json({
+        isOk: false,
+        status: 403,
+        message: "Profile editing is locked. You have already used your 1-time profile edit.",
+      });
+    }
+
+    if (!req.file)
+      return res.status(422).json({ isOk: false, status: 422, message: "Photo file is required" });
+
+    candidate.photo_path = req.file.path;
+    await candidate.save();
+
+    const url = await resolveFileUrl(req.file.path);
+    return res.status(200).json({
+      isOk: true,
+      status: 200,
+      message: "Photo updated successfully",
+      data: { url, photo_path: req.file.path },
+    });
+  } catch (error) {
+    return res.status(500).json({ isOk: false, status: 500, message: error.message });
+  }
+};
+
+// Profile Signature Upload (enforces 1-time edit rule)
+export const uploadProfileSignature = async (req, res) => {
+  try {
+    const candidate = await Candidate.findById(req.user.id);
+    if (!candidate)
+      return res.status(404).json({ isOk: false, status: 404, message: "Candidate not found" });
+
+    if ((candidate.profile_edit_count || 0) >= 1) {
+      return res.status(403).json({
+        isOk: false,
+        status: 403,
+        message: "Profile editing is locked. You have already used your 1-time profile edit.",
+      });
+    }
+
+    if (!req.file)
+      return res.status(422).json({ isOk: false, status: 422, message: "Signature file is required" });
+
+    candidate.signature_path = req.file.path;
+    await candidate.save();
+
+    const url = await resolveFileUrl(req.file.path);
+    return res.status(200).json({
+      isOk: true,
+      status: 200,
+      message: "Signature updated successfully",
+      data: { url, signature_path: req.file.path },
+    });
+  } catch (error) {
+    return res.status(500).json({ isOk: false, status: 500, message: error.message });
+  }
+};
+
+// Profile Caste Certificate Upload (enforces 1-time edit rule)
+export const uploadProfileCasteCert = async (req, res) => {
+  try {
+    const candidate = await Candidate.findById(req.user.id);
+    if (!candidate)
+      return res.status(404).json({ isOk: false, status: 404, message: "Candidate not found" });
+
+    if ((candidate.profile_edit_count || 0) >= 1) {
+      return res.status(403).json({
+        isOk: false,
+        status: 403,
+        message: "Profile editing is locked. You have already used your 1-time profile edit.",
+      });
+    }
+
+    if (!req.file)
+      return res.status(422).json({ isOk: false, status: 422, message: "Caste certificate file is required" });
+
+    candidate.caste_cert_path = req.file.path;
+    await candidate.save();
+
+    const url = await resolveFileUrl(req.file.path);
+    return res.status(200).json({
+      isOk: true,
+      status: 200,
+      message: "Caste certificate uploaded successfully",
+      data: { url, caste_cert_path: req.file.path },
+    });
+  } catch (error) {
+    return res.status(500).json({ isOk: false, status: 500, message: error.message });
+  }
+};
 
 // ── Find ──────────────────────────────────────────────────────────────────────
 

@@ -1,11 +1,11 @@
 import React, { useContext } from "react";
 import { Container, Row, Col, Card, CardBody } from "reactstrap";
-import { useNavigate } from "react-router-dom";
 import { AuthContext } from "../../context/AuthContext";
+import npLogo from "../../assets/images/np-logo.png";
 
 const UserProfile = () => {
-    const { adminData } = useContext(AuthContext);
-    document.title = `Profile | Trivedi Associates & Tecknical Services Pvt. Ltd.`;
+    const { adminData, role } = useContext(AuthContext);
+    document.title = `Profile | Nagarpalika Admin`;
     return (
         <React.Fragment>
             <div className="page-content">
@@ -24,15 +24,16 @@ const UserProfile = () => {
                                         </div>
                                         <div className="flex-grow-1 align-self-center">
                                             <div className="text-muted">
+                                                <h5 className="mb-1">{adminData?.companyName || adminData?.employeeName || "User"}</h5>
                                                 <p className="mb-1">
-                                                    Email Id :{" "}
-                                                    {adminData?.email}
+                                                    <strong>Role:</strong> {role}
                                                 </p>
-                                                {/* <p className="mb-0">Id No : #{idx}</p> */}
+                                                <p className="mb-1">
+                                                    <strong>Email:</strong> {adminData?.email || adminData?.emailOffice}
+                                                </p>
                                             </div>
                                         </div>
                                     </div>
-                                    <div></div>
                                 </CardBody>
                             </Card>
                         </Col>

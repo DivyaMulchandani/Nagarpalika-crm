@@ -18,7 +18,8 @@ export default defineConfig(({ mode }) => ({
         open: true,
     },
     build: {
-        outDir: 'build',
+        outDir: '../Server/out/admin',
+        emptyOutDir: true,
         sourcemap: false,
     },
     esbuild: {

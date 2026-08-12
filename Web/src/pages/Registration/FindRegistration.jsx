@@ -27,7 +27,20 @@ export default function FindRegistration() {
   const handleSendOtp = async (e) => {
     e.preventDefault()
     const val = identifier.trim()
-    if (!val) { setError('Enter your Mobile Number, Email, or OTR Registration ID.'); return }
+    if (!val) {
+      setError('Enter your Mobile Number, Email, or OTR Registration ID.')
+      return
+    }
+
+    const isMobile = /^[6-9]\d{9}$/.test(val)
+    const isEmail = /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(val)
+    const isRegId = /^[A-Za-z0-9\-_]{5,30}$/.test(val)
+
+    if (!isMobile && !isEmail && !isRegId) {
+      setError('Please enter a valid 10-digit mobile number, email address, or OTR Registration ID.')
+      return
+    }
+
     setError(null)
     setLoading(true)
     try {
@@ -87,7 +100,7 @@ export default function FindRegistration() {
                       type="text"
                       placeholder="Mobile, Email, or OTR Reg ID"
                       value={identifier}
-                      onChange={(e) => setIdentifier(e.target.value)}
+                      onChange={(e) => setIdentifier(e.target.value.replace(/[^A-Za-z0-9@._\-]/g, '').slice(0, 100))}
                       autoComplete="username"
                     />
                     <span style={{ fontSize: 11, color: 'var(--ojas-ink-3)' }}>
@@ -162,7 +175,7 @@ export default function FindRegistration() {
 
             <div style={{ marginTop: 16, fontSize: 13, borderTop: '1px solid var(--ojas-line)', paddingTop: 12 }}>
               Not registered yet?{' '}
-              <Link to="/registration/apply/step/1" style={{ color: 'var(--ojas-saffron-deep)', fontWeight: 700 }}>Register Now (OTR) ▶</Link>
+              <Link to="/registration" style={{ color: 'var(--ojas-saffron-deep)', fontWeight: 700 }}>Register Now (OTR) ▶</Link>
             </div>
           </div>
         </div>

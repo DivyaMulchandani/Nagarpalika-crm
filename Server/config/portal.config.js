@@ -39,6 +39,9 @@ export const otpSettings = {
   get expireMinutes() {
     return parsePositiveInt(process.env.OTP_EXPIRE_MINUTES, 10);
   },
+  get cooldownMinutes() {
+    return parsePositiveInt(process.env.OTP_COOLDOWN_MINUTES, 15);
+  },
   get perHourLimit() {
     return parsePositiveInt(process.env.OTP_PER_HOUR_LIMIT, 3);
   },

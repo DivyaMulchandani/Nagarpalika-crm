@@ -75,6 +75,8 @@ const CandidateSchema = new mongoose.Schema(
       default: "incomplete",
     },
     edit_window_expires_at: { type: Date },
+    profile_edit_count: { type: Number, default: 0 },
+    profile_edited_at: { type: Date },
     login_attempts: { type: Number, default: 0 },
     lockout_until: { type: Date },
   },

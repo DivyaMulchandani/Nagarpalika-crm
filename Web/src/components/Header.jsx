@@ -111,7 +111,6 @@ export default function Header() {
       </div>
 
       <div className="brand-bar">
-        <img src="/assets/gov-gujarat-emblem.svg" alt="Government of Gujarat emblem" />
         <div style={{ minWidth: 0, flex: '1 1 auto' }}>
           <div className="brand-title">{t('brand.title')}</div>
           <div className="brand-sub">

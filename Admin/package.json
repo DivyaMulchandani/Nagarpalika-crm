@@ -36,7 +36,7 @@
     "scripts": {
         "dev": "vite",
         "start": "vite",
-        "build": "vite build && rm -rf ../Server/out/admin && mkdir -p ../Server/out && cp -r build ../Server/out/admin",
+        "build": "vite build",
         "preview": "vite preview",
         "lint": "echo \"No lint config for hms-admin\"",
         "test": "echo \"No tests configured for hms-admin\"",

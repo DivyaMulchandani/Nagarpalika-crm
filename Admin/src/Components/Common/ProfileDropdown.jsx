@@ -26,6 +26,12 @@ const ProfileDropdown = () => {
         // Note: logout() already redirects to "/", so no need to navigate here
     };
 
+    const handleProfileClick = (e) => {
+        e.preventDefault();
+        const target = role === ROLES.ADMIN ? "/company-details" : "/profile";
+        navigate(target);
+    };
+
     //Dropdown Toggle
     const [isProfileDropdown, setIsProfileDropdown] = useState(false);
     const toggleProfileDropdown = () => {
@@ -62,8 +68,8 @@ const ProfileDropdown = () => {
                         Welcome {adminData?.companyName || adminData?.employeeName}!
                     </h6>
                     <DropdownItem
-                        href={role === ROLES.ADMIN ? "/company-details" : "/employee-profile"}
-                        as="Link"
+                        onClick={handleProfileClick}
+                        style={{ cursor: "pointer" }}
                     >
                         <i className="mdi mdi-account-circle text-muted fs-16 align-middle me-1"></i>
                         <span className="align-middle">Profile</span>

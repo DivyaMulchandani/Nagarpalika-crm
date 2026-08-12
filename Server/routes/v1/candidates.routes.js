@@ -11,6 +11,9 @@ import {
   getMyProfile,
   editCandidate,
   updateMyProfile,
+  uploadProfilePhoto,
+  uploadProfileSignature,
+  uploadProfileCasteCert,
   findCandidate,
   getCandidateById,
   searchCandidates,
@@ -90,6 +93,36 @@ router.get("/candidates/register/resume", resumeRegistration);
 router.get("/candidates/me", authMiddleware(["CANDIDATE"]), getMyProfile);
 router.patch("/candidates/me", authMiddleware(["CANDIDATE"]), editCandidate);
 router.put("/candidates/me", authMiddleware(["CANDIDATE"]), updateMyProfile);
+router.post(
+  "/candidates/me/photo",
+  authMiddleware(["CANDIDATE"]),
+  createSecureImageUpload({
+    fieldName: "photo",
+    destination: "uploads/candidates",
+    maxSize: uploadLimits.photoMaxBytes,
+  }),
+  uploadProfilePhoto,
+);
+router.post(
+  "/candidates/me/signature",
+  authMiddleware(["CANDIDATE"]),
+  createSecureImageUpload({
+    fieldName: "signature",
+    destination: "uploads/candidates",
+    maxSize: uploadLimits.signatureMaxBytes,
+  }),
+  uploadProfileSignature,
+);
+router.post(
+  "/candidates/me/caste-cert",
+  authMiddleware(["CANDIDATE"]),
+  createSecureUpload({
+    fieldName: "caste_cert",
+    destination: "uploads/candidates",
+    maxSize: uploadLimits.documentMaxBytes,
+  }),
+  uploadProfileCasteCert,
+);
 
 // ── Find (public — enumeration-safe) ─────────────────────────────────────────
 router.post("/candidates/find", findCandidate);

@@ -6,7 +6,8 @@ import { isValidVerhoeff } from "../../utils/verhoeff.js";
 
 // In-memory rate limiter: target → { count, windowStart }
 const otpRateMap = new Map();
-const OTP_WINDOW_MS = 60 * 60 * 1000; // 1 hour
+const OTP_COOLDOWN_MINUTES = otpSettings.cooldownMinutes || 15;
+const OTP_WINDOW_MS = OTP_COOLDOWN_MINUTES * 60 * 1000; // 15-minute cooldown window
 const OTP_PER_WINDOW = otpSettings.perHourLimit;
 const OTP_EXPIRE_MS = otpSettings.expireMinutes * 60 * 1000;
 const MAX_VERIFY_ATTEMPTS = otpSettings.maxVerifyAttempts;
@@ -16,11 +17,17 @@ const checkOtpRate = (target) => {
   const entry = otpRateMap.get(target);
   if (!entry || now - entry.windowStart > OTP_WINDOW_MS) {
     otpRateMap.set(target, { count: 1, windowStart: now });
-    return true;
+    return { allowed: true };
   }
-  if (entry.count >= OTP_PER_WINDOW) return false;
+  if (entry.count >= OTP_PER_WINDOW) {
+    const remainingMinutes = Math.max(
+      1,
+      Math.ceil((OTP_WINDOW_MS - (now - entry.windowStart)) / 60000),
+    );
+    return { allowed: false, remainingMinutes };
+  }
   entry.count += 1;
-  return true;
+  return { allowed: true };
 };
 
 const generateOtp = () => crypto.randomInt(100000, 999999).toString();
@@ -106,11 +113,12 @@ export const sendCandidateOtp = async (req, res) => {
         message: "Mobile number already registered",
       });
 
-    if (!checkOtpRate(mobile))
+    const mobileRate = checkOtpRate(mobile);
+    if (!mobileRate.allowed)
       return res.status(429).json({
         isOk: false,
         status: 429,
-        message: "Too many OTP requests. Try again in 1 hour.",
+        message: `Too many OTP requests. Try again in ${mobileRate.remainingMinutes} minute(s).`,
       });
 
     const otp = generateOtp();
@@ -237,14 +245,15 @@ export const sendPasswordResetOtp = async (req, res) => {
       "mobile email",
     );
 
-    if (candidate && !checkOtpRate(registration_id))
-      return res.status(429).json({
-        isOk: false,
-        status: 429,
-        message: "Too many OTP requests. Try again in 1 hour.",
-      });
-
     if (candidate) {
+      const resetRate = checkOtpRate(registration_id);
+      if (!resetRate.allowed)
+        return res.status(429).json({
+          isOk: false,
+          status: 429,
+          message: `Too many OTP requests. Try again in ${resetRate.remainingMinutes} minute(s).`,
+        });
+
       const otp = generateOtp();
       const expires_at = Date.now() + OTP_EXPIRE_MS;
 
@@ -295,10 +304,22 @@ export const sendLoginOtp = async (req, res) => {
       });
     }
 
+    const isMobile = /^[6-9]\d{9}$/.test(input);
+    const isEmail = /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(input);
+    const isRegId = /^[A-Za-z0-9\-_]{5,30}$/.test(input);
+
+    if (!isMobile && !isEmail && !isRegId) {
+      return res.status(422).json({
+        isOk: false,
+        status: 422,
+        message: "Invalid format. Please enter a valid 10-digit mobile number, email address, or Registration ID.",
+      });
+    }
+
     let query = {};
-    if (/^\d{10}$/.test(input)) {
+    if (isMobile) {
       query = { mobile: input };
-    } else if (/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(input)) {
+    } else if (isEmail) {
       query = { email: input.toLowerCase() };
     } else {
       query = { registration_id: input.toUpperCase() };
@@ -308,11 +329,12 @@ export const sendLoginOtp = async (req, res) => {
     const candidate = await Candidate.findOne(query).select("_id mobile email registration_id name");
 
     if (candidate) {
-      if (!checkOtpRate(`login:${candidate._id.toString()}`))
+      const loginRate = checkOtpRate(`login:${candidate._id.toString()}`);
+      if (!loginRate.allowed)
         return res.status(429).json({
           isOk: false,
           status: 429,
-          message: "Too many OTP requests. Try again in 1 hour.",
+          message: `Too many OTP requests. Try again in ${loginRate.remainingMinutes} minute(s).`,
         });
 
       const otp = generateOtp();

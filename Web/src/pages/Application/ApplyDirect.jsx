@@ -27,10 +27,24 @@ function OtpLogin({ onSuccess }) {
 
   const sendOtp = async (e) => {
     e.preventDefault()
-    if (!identifier.trim()) { setError('Enter Mobile, Email, or OTR Number.'); return }
+    const val = identifier.trim()
+    if (!val) {
+      setError('Enter Mobile, Email, or OTR Number.')
+      return
+    }
+
+    const isMobile = /^[6-9]\d{9}$/.test(val)
+    const isEmail = /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(val)
+    const isRegId = /^[A-Za-z0-9\-_]{5,30}$/.test(val)
+
+    if (!isMobile && !isEmail && !isRegId) {
+      setError('Please enter a valid 10-digit mobile number, email address, or OTR Registration ID.')
+      return
+    }
+
     setError(null); setLoading(true)
     try {
-      const res = await post('/api/v1/otp/candidates/login/send', { identifier })
+      const res = await post('/api/v1/otp/candidates/login/send', { identifier: val })
       if (res?.data?.channel) setDeliveryChannel(res.data.channel)
       setStep('otp')
       toast.info(res?.message || 'OTP sent to your registered contact.')
@@ -77,7 +91,7 @@ function OtpLogin({ onSuccess }) {
                   type="text"
                   placeholder="Mobile / Email / OTR Number"
                   value={identifier}
-                  onChange={(e) => setIdentifier(e.target.value)}
+                  onChange={(e) => setIdentifier(e.target.value.replace(/[^A-Za-z0-9@._\-]/g, '').slice(0, 100))}
                   autoComplete="username"
                   autoFocus
                 />
@@ -141,7 +155,7 @@ function OtpLogin({ onSuccess }) {
 
         <div style={{ marginTop: 16, fontSize: 13, borderTop: '1px solid var(--ojas-line)', paddingTop: 12 }}>
           Not registered?{' '}
-          <Link to="/registration/apply/step/1" style={{ color: 'var(--ojas-saffron-deep)', fontWeight: 700 }}>Register Now (OTR) ▶</Link>
+          <Link to="/registration" style={{ color: 'var(--ojas-saffron-deep)', fontWeight: 700 }}>Register Now (OTR) ▶</Link>
         </div>
       </div>
     </div>

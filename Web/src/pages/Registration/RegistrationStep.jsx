@@ -1,5 +1,5 @@
 import { useState, useRef, useEffect } from "react";
-import { useParams, useNavigate } from "react-router-dom";
+import { useNavigate } from "react-router-dom";
 import StepIndicator from "./StepIndicator";
 import { IconPdf, IconCheckCircle, IconEye, IconEyeOff } from "../../components/Icons";
 import { get, post } from "../../api/index";
@@ -69,10 +69,9 @@ function persistData(data) {
 }
 
 export default function RegistrationStep() {
-  const { step: stepStr } = useParams();
   const navigate = useNavigate();
   const { refresh: refreshAuth } = useAuth();
-  const step = Math.max(1, Math.min(parseInt(stepStr) || 1, TOTAL_STEPS));
+  const [step, setStep] = useState(1);
 
   const [data, setData] = useState(() => loadPersistedData());
   const [otp, setOtp] = useState("");
@@ -129,7 +128,10 @@ export default function RegistrationStep() {
       ...p,
       [field]: e.target.value.replace(/[^A-Za-z\s.']/g, "").slice(0, 100),
     }));
-  const go = (n) => navigate(`/registration/apply/step/${n}`);
+  const go = (n) => {
+    setStep(Math.max(1, Math.min(n, TOTAL_STEPS)));
+    window.scrollTo({ top: 0, behavior: "smooth" });
+  };
   // Clear the file inputs' own stale selection/preview when leaving a step so
   // returning to it doesn't show a previous file's name/preview before a new pick.
   const back = (n) => {
@@ -144,6 +146,21 @@ export default function RegistrationStep() {
     }));
     go(n);
   };
+
+  // ── Auto-resume on mount: restore saved step & data from session ──
+  useEffect(() => {
+    get("/api/v1/candidates/register/resume")
+      .then((res) => {
+        if (res?.data?.data) {
+          setData((p) => ({ ...p, ...res.data.data }));
+          const savedStep = res.data?.step;
+          if (savedStep && savedStep >= 1) {
+            setStep(Math.min(savedStep + 1, TOTAL_STEPS));
+          }
+        }
+      })
+      .catch(() => {});
+  }, []);
 
   // After a successful submit the server has already logged the candidate in.
   // This page is GuestOnly, so hydrating auth state while the success screen

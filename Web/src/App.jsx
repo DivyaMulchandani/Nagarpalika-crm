@@ -44,10 +44,7 @@ function Layout({ children }) {
 // Registration (OTR) is only for new candidates — logged-in users are
 // redirected to their applications instead.
 function GuestOnly({ children }) {
-  const { user, loading } = useAuth()
-  if (loading) {
-    return <div style={{ padding: 48, textAlign: 'center', color: 'var(--ojas-ink-3)' }}>Checking session…</div>
-  }
+  const { user } = useAuth()
   if (user) return <Navigate to="/application" replace />
   return children
 }
@@ -57,9 +54,7 @@ function GuestOnly({ children }) {
 function RequireAuth({ children }) {
   const { user, loading } = useAuth()
   const location = useLocation()
-  if (loading) {
-    return <div style={{ padding: 48, textAlign: 'center', color: 'var(--ojas-ink-3)' }}>Checking session…</div>
-  }
+  if (loading) return null
   if (!user) {
     const redirect = encodeURIComponent(location.pathname + location.search)
     return <Navigate to={`/registration/find?redirect=${redirect}`} replace />
@@ -87,8 +82,9 @@ export default function App() {
             <Route path="/fee/success"                   element={<Layout><FeeSuccess /></Layout>} />
             <Route path="/fee/failure"                   element={<Layout><FeeFailure /></Layout>} />
 
-            <Route path="/registration"                  element={<Navigate to="/registration/apply/step/1" replace />} />
-            <Route path="/registration/apply/step/:step" element={<Layout><GuestOnly><RegistrationStep /></GuestOnly></Layout>} />
+            <Route path="/registration"                  element={<Layout><GuestOnly><RegistrationStep /></GuestOnly></Layout>} />
+            <Route path="/registration/apply"            element={<Navigate to="/registration" replace />} />
+            <Route path="/registration/apply/step/*"     element={<Navigate to="/registration" replace />} />
             <Route path="/registration/find"             element={<Layout><FindRegistration /></Layout>} />
 
             <Route path="/advertisement/:slug"           element={<Layout><AdvertisementDetail /></Layout>} />

@@ -133,6 +133,15 @@ export const saveStep = async (req, res) => {
         message: "step must be an integer between 1 and 10",
       });
 
+    const currentStep = req.session.candidateStep.step || 1;
+    if (stepNum > currentStep + 1) {
+      return res.status(403).json({
+        isOk: false,
+        status: 403,
+        message: `Please complete Step ${currentStep} first before proceeding to Step ${stepNum}.`,
+      });
+    }
+
     if (typeof data !== "object" || Array.isArray(data))
       return res
         .status(422)
@@ -235,7 +244,7 @@ export const saveStep = async (req, res) => {
 
     req.session.candidateStep = {
       ...req.session.candidateStep,
-      step: stepNum,
+      step: Math.max(currentStep, stepNum),
       data: { ...req.session.candidateStep.data, ...sanitized },
     };
 
