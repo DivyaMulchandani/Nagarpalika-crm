@@ -60,6 +60,7 @@ const AdvertisementSchema = new mongoose.Schema(
     pdf_path: { type: String },
     other_conditions: { type: String },
     note: { type: String, trim: true },
+    enforce_reservation_rules: { type: Boolean, default: true },
     status: {
       type: String,
       enum: ["Draft", "Published", "Closed", "Archived"],

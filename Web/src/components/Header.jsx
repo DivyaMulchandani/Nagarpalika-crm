@@ -113,11 +113,7 @@ export default function Header() {
       <div className="brand-bar">
         <div style={{ minWidth: 0, flex: '1 1 auto' }}>
           <div className="brand-title">{t('brand.title')}</div>
-          <div className="brand-sub">
-            <span>{t('brand.sub')}</span>
-            {' · '}
-            <span className="guj">ગુજરાત સરકાર · શહેરી વિકાસ વિભાગ</span>
-          </div>
+          <div className="brand-sub">{t('brand.sub')}</div>
         </div>
         <div className="brand-utility">
           <FontSizeControls />

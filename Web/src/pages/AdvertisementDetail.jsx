@@ -180,6 +180,59 @@ export default function AdvertisementDetail() {
         </div>
       </div>
 
+      {/* ── Category-wise Vacancy Breakdown Matrix ── */}
+      {typeof advt.vacancies === 'object' && advt.vacancies && (
+        <div className="box" style={{ marginTop: 16 }}>
+          <div className="box-title">
+            <span>Category-Wise Vacancy Matrix</span>
+            <span className="guj">કેટેગરી મુજબ જગ્યાઓ</span>
+          </div>
+          <div style={{ padding: '12px 16px', overflowX: 'auto' }}>
+            <table style={{ width: '100%', borderCollapse: 'collapse', textAlign: 'center', fontSize: 13 }}>
+              <thead>
+                <tr style={{ background: '#f1f5f9', borderBottom: '2px solid var(--ojas-line)' }}>
+                  <th colSpan={2} style={{ padding: '8px 6px', border: '1px solid var(--ojas-line)', color: 'var(--ojas-navy)', fontWeight: 700 }}>General (GEN)</th>
+                  <th colSpan={2} style={{ padding: '8px 6px', border: '1px solid var(--ojas-line)', color: 'var(--ojas-navy)', fontWeight: 700 }}>Scheduled Caste (SC)</th>
+                  <th colSpan={2} style={{ padding: '8px 6px', border: '1px solid var(--ojas-line)', color: 'var(--ojas-navy)', fontWeight: 700 }}>Scheduled Tribe (ST)</th>
+                  <th colSpan={2} style={{ padding: '8px 6px', border: '1px solid var(--ojas-line)', color: 'var(--ojas-navy)', fontWeight: 700 }}>SEBC / OBC</th>
+                  <th colSpan={2} style={{ padding: '8px 6px', border: '1px solid var(--ojas-line)', color: 'var(--ojas-navy)', fontWeight: 700 }}>EWS</th>
+                  <th rowSpan={2} style={{ padding: '8px 8px', border: '1px solid var(--ojas-line)', background: '#e2e8f0', color: 'var(--ojas-navy)', fontWeight: 800, verticalAlign: 'middle' }}>Total</th>
+                </tr>
+                <tr style={{ background: '#f8fafc', fontSize: 12, borderBottom: '2px solid var(--ojas-line)' }}>
+                  <th style={{ padding: '6px', border: '1px solid var(--ojas-line)' }}>General</th>
+                  <th style={{ padding: '6px', border: '1px solid var(--ojas-line)' }}>Female</th>
+                  <th style={{ padding: '6px', border: '1px solid var(--ojas-line)' }}>General</th>
+                  <th style={{ padding: '6px', border: '1px solid var(--ojas-line)' }}>Female</th>
+                  <th style={{ padding: '6px', border: '1px solid var(--ojas-line)' }}>General</th>
+                  <th style={{ padding: '6px', border: '1px solid var(--ojas-line)' }}>Female</th>
+                  <th style={{ padding: '6px', border: '1px solid var(--ojas-line)' }}>General</th>
+                  <th style={{ padding: '6px', border: '1px solid var(--ojas-line)' }}>Female</th>
+                  <th style={{ padding: '6px', border: '1px solid var(--ojas-line)' }}>General</th>
+                  <th style={{ padding: '6px', border: '1px solid var(--ojas-line)' }}>Female</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr style={{ background: '#fff' }}>
+                  <td style={{ padding: '8px', border: '1px solid var(--ojas-line)', fontWeight: 600 }}>{advt.vacancies.general?.general ?? 0}</td>
+                  <td style={{ padding: '8px', border: '1px solid var(--ojas-line)', fontWeight: 600 }}>{advt.vacancies.general?.female ?? 0}</td>
+                  <td style={{ padding: '8px', border: '1px solid var(--ojas-line)', fontWeight: 600 }}>{advt.vacancies.sc?.general ?? 0}</td>
+                  <td style={{ padding: '8px', border: '1px solid var(--ojas-line)', fontWeight: 600 }}>{advt.vacancies.sc?.female ?? 0}</td>
+                  <td style={{ padding: '8px', border: '1px solid var(--ojas-line)', fontWeight: 600 }}>{advt.vacancies.st?.general ?? 0}</td>
+                  <td style={{ padding: '8px', border: '1px solid var(--ojas-line)', fontWeight: 600 }}>{advt.vacancies.st?.female ?? 0}</td>
+                  <td style={{ padding: '8px', border: '1px solid var(--ojas-line)', fontWeight: 600 }}>{advt.vacancies.sebc?.general ?? 0}</td>
+                  <td style={{ padding: '8px', border: '1px solid var(--ojas-line)', fontWeight: 600 }}>{advt.vacancies.sebc?.female ?? 0}</td>
+                  <td style={{ padding: '8px', border: '1px solid var(--ojas-line)', fontWeight: 600 }}>{advt.vacancies.ews?.general ?? 0}</td>
+                  <td style={{ padding: '8px', border: '1px solid var(--ojas-line)', fontWeight: 600 }}>{advt.vacancies.ews?.female ?? 0}</td>
+                  <td style={{ padding: '8px', border: '1px solid var(--ojas-line)', fontWeight: 800, color: 'var(--ojas-navy)', background: '#f8fafc' }}>
+                    {advt.vacancies.total ?? 0}
+                  </td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+      )}
+
       {/* ── Qualifications & Conditions ── */}
       {(advt.qualification || advt.required_qualifications?.length > 0 || advt.caste_certificate?.required || advt.experience_required || advt.ph_description || advt.other_conditions || advt.note) && (
         <div className="box" style={{ marginTop: 16 }}>

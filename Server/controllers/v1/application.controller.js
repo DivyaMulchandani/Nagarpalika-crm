@@ -105,6 +105,123 @@ const ADMIN_APP_PROJECTION = {
 const CANDIDATE_APP_PROJECTION =
   "application_ref_no registration_id advt_no status submitted_at exam_centre declaration_accepted experience_years createdAt";
 
+export const checkCandidateVacancyEligibility = (
+  vacancies,
+  candidate,
+  additionalGender,
+) => {
+  if (!vacancies || typeof vacancies !== "object") {
+    return { eligible: true };
+  }
+
+  const normCat = (cat) => {
+    if (!cat) return "general";
+    const c = String(cat).toLowerCase().trim();
+    if (c.includes("sc") || c.includes("scheduled caste")) return "sc";
+    if (c.includes("st") || c.includes("scheduled tribe")) return "st";
+    if (c.includes("sebc") || c.includes("obc") || c.includes("baxi"))
+      return "sebc";
+    if (c.includes("ews")) return "ews";
+    return "general";
+  };
+
+  const candCategory = normCat(candidate?.category);
+  const candGender = String(additionalGender || candidate?.gender || "")
+    .toLowerCase()
+    .trim();
+  const isFemale = candGender.startsWith("f");
+
+  const toNum = (v) => {
+    const n = Number(v);
+    return Number.isFinite(n) && n > 0 ? n : 0;
+  };
+
+  const generalGen = toNum(vacancies.general?.general);
+  const generalFem = toNum(vacancies.general?.female);
+  const scGen = toNum(vacancies.sc?.general);
+  const scFem = toNum(vacancies.sc?.female);
+  const stGen = toNum(vacancies.st?.general);
+  const stFem = toNum(vacancies.st?.female);
+  const sebcGen = toNum(vacancies.sebc?.general);
+  const sebcFem = toNum(vacancies.sebc?.female);
+  const ewsGen = toNum(vacancies.ews?.general);
+  const ewsFem = toNum(vacancies.ews?.female);
+
+  const totalSeats =
+    generalGen +
+    generalFem +
+    scGen +
+    scFem +
+    stGen +
+    stFem +
+    sebcGen +
+    sebcFem +
+    ewsGen +
+    ewsFem;
+
+  // If matrix is completely empty / 0, don't hard block
+  if (totalSeats === 0) {
+    return { eligible: true };
+  }
+
+  let eligibleSeats = 0;
+  // 1. Unreserved general seats open to everyone
+  eligibleSeats += generalGen;
+  // 2. Unreserved female seats open to all female candidates
+  if (isFemale) eligibleSeats += generalFem;
+
+  // 3. Category specific seats
+  if (candCategory === "sc") {
+    eligibleSeats += scGen;
+    if (isFemale) eligibleSeats += scFem;
+  } else if (candCategory === "st") {
+    eligibleSeats += stGen;
+    if (isFemale) eligibleSeats += stFem;
+  } else if (candCategory === "sebc") {
+    eligibleSeats += sebcGen;
+    if (isFemale) eligibleSeats += sebcFem;
+  } else if (candCategory === "ews") {
+    eligibleSeats += ewsGen;
+    if (isFemale) eligibleSeats += ewsFem;
+  }
+
+  if (eligibleSeats > 0) {
+    return { eligible: true, eligibleSeats };
+  }
+
+  // Not eligible: determine the exact reason
+  const totalOpenGeneralSeats =
+    generalGen + scGen + stGen + sebcGen + ewsGen;
+  const totalFemaleSeats =
+    generalFem + scFem + stFem + sebcFem + ewsFem;
+
+  if (totalOpenGeneralSeats === 0 && totalFemaleSeats > 0 && !isFemale) {
+    return {
+      eligible: false,
+      reason:
+        "Available vacancies for this advertisement are reserved exclusively for Female candidates.",
+    };
+  }
+
+  const availableBreakdown = [];
+  if (generalGen > 0 || generalFem > 0)
+    availableBreakdown.push(`General (${generalGen + generalFem})`);
+  if (scGen > 0 || scFem > 0) availableBreakdown.push(`SC (${scGen + scFem})`);
+  if (stGen > 0 || stFem > 0) availableBreakdown.push(`ST (${stGen + stFem})`);
+  if (sebcGen > 0 || sebcFem > 0)
+    availableBreakdown.push(`SEBC (${sebcGen + sebcFem})`);
+  if (ewsGen > 0 || ewsFem > 0)
+    availableBreakdown.push(`EWS (${ewsGen + ewsFem})`);
+
+  const catDisplay = candidate?.category || "General";
+  const genderDisplay = candidate?.gender || (isFemale ? "Female" : "Male");
+
+  return {
+    eligible: false,
+    reason: `There are no unreserved or matching category vacancies available for your category (${catDisplay}) and gender (${genderDisplay}). Available seats are reserved for: ${availableBreakdown.join(", ") || "None"}.`,
+  };
+};
+
 // ── Candidate ─────────────────────────────────────────────────────────────────
 
 export const submitApplication = async (req, res) => {
@@ -142,6 +259,23 @@ export const submitApplication = async (req, res) => {
         status: 400,
         message: "Application deadline has passed",
       });
+
+    // Enforce Category & Gender vacancy eligibility if enabled
+    if (advt.enforce_reservation_rules !== false && advt.vacancies) {
+      const candidate = await Candidate.findOne({ registration_id }).lean();
+      const eligibility = checkCandidateVacancyEligibility(
+        advt.vacancies,
+        candidate,
+        additional_fields?.gender,
+      );
+      if (!eligibility.eligible) {
+        return res.status(403).json({
+          isOk: false,
+          status: 403,
+          message: eligibility.reason,
+        });
+      }
+    }
 
     // Idempotency: if an application already exists, return its reference
     // instead of failing — repeated submits never create duplicates.

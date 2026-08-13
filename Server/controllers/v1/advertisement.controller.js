@@ -30,6 +30,7 @@ export const createAdvertisement = async (req, res) => {
       pdf_path,
       other_conditions,
       note,
+      enforce_reservation_rules,
       status,
       required_qualifications,
       caste_certificate,
@@ -40,7 +41,14 @@ export const createAdvertisement = async (req, res) => {
       department,
       class: cls,
       pay_scale,
-      vacancies: normalizeVacancies(vacancies) ?? 0,
+      vacancies: normalizeVacancies(vacancies) ?? {
+        general: { general: 0, female: 0 },
+        sc: { general: 0, female: 0 },
+        st: { general: 0, female: 0 },
+        sebc: { general: 0, female: 0 },
+        ews: { general: 0, female: 0 },
+        total: 0,
+      },
       age_limit,
       qualification,
       required_qualifications: required_qualifications ?? [],
@@ -57,6 +65,10 @@ export const createAdvertisement = async (req, res) => {
       pdf_path,
       other_conditions,
       note,
+      enforce_reservation_rules:
+        enforce_reservation_rules !== undefined
+          ? !!enforce_reservation_rules
+          : true,
       status,
       createdBy: req.user.id,
     });
@@ -79,19 +91,67 @@ export const createAdvertisement = async (req, res) => {
 const PUBLIC_ADVT_PROJECTION =
   "advt_no slug post_title department class pay_scale vacancies age_limit " +
   "qualification required_qualifications caste_certificate ph_description experience_required application_fee " +
-  "start_date end_date probation_period other_conditions note status pdf_path";
+  "start_date end_date probation_period other_conditions note enforce_reservation_rules status pdf_path";
 
 const LIST_ADVT_PROJECTION =
-  "advt_no slug post_title department class vacancies application_fee end_date status pdf_path note pay_scale";
+  "advt_no slug post_title department class vacancies application_fee end_date status pdf_path note pay_scale enforce_reservation_rules";
 
 const VALID_STATUSES = ["Draft", "Published", "Closed", "Archived"];
 
-// Vacancies is a single number now; accept legacy {total, ...} objects too.
+// Vacancies is a structured matrix: { general, sc, st, sebc, ews, total }
+// or legacy number / { total } object.
 const normalizeVacancies = (v) => {
   if (v === undefined || v === null) return undefined;
-  if (typeof v === "object") return Number(v.total) || 0;
+  if (typeof v === "object") {
+    const toNum = (val) => {
+      const n = Number(val);
+      return Number.isFinite(n) && n >= 0 ? Math.floor(n) : 0;
+    };
+    const general = {
+      general: toNum(v.general?.general),
+      female: toNum(v.general?.female),
+    };
+    const sc = {
+      general: toNum(v.sc?.general),
+      female: toNum(v.sc?.female),
+    };
+    const st = {
+      general: toNum(v.st?.general),
+      female: toNum(v.st?.female),
+    };
+    const sebc = {
+      general: toNum(v.sebc?.general),
+      female: toNum(v.sebc?.female),
+    };
+    const ews = {
+      general: toNum(v.ews?.general),
+      female: toNum(v.ews?.female),
+    };
+    const sum =
+      general.general +
+      general.female +
+      sc.general +
+      sc.female +
+      st.general +
+      st.female +
+      sebc.general +
+      sebc.female +
+      ews.general +
+      ews.female;
+
+    const total = sum > 0 ? sum : toNum(v.total);
+    return { general, sc, st, sebc, ews, total };
+  }
   const n = Number(v);
-  return Number.isFinite(n) && n >= 0 ? Math.floor(n) : 0;
+  const total = Number.isFinite(n) && n >= 0 ? Math.floor(n) : 0;
+  return {
+    general: { general: total, female: 0 },
+    sc: { general: 0, female: 0 },
+    st: { general: 0, female: 0 },
+    sebc: { general: 0, female: 0 },
+    ews: { general: 0, female: 0 },
+    total,
+  };
 };
 const vacancyCount = (v) =>
   typeof v === "object" ? Number(v?.total) || 0 : Number(v) || 0;
@@ -260,6 +320,7 @@ export const patchAdvertisement = async (req, res) => {
       "probation_period",
       "other_conditions",
       "note",
+      "enforce_reservation_rules",
     ];
     for (const key of ALLOWED) {
       if (req.body[key] !== undefined)

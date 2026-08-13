@@ -369,9 +369,9 @@ export default function Profile() {
             type="button"
             className="btn primary"
             onClick={startEditing}
-            style={{ display: 'inline-flex', alignItems: 'center', gap: 6, fontWeight: 700 }}
+            style={{ fontWeight: 700 }}
           >
-            ✏️ Edit Profile (1-Time Allowed)
+            Edit Profile (1-Time Allowed)
           </button>
         )}
       </div>
@@ -390,8 +390,7 @@ export default function Profile() {
               }}
             >
               <div className="box-body" style={{ padding: '16px 20px' }}>
-                <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 6 }}>
-                  <span style={{ fontSize: 20 }}>🔒</span>
+                <div style={{ marginBottom: 6 }}>
                   <strong style={{ color: '#92400e', fontSize: 15 }}>
                     Profile Editing Locked (1-Time Lifetime Limit Reached)
                   </strong>
@@ -411,15 +410,15 @@ export default function Profile() {
                   }}
                 >
                   <div style={{ fontWeight: 700, marginBottom: 4 }}>
-                    📋 Need further corrections or critical detail updates?
+                    Need further corrections or critical detail updates?
                   </div>
                   <div>
                     Please contact the <strong>Nagarpalika Recruitment Administration Helpline</strong> with your Registration ID (<code>{profile.registration_id}</code>) and supporting government documents:
                   </div>
                   <div style={{ marginTop: 6, display: 'flex', flexWrap: 'wrap', gap: 16 }}>
-                    <span>📞 <strong>Helpline Phone:</strong> 02766-233232</span>
-                    <span>✉️ <strong>Official Email:</strong> np_patan@yahoo.co.in</span>
-                    <span>🕒 <strong>Working Hours:</strong> Mon – Sat, 10:30 AM – 6:10 PM</span>
+                    <span><strong>Helpline Phone:</strong> 02766-233232</span>
+                    <span><strong>Official Email:</strong> np_patan@yahoo.co.in</span>
+                    <span><strong>Working Hours:</strong> Mon – Sat, 10:30 AM – 6:10 PM</span>
                   </div>
                 </div>
               </div>
@@ -434,24 +433,14 @@ export default function Profile() {
                 borderColor: '#fed7aa',
               }}
             >
-              <div className="box-body" style={{ padding: '14px 18px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 12 }}>
-                <div>
-                  <div style={{ fontWeight: 700, color: 'var(--ojas-ink)', fontSize: 14, marginBottom: 2 }}>
-                    ℹ️ Profile Edit Available (1-Time Lifetime Allowed)
-                  </div>
-                  <div style={{ fontSize: 12.5, color: 'var(--ojas-ink-2)' }}>
-                    You can edit your personal and address details <strong>only once</strong> in your lifetime. 
-                    <strong style={{ color: '#b91c1c' }}> Aadhaar Number, Mobile Number, and Email Address are permanently locked</strong> and cannot be changed online.
-                  </div>
+              <div className="box-body" style={{ padding: '14px 18px' }}>
+                <div style={{ fontWeight: 700, color: 'var(--ojas-ink)', fontSize: 14, marginBottom: 2 }}>
+                  Profile Edit Available (1-Time Lifetime Allowed)
                 </div>
-                <button
-                  type="button"
-                  className="btn primary"
-                  onClick={startEditing}
-                  style={{ whiteSpace: 'nowrap', fontWeight: 700 }}
-                >
-                  ✏️ Edit Profile
-                </button>
+                <div style={{ fontSize: 12.5, color: 'var(--ojas-ink-2)' }}>
+                  You can edit your personal and address details <strong>only once</strong> in your lifetime. 
+                  <strong style={{ color: '#b91c1c' }}> Aadhaar Number, Mobile Number, and Email Address are permanently locked</strong> and cannot be changed online.
+                </div>
               </div>
             </div>
           )}
@@ -470,8 +459,8 @@ export default function Profile() {
               color: '#9a3412',
             }}
           >
-            <div className="title" style={{ fontSize: 15, fontWeight: 700, display: 'flex', alignItems: 'center', gap: 8 }}>
-              <span>⚠️</span> Warning: You can only edit your profile ONCE
+            <div className="title" style={{ fontSize: 15, fontWeight: 700 }}>
+              Warning: You can only edit your profile ONCE
             </div>
             <p style={{ margin: '6px 0 0', fontSize: 13, lineHeight: 1.5 }}>
               Once you submit these changes, your profile will be <strong>permanently locked</strong> from online editing. 
@@ -485,17 +474,17 @@ export default function Profile() {
             </div>
             <div className="box-body" style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(240px, 1fr))', gap: 16 }}>
               <div className="form-field">
-                <label>Registration ID 🔒</label>
+                <label>Registration ID (Locked)</label>
                 <input type="text" value={profile.registration_id} disabled style={{ background: '#f3f4f6', cursor: 'not-allowed', color: '#6b7280' }} />
                 <span style={{ fontSize: 11, color: 'var(--ojas-ink-3)' }}>System assigned OTR identifier</span>
               </div>
               <div className="form-field">
-                <label>Mobile Number 🔒</label>
+                <label>Mobile Number (Locked)</label>
                 <input type="text" value={profile.mobile} disabled style={{ background: '#f3f4f6', cursor: 'not-allowed', color: '#6b7280' }} />
                 <span style={{ fontSize: 11, color: '#b91c1c' }}>Permanently locked for candidate security</span>
               </div>
               <div className="form-field">
-                <label>Email Address 🔒</label>
+                <label>Email Address (Locked)</label>
                 <input type="text" value={profile.email || '—'} disabled style={{ background: '#f3f4f6', cursor: 'not-allowed', color: '#6b7280' }} />
                 <span style={{ fontSize: 11, color: '#b91c1c' }}>Permanently locked for candidate security</span>
               </div>
@@ -796,7 +785,7 @@ export default function Profile() {
               Cancel
             </button>
             <button type="submit" className="btn primary" disabled={saving} style={{ fontWeight: 700 }}>
-              {saving ? 'Saving Changes…' : 'Save Profile Changes (1-Time Only) ▶'}
+              {saving ? 'Saving Changes…' : 'Save Profile Changes (1-Time Only)'}
             </button>
           </div>
         </form>
@@ -992,9 +981,9 @@ export default function Profile() {
           >
             <div
               className="box-title"
-              style={{ background: '#78350f', color: '#fff', display: 'flex', alignItems: 'center', gap: 8 }}
+              style={{ background: '#78350f', color: '#fff', display: 'flex', alignItems: 'center' }}
             >
-              <span>⚠️ Confirm Profile Update (1-Time Only)</span>
+              <span>Confirm Profile Update (1-Time Only)</span>
             </div>
             <div className="box-body" style={{ padding: 20 }}>
               <p style={{ fontSize: 14, color: 'var(--ojas-ink)', lineHeight: 1.5, margin: '0 0 14px' }}>

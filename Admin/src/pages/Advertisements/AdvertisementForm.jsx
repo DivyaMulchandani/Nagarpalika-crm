@@ -24,12 +24,92 @@ const CLASS_OPTIONS = [
 ];
 const statusColor = { Draft: "secondary", Published: "success", Closed: "warning", Archived: "dark" };
 
+const defaultVacancies = {
+  general: { general: 0, female: 0 },
+  sc: { general: 0, female: 0 },
+  st: { general: 0, female: 0 },
+  sebc: { general: 0, female: 0 },
+  ews: { general: 0, female: 0 },
+  total: 0,
+};
+
+const parseVacancies = (v) => {
+  if (!v) return defaultVacancies;
+  if (typeof v === "object") {
+    const toNum = (n) => {
+      const num = Number(n);
+      return Number.isFinite(num) && num >= 0 ? Math.floor(num) : 0;
+    };
+    const general = {
+      general: toNum(v.general?.general),
+      female: toNum(v.general?.female),
+    };
+    const sc = {
+      general: toNum(v.sc?.general),
+      female: toNum(v.sc?.female),
+    };
+    const st = {
+      general: toNum(v.st?.general),
+      female: toNum(v.st?.female),
+    };
+    const sebc = {
+      general: toNum(v.sebc?.general),
+      female: toNum(v.sebc?.female),
+    };
+    const ews = {
+      general: toNum(v.ews?.general),
+      female: toNum(v.ews?.female),
+    };
+    const sum =
+      general.general +
+      general.female +
+      sc.general +
+      sc.female +
+      st.general +
+      st.female +
+      sebc.general +
+      sebc.female +
+      ews.general +
+      ews.female;
+    return {
+      general,
+      sc,
+      st,
+      sebc,
+      ews,
+      total: sum > 0 ? sum : toNum(v.total),
+    };
+  }
+  const total = Number(v) || 0;
+  return {
+    general: { general: total, female: 0 },
+    sc: { general: 0, female: 0 },
+    st: { general: 0, female: 0 },
+    sebc: { general: 0, female: 0 },
+    ews: { general: 0, female: 0 },
+    total,
+  };
+};
+
 const empty = {
-  post_title_en: "", post_title_gu: "", department: null, class: null, pay_scale: "",
-  vacancies: "",
-  start_date: "", end_date: "", application_fee: "", probation_period: "",
-  age_min: "", age_max: "", qualification: "", experience_required: "",
-  ph_description: "", other_conditions: "", note: "",
+  post_title_en: "",
+  post_title_gu: "",
+  department: null,
+  class: null,
+  pay_scale: "",
+  vacancies: defaultVacancies,
+  enforce_reservation_rules: true,
+  start_date: "",
+  end_date: "",
+  application_fee: "",
+  probation_period: "",
+  age_min: "",
+  age_max: "",
+  qualification: "",
+  experience_required: "",
+  ph_description: "",
+  other_conditions: "",
+  note: "",
   required_qualifications: [],
   caste_certificate: { required: false, is_compulsory: false },
 };
@@ -58,10 +138,24 @@ const AdvertisementForm = () => {
 
   useEffect(() => {
     getAllDepartments()
-      .then((r) => setDeptOptions((r.data.data || []).map((d) => ({ value: d._id, label: d.departmentName }))))
+      .then((r) =>
+        setDeptOptions(
+          (r.data.data || []).map((d) => ({
+            value: d._id,
+            label: d.departmentName,
+          })),
+        ),
+      )
       .catch(() => {});
     getAllQualifications({ isActive: true })
-      .then((r) => setQualificationOptions((r.data.data || []).map((q) => ({ value: q._id, label: q.name }))))
+      .then((r) =>
+        setQualificationOptions(
+          (r.data.data || []).map((q) => ({
+            value: q._id,
+            label: q.name,
+          })),
+        ),
+      )
       .catch(() => {});
   }, []);
 
@@ -75,27 +169,42 @@ const AdvertisementForm = () => {
         setValues({
           post_title_en: d.post_title?.en || "",
           post_title_gu: d.post_title?.gu || "",
-          department: d.department ? { value: d.department._id, label: d.department.departmentName } : null,
-          class: d.class ? { value: d.class, label: `Class ${d.class}` } : null,
+          department: d.department
+            ? {
+                value: d.department._id,
+                label: d.department.departmentName,
+              }
+            : null,
+          class: d.class
+            ? { value: d.class, label: `Class ${d.class}` }
+            : null,
           pay_scale: d.pay_scale || "",
-          vacancies:
-            (typeof d.vacancies === "object" ? d.vacancies?.total : d.vacancies) ?? "",
-          start_date:  d.start_date ? d.start_date.slice(0, 10) : "",
-          end_date:    d.end_date   ? d.end_date.slice(0, 10)   : "",
-          application_fee:     d.application_fee ?? "",
-          probation_period:    d.probation_period || "",
-          age_min:             d.age_limit?.min ?? "",
-          age_max:             d.age_limit?.max ?? "",
-          qualification:       d.qualification       || "",
+          vacancies: parseVacancies(d.vacancies),
+          enforce_reservation_rules:
+            d.enforce_reservation_rules !== undefined
+              ? !!d.enforce_reservation_rules
+              : true,
+          start_date: d.start_date ? d.start_date.slice(0, 10) : "",
+          end_date: d.end_date ? d.end_date.slice(0, 10) : "",
+          application_fee: d.application_fee ?? "",
+          probation_period: d.probation_period || "",
+          age_min: d.age_limit?.min ?? "",
+          age_max: d.age_limit?.max ?? "",
+          qualification: d.qualification || "",
           experience_required: d.experience_required || "",
-          ph_description:      d.ph_description      || "",
-          other_conditions:    d.other_conditions    || "",
-          note:                d.note                || "",
-          required_qualifications: (d.required_qualifications || []).map((rq) => ({
+          ph_description: d.ph_description || "",
+          other_conditions: d.other_conditions || "",
+          note: d.note || "",
+          required_qualifications: (
+            d.required_qualifications || []
+          ).map((rq) => ({
             qualification: rq.qualification?._id || rq.qualification,
             is_compulsory: rq.is_compulsory,
           })),
-          caste_certificate: d.caste_certificate ?? { required: false, is_compulsory: false },
+          caste_certificate: d.caste_certificate ?? {
+            required: false,
+            is_compulsory: false,
+          },
         });
       })
       .catch(() => toast.error("Failed to load advertisement"))
@@ -104,12 +213,41 @@ const AdvertisementForm = () => {
 
   const set = (k, v) => setValues((prev) => ({ ...prev, [k]: v }));
 
+  const updateVacancyCell = (category, type, rawVal) => {
+    const num = Math.max(0, parseInt(rawVal, 10) || 0);
+    setValues((prev) => {
+      const current = prev.vacancies || defaultVacancies;
+      const updatedCat = {
+        ...current[category],
+        [type]: num,
+      };
+      const nextVacancies = {
+        ...current,
+        [category]: updatedCat,
+      };
+      const total =
+        (nextVacancies.general?.general || 0) +
+        (nextVacancies.general?.female || 0) +
+        (nextVacancies.sc?.general || 0) +
+        (nextVacancies.sc?.female || 0) +
+        (nextVacancies.st?.general || 0) +
+        (nextVacancies.st?.female || 0) +
+        (nextVacancies.sebc?.general || 0) +
+        (nextVacancies.sebc?.female || 0) +
+        (nextVacancies.ews?.general || 0) +
+        (nextVacancies.ews?.female || 0);
+      nextVacancies.total = total;
+      return { ...prev, vacancies: nextVacancies };
+    });
+  };
+
   const validate = () => {
     const e = {};
-    if (!values.post_title_en) e.post_title_en = "Post title (EN) is required";
-    if (!values.department)    e.department    = "Department is required";
-    if (!values.class)         e.class         = "Class is required";
-    if (!values.end_date)      e.end_date      = "Last date is required";
+    if (!values.post_title_en)
+      e.post_title_en = "Post title (EN) is required";
+    if (!values.department) e.department = "Department is required";
+    if (!values.class) e.class = "Class is required";
+    if (!values.end_date) e.end_date = "Last date is required";
     return e;
   };
 
@@ -125,31 +263,44 @@ const AdvertisementForm = () => {
       department: values.department?.value,
       class: values.class?.value,
       pay_scale: values.pay_scale,
-      vacancies: parseInt(values.vacancies) || 0,
-      start_date:          values.start_date          || undefined,
-      end_date:            values.end_date            || undefined,
-      application_fee:     values.application_fee !== "" ? Number(values.application_fee) : undefined,
-      probation_period:    values.probation_period    || undefined,
-      age_limit:           { min: parseInt(values.age_min) || undefined, max: parseInt(values.age_max) || undefined },
-      qualification:       values.qualification       || undefined,
+      vacancies: values.vacancies,
+      enforce_reservation_rules: values.enforce_reservation_rules,
+      start_date: values.start_date || undefined,
+      end_date: values.end_date || undefined,
+      application_fee:
+        values.application_fee !== ""
+          ? Number(values.application_fee)
+          : undefined,
+      probation_period: values.probation_period || undefined,
+      age_limit: {
+        min: parseInt(values.age_min) || undefined,
+        max: parseInt(values.age_max) || undefined,
+      },
+      qualification: values.qualification || undefined,
       experience_required: values.experience_required || undefined,
-      ph_description:      values.ph_description      || undefined,
-      other_conditions:    values.other_conditions    || undefined,
-      note:                values.note                || undefined,
+      ph_description: values.ph_description || undefined,
+      other_conditions: values.other_conditions || undefined,
+      note: values.note || undefined,
       required_qualifications: values.required_qualifications,
-      caste_certificate:       values.caste_certificate,
+      caste_certificate: values.caste_certificate,
     };
 
     setIsLoading(true);
-    const call = isEdit ? updateAdvertisement(id, payload) : createAdvertisement(payload);
+    const call = isEdit
+      ? updateAdvertisement(id, payload)
+      : createAdvertisement(payload);
     call
-      .then((r) => {
-        if (r.data.isOk) {
-          toast.success(isEdit ? "Advertisement updated" : "Advertisement created");
-          navigate("/advertisements");
-        }
+      .then(() => {
+        toast.success(
+          isEdit ? "Advertisement updated" : "Advertisement created",
+        );
+        navigate("/advertisements");
       })
-      .catch(() => toast.error("Failed to save advertisement"))
+      .catch((err) =>
+        toast.error(
+          err.response?.data?.message || "Failed to save advertisement",
+        ),
+      )
       .finally(() => setIsLoading(false));
   };
 
@@ -246,20 +397,161 @@ const AdvertisementForm = () => {
                 </TabPane>
 
                 <TabPane tabId="2">
-                  <Row>
-                    <Col md={3}>
-                      <div className="mb-3">
-                        <Label>Total Vacancies</Label>
-                        <Input
-                          type="number"
-                          min={0}
-                          value={values.vacancies}
-                          onChange={(e) => set("vacancies", e.target.value)}
+                  <div className="mb-4">
+                    <h5 className="font-size-14 fw-semibold text-dark mb-3">Category-Wise Vacancy Matrix</h5>
+
+                    <div className="table-responsive">
+                      <table className="table table-bordered text-center align-middle mb-3" style={{ maxWidth: 950 }}>
+                        <thead className="table-light">
+                          <tr>
+                            <th colSpan="2" style={{ backgroundColor: "#eef2f7" }}>General (GEN)</th>
+                            <th colSpan="2" style={{ backgroundColor: "#eef2f7" }}>Scheduled Caste (SC)</th>
+                            <th colSpan="2" style={{ backgroundColor: "#eef2f7" }}>Scheduled Tribe (ST)</th>
+                            <th colSpan="2" style={{ backgroundColor: "#eef2f7" }}>SEBC / OBC</th>
+                            <th colSpan="2" style={{ backgroundColor: "#eef2f7" }}>EWS</th>
+                            <th rowSpan="2" className="text-dark align-middle" style={{ minWidth: 100, backgroundColor: "#e2e8f0" }}>
+                              Total Vacancies
+                            </th>
+                          </tr>
+                          <tr style={{ fontSize: 12 }}>
+                            <th>General</th>
+                            <th>Female</th>
+                            <th>General</th>
+                            <th>Female</th>
+                            <th>General</th>
+                            <th>Female</th>
+                            <th>General</th>
+                            <th>Female</th>
+                            <th>General</th>
+                            <th>Female</th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          <tr>
+                            <td>
+                              <Input
+                                type="number"
+                                min={0}
+                                className="text-center"
+                                value={values.vacancies?.general?.general ?? 0}
+                                onChange={(e) => updateVacancyCell("general", "general", e.target.value)}
+                                disabled={isView}
+                              />
+                            </td>
+                            <td>
+                              <Input
+                                type="number"
+                                min={0}
+                                className="text-center"
+                                value={values.vacancies?.general?.female ?? 0}
+                                onChange={(e) => updateVacancyCell("general", "female", e.target.value)}
+                                disabled={isView}
+                              />
+                            </td>
+                            <td>
+                              <Input
+                                type="number"
+                                min={0}
+                                className="text-center"
+                                value={values.vacancies?.sc?.general ?? 0}
+                                onChange={(e) => updateVacancyCell("sc", "general", e.target.value)}
+                                disabled={isView}
+                              />
+                            </td>
+                            <td>
+                              <Input
+                                type="number"
+                                min={0}
+                                className="text-center"
+                                value={values.vacancies?.sc?.female ?? 0}
+                                onChange={(e) => updateVacancyCell("sc", "female", e.target.value)}
+                                disabled={isView}
+                              />
+                            </td>
+                            <td>
+                              <Input
+                                type="number"
+                                min={0}
+                                className="text-center"
+                                value={values.vacancies?.st?.general ?? 0}
+                                onChange={(e) => updateVacancyCell("st", "general", e.target.value)}
+                                disabled={isView}
+                              />
+                            </td>
+                            <td>
+                              <Input
+                                type="number"
+                                min={0}
+                                className="text-center"
+                                value={values.vacancies?.st?.female ?? 0}
+                                onChange={(e) => updateVacancyCell("st", "female", e.target.value)}
+                                disabled={isView}
+                              />
+                            </td>
+                            <td>
+                              <Input
+                                type="number"
+                                min={0}
+                                className="text-center"
+                                value={values.vacancies?.sebc?.general ?? 0}
+                                onChange={(e) => updateVacancyCell("sebc", "general", e.target.value)}
+                                disabled={isView}
+                              />
+                            </td>
+                            <td>
+                              <Input
+                                type="number"
+                                min={0}
+                                className="text-center"
+                                value={values.vacancies?.sebc?.female ?? 0}
+                                onChange={(e) => updateVacancyCell("sebc", "female", e.target.value)}
+                                disabled={isView}
+                              />
+                            </td>
+                            <td>
+                              <Input
+                                type="number"
+                                min={0}
+                                className="text-center"
+                                value={values.vacancies?.ews?.general ?? 0}
+                                onChange={(e) => updateVacancyCell("ews", "general", e.target.value)}
+                                disabled={isView}
+                              />
+                            </td>
+                            <td>
+                              <Input
+                                type="number"
+                                min={0}
+                                className="text-center"
+                                value={values.vacancies?.ews?.female ?? 0}
+                                onChange={(e) => updateVacancyCell("ews", "female", e.target.value)}
+                                disabled={isView}
+                              />
+                            </td>
+                            <td className="fw-bold fs-5 text-dark bg-light">
+                              {values.vacancies?.total ?? 0}
+                            </td>
+                          </tr>
+                        </tbody>
+                      </table>
+                    </div>
+
+                    <div className="card border p-3 mt-4" style={{ maxWidth: 950, backgroundColor: "#f8fafc" }}>
+                      <div className="form-check form-switch form-switch-md">
+                        <input
+                          className="form-check-input"
+                          type="checkbox"
+                          id="enforceReservationRules"
+                          checked={values.enforce_reservation_rules}
+                          onChange={(e) => set("enforce_reservation_rules", e.target.checked)}
                           disabled={isView}
                         />
+                        <label className="form-check-label fw-bold text-dark ms-2" htmlFor="enforceReservationRules">
+                          Enforce Category & Gender Eligibility Rules
+                        </label>
                       </div>
-                    </Col>
-                  </Row>
+                    </div>
+                  </div>
                 </TabPane>
 
                 <TabPane tabId="3">

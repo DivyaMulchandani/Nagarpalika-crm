@@ -292,14 +292,118 @@ function DocumentUploadPanel({ advt, formData, onSuccess, onBack }) {
   )
 }
 
+const checkEligibility = (vacancies, enforceRules, user, selectedGender) => {
+  if (enforceRules === false || !vacancies || typeof vacancies !== 'object') {
+    return { eligible: true }
+  }
+
+  const normCat = (cat) => {
+    if (!cat) return 'general'
+    const c = String(cat).toLowerCase().trim()
+    if (c.includes('sc') || c.includes('scheduled caste')) return 'sc'
+    if (c.includes('st') || c.includes('scheduled tribe')) return 'st'
+    if (c.includes('sebc') || c.includes('obc') || c.includes('baxi')) return 'sebc'
+    if (c.includes('ews')) return 'ews'
+    return 'general'
+  }
+
+  const candCategory = normCat(user?.category)
+  const candGender = String(selectedGender || user?.gender || '').toLowerCase().trim()
+  const isFemale = candGender.startsWith('f')
+
+  const toNum = (v) => {
+    const n = Number(v)
+    return Number.isFinite(n) && n > 0 ? n : 0
+  }
+
+  const generalGen = toNum(vacancies.general?.general)
+  const generalFem = toNum(vacancies.general?.female)
+  const scGen = toNum(vacancies.sc?.general)
+  const scFem = toNum(vacancies.sc?.female)
+  const stGen = toNum(vacancies.st?.general)
+  const stFem = toNum(vacancies.st?.female)
+  const sebcGen = toNum(vacancies.sebc?.general)
+  const sebcFem = toNum(vacancies.sebc?.female)
+  const ewsGen = toNum(vacancies.ews?.general)
+  const ewsFem = toNum(vacancies.ews?.female)
+
+  const totalSeats =
+    generalGen + generalFem +
+    scGen + scFem +
+    stGen + stFem +
+    sebcGen + sebcFem +
+    ewsGen + ewsFem
+
+  if (totalSeats === 0) return { eligible: true }
+
+  let eligibleSeats = 0
+  eligibleSeats += generalGen
+  if (isFemale) eligibleSeats += generalFem
+
+  if (candCategory === 'sc') {
+    eligibleSeats += scGen
+    if (isFemale) eligibleSeats += scFem
+  } else if (candCategory === 'st') {
+    eligibleSeats += stGen
+    if (isFemale) eligibleSeats += stFem
+  } else if (candCategory === 'sebc') {
+    eligibleSeats += sebcGen
+    if (isFemale) eligibleSeats += sebcFem
+  } else if (candCategory === 'ews') {
+    eligibleSeats += ewsGen
+    if (isFemale) eligibleSeats += ewsFem
+  }
+
+  if (eligibleSeats > 0) return { eligible: true, eligibleSeats }
+
+  const totalOpenGeneralSeats = generalGen + scGen + stGen + sebcGen + ewsGen
+  const totalFemaleSeats = generalFem + scFem + stFem + sebcFem + ewsFem
+
+  if (totalOpenGeneralSeats === 0 && totalFemaleSeats > 0 && !isFemale) {
+    return {
+      eligible: false,
+      reason: 'Available vacancies for this advertisement are reserved exclusively for Female candidates.',
+    }
+  }
+
+  const availableBreakdown = []
+  if (generalGen > 0 || generalFem > 0) availableBreakdown.push(`General (${generalGen + generalFem})`)
+  if (scGen > 0 || scFem > 0) availableBreakdown.push(`SC (${scGen + scFem})`)
+  if (stGen > 0 || stFem > 0) availableBreakdown.push(`ST (${stGen + stFem})`)
+  if (sebcGen > 0 || sebcFem > 0) availableBreakdown.push(`SEBC (${sebcGen + sebcFem})`)
+  if (ewsGen > 0 || ewsFem > 0) availableBreakdown.push(`EWS (${ewsGen + ewsFem})`)
+
+  const catDisplay = user?.category || 'General'
+  const genderDisplay = user?.gender || (isFemale ? 'Female' : 'Male')
+
+  return {
+    eligible: false,
+    reason: `There are no unreserved or matching category vacancies available for your category (${catDisplay}) and gender (${genderDisplay}). Available seats are reserved for: ${availableBreakdown.join(', ') || 'None'}.`,
+  }
+}
+
 // ─────────────────────────────────────────────────────────────
 // Application Form (shown after login)
 // ─────────────────────────────────────────────────────────────
 function ApplicationFormPanel({ advt, onSuccess, onNext, onDeadline }) {
+  const { user } = useAuth()
   const [agreed, setAgreed]   = useState(false)
-  const [gender, setGender]   = useState('')
+  const [gender, setGender]   = useState(user?.gender || '')
   const [loading, setLoading] = useState(false)
   const [error, setError]     = useState(null)
+
+  const eligibility = checkEligibility(
+    advt?.vacancies,
+    advt?.enforce_reservation_rules !== false,
+    user,
+    gender
+  )
+
+  useEffect(() => {
+    if (!gender && user?.gender) {
+      setGender(user.gender)
+    }
+  }, [user, gender])
 
   useEffect(() => {
     if (!advt?.end_date) return
@@ -320,6 +424,7 @@ function ApplicationFormPanel({ advt, onSuccess, onNext, onDeadline }) {
 
   const handleNext = () => {
     if (!gender) { setError('Please select your gender.'); return }
+    if (!eligibility.eligible) { setError(eligibility.reason); return }
     if (!agreed) { setError('Accept the declaration to continue.'); return }
     setError(null)
     onNext({ gender })
@@ -327,6 +432,7 @@ function ApplicationFormPanel({ advt, onSuccess, onNext, onDeadline }) {
 
   const handleSubmitDirect = async () => {
     if (!gender) { setError('Please select your gender.'); return }
+    if (!eligibility.eligible) { setError(eligibility.reason); return }
     if (!agreed) { setError('Accept the declaration to continue.'); return }
     setError(null); setLoading(true)
     try {
@@ -346,6 +452,12 @@ function ApplicationFormPanel({ advt, onSuccess, onNext, onDeadline }) {
         <span className="guj">ઓનલાઇન અરજી ફોર્મ</span>
       </div>
       <div className="box-body">
+        {!eligibility.eligible && (
+          <div style={{ color: '#721c24', background: '#f8d7da', border: '1px solid #f5c6cb', borderRadius: 4, padding: '12px 16px', marginBottom: 16, fontSize: 13.5, fontWeight: 500 }}>
+            <strong><IconWarn /> Ineligible to Apply:</strong> {eligibility.reason}
+          </div>
+        )}
+
         <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 13.5, marginBottom: 16 }}>
           <tbody>
             {[
@@ -430,11 +542,11 @@ function ApplicationFormPanel({ advt, onSuccess, onNext, onDeadline }) {
         <div className="form-actions">
           <Link to="/careers" className="btn">← Cancel</Link>
           {hasDocs ? (
-            <button className="btn primary" disabled={!agreed} onClick={handleNext}>
+            <button className="btn primary" disabled={!agreed || !eligibility.eligible} onClick={handleNext}>
               Next: Upload Documents →
             </button>
           ) : (
-            <button className="btn primary" disabled={loading || !agreed} onClick={handleSubmitDirect}>
+            <button className="btn primary" disabled={loading || !agreed || !eligibility.eligible} onClick={handleSubmitDirect}>
               {loading ? 'Submitting…' : 'Submit Application ▶'}
             </button>
           )}
