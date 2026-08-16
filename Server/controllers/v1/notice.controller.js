@@ -3,6 +3,7 @@ import mongoose from "mongoose";
 import Notice from "../../models/Notice.js";
 import { handleSafeError } from "../../middlewares/securityHeaders.js";
 import { sanitizeHtml } from "../../utils/sanitizeHtml.js";
+import { escapeRegex } from "../../utils/escapeRegex.js";
 import {
   getReadStream,
   uploadBuffer,
@@ -48,7 +49,7 @@ export const createNotice = async (req, res) => {
   } catch (error) {
     return res
       .status(500)
-      .json({ isOk: false, status: 500, message: error.message });
+      .json({ isOk: false, status: 500, message: "An unexpected error occurred" });
   }
 };
 
@@ -131,7 +132,7 @@ export const getNoticePdf = async (req, res) => {
   } catch (error) {
     return res
       .status(500)
-      .json({ isOk: false, status: 500, message: error.message });
+      .json({ isOk: false, status: 500, message: "An unexpected error occurred" });
   }
 };
 
@@ -224,7 +225,7 @@ export const deleteNotice = async (req, res) => {
   } catch (error) {
     return res
       .status(500)
-      .json({ isOk: false, status: 500, message: error.message });
+      .json({ isOk: false, status: 500, message: "An unexpected error occurred" });
   }
 };
 
@@ -246,7 +247,7 @@ export const searchNotices = async (req, res) => {
 
     const pipeline = [];
     if (match) {
-      pipeline.push({ $match: { title: { $regex: match, $options: "i" } } });
+      pipeline.push({ $match: { title: { $regex: escapeRegex(match), $options: "i" } } });
     }
     pipeline.push({ $match: matchCond });
     pipeline.push({
@@ -270,7 +271,7 @@ export const searchNotices = async (req, res) => {
   } catch (error) {
     return res
       .status(500)
-      .json({ isOk: false, status: 500, message: error.message });
+      .json({ isOk: false, status: 500, message: "An unexpected error occurred" });
   }
 };
 
@@ -312,7 +313,7 @@ export const patchNoticeStatus = async (req, res) => {
   } catch (error) {
     return res
       .status(500)
-      .json({ isOk: false, status: 500, message: error.message });
+      .json({ isOk: false, status: 500, message: "An unexpected error occurred" });
   }
 };
 
@@ -355,6 +356,6 @@ export const uploadNoticePdf = async (req, res) => {
   } catch (error) {
     return res
       .status(500)
-      .json({ isOk: false, status: 500, message: error.message });
+      .json({ isOk: false, status: 500, message: "An unexpected error occurred" });
   }
 };

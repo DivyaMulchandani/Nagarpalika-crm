@@ -114,11 +114,16 @@ app.use(hpp());
 // 7. Express Session - MongoDB Session Storage (persistent)
 import MongoStore from "connect-mongo";
 
+if (!process.env.SESSION_SECRET) {
+  throw new Error(
+    "FATAL: SESSION_SECRET environment variable is required. " +
+    "Generate one with: node -e \"console.log(require('crypto').randomBytes(64).toString('hex'))\""
+  );
+}
+
 app.use(
   session({
-    secret:
-      process.env.SESSION_SECRET ||
-      "your-super-secret-key-change-in-production",
+    secret: process.env.SESSION_SECRET,
     resave: false,
     saveUninitialized: false,
     // NOT rolling: candidate sessions have an ABSOLUTE 30-minute lifetime
@@ -149,7 +154,9 @@ console.log("✅ Express session middleware configured (MongoDB storage)");
 // NOTE: /uploads intentionally NOT served statically — all file downloads go through authenticated API endpoints.
 
 mongoose.set("strictQuery", false);
-if (process.env.NODE_ENV !== "production") mongoose.set("debug", true);
+// Only enable Mongoose debug when explicitly opted in (never in production)
+// to avoid logging sensitive query values (Aadhaar hashes, OTPs, passwords) to stdout.
+if (process.env.MONGOOSE_DEBUG === "true") mongoose.set("debug", true);
 
 const dbURI = process.env.DATABASE;
 
@@ -181,8 +188,8 @@ mongoose.connection.on("reconnected", () => {
 });
 
 // ============ ADDITIONAL MIDDLEWARE ============
-// Development request logging (disable in production for performance)
-app.use(morgan("dev"));
+// Request logging: verbose "dev" mode only in development, structured "combined" in production
+app.use(morgan(process.env.NODE_ENV === "production" ? "combined" : "dev"));
 app.use(express.static("files"));
 
 

@@ -3,11 +3,11 @@ import {
   getReferencingCounts,
   formatReferenceMessage,
 } from "../../utils/referenceHelper.js";
+import { escapeRegex } from "../../utils/escapeRegex.js";
 
 export const createDepartment = async (req, res) => {
   try {
     const { departmentName, departmentCode, isActive } = req.body;
-    console.log("Request Body:", req.body); // Debugging line
 
     if (!departmentName && !departmentCode) {
       return res.status(400).json({
@@ -43,7 +43,7 @@ export const createDepartment = async (req, res) => {
       status: 201,
     });
   } catch (error) {
-    console.log("Error in createDepartmentName", error);
+    console.error("Error in createDepartmentName", error);
     return res.status(500).json({
       message: "Internal server error",
       isOk: false,
@@ -79,7 +79,7 @@ export const updateDepartment = async (req, res) => {
       status: 200,
     });
   } catch (error) {
-    console.log("Error in updateDepartment", error);
+    console.error("Error in updateDepartment", error);
     return res.status(500).json({
       message: "Internal server error",
       isOk: false,
@@ -128,7 +128,7 @@ export const deleteDepartment = async (req, res) => {
       status: 200,
     });
   } catch (error) {
-    console.log("Error in deleteDepartment", error);
+    console.error("Error in deleteDepartment", error);
     return res.status(500).json({
       message: "Internal server error",
       isOk: false,
@@ -159,7 +159,7 @@ export const getDeparmentById = async (req, res) => {
       status: 200,
     });
   } catch (error) {
-    console.log("Error in getDeparmentById", error);
+    console.error("Error in getDeparmentById", error);
     return res.status(500).json({
       message: "Internal server error",
       isOk: false,
@@ -213,13 +213,13 @@ export const listDepartmentByParams = async (req, res) => {
             $or: [
               {
                 departmentName: {
-                  $regex: match,
+                  $regex: escapeRegex(match),
                   $options: "i",
                 },
               },
               {
                 departmentCode: {
-                  $regex: match,
+                  $regex: escapeRegex(match),
                   $options: "i",
                 },
               },

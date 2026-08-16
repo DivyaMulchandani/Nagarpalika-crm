@@ -22,37 +22,37 @@ const csvUpload = multer({
 router.post("/call-letters/list", listCallLetters);
 router.post("/call-letters/check", checkEligibility);
 
-// ── Token-gated download (no session) ────────────────────────────────────────
-router.post("/call-letters/:advt_no/download", downloadCallLetter);
-
-// ── Admin ─────────────────────────────────────────────────────────────────────
-router.get(
-  "/call-letters/:advt_no",
-  authMiddleware(["ADMIN", "EMPLOYEE"]),
-  getCallLetterSettings,
-);
-router.patch(
-  "/call-letters/:advt_no",
-  authMiddleware(["ADMIN", "EMPLOYEE"]),
-  patchCallLetter,
-);
+// ── Legacy Search ─────────────────────────────────────────────────────────────
 router.post(
-  "/call-letters/:advt_no/roll-numbers",
+  "/call-letters/search",
+  authMiddleware(["ADMIN", "EMPLOYEE", "DEPT_ADMIN"]),
+  searchCallLetters,
+);
+
+// ── Sub-path actions with multi-segment advt_no support (e.g. ADV/2026/0019) ─
+router.post("/call-letters/:advt_no(*)/download", downloadCallLetter);
+router.post(
+  "/call-letters/:advt_no(*)/roll-numbers",
   authMiddleware(["ADMIN", "EMPLOYEE"]),
   csvUpload.single("file"),
   uploadRollNumbers,
 );
 router.post(
-  "/call-letters/:advt_no/preview",
+  "/call-letters/:advt_no(*)/preview",
   authMiddleware(["ADMIN", "EMPLOYEE"]),
   previewCallLetter,
 );
 
-// ── Legacy ────────────────────────────────────────────────────────────────────
-router.post(
-  "/call-letters/search",
-  authMiddleware(["ADMIN", "EMPLOYEE", "DEPT_ADMIN"]),
-  searchCallLetters,
+// ── Admin settings CRUD for advt_no ───────────────────────────────────────────
+router.get(
+  "/call-letters/:advt_no(*)",
+  authMiddleware(["ADMIN", "EMPLOYEE"]),
+  getCallLetterSettings,
+);
+router.patch(
+  "/call-letters/:advt_no(*)",
+  authMiddleware(["ADMIN", "EMPLOYEE"]),
+  patchCallLetter,
 );
 
 export default router;

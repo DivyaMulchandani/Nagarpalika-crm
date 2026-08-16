@@ -26,24 +26,25 @@ const PAD = 6;
 const FONT_SIZE = 9.5;
 
 const COLOR = {
-  heading: "#1a4373",
+  heading: "#6d235f",
   headingText: "#ffffff",
-  labelBg: "#f8fafc",
+  labelBg: "#faf4f9",
   labelText: "#1e293b",
   value: "#0f172a",
-  border: "#1a4373",
-  rule: "#94a3b8",
+  border: "#9b508d",
+  rule: "#b874ad",
   muted: "#64748b",
 };
 
-// UPSC Theme Constants
+// UPSC Theme Constants (Logo Purple Theme)
 export const UPSC_PAGE = {
   left: 36,
   right: 559.28,
   width: 523.28,
-  blue: "#1a4373",
-  border: "#1a4373",
-  gridBorder: "#1a4373",
+  purple: "#6d235f",
+  border: "#9b508d",
+  blue: "#6d235f", // alias for backward compatibility
+  gridBorder: "#9b508d",
   text: "#111827",
   muted: "#4b5563",
 };
@@ -73,21 +74,25 @@ export const loadImageBuffer = async (imgPath) => {
     }
   } catch {}
 
-  const key = normalizeKey(imgPath);
-  if (!key) return null;
+  // Otherwise fetch from S3 storage
   try {
+    const key = normalizeKey(imgPath);
+    if (!key) return null;
     const stream = await getReadStream(key);
     if (!stream) return null;
     const chunks = [];
     for await (const chunk of stream) chunks.push(chunk);
     const raw = Buffer.concat(chunks);
 
-    const sharp = await getSharp();
-    if (sharp) {
-      try {
-        return await sharp(raw).png().toBuffer();
-      } catch {
-        /* not a decodable image — fall back to the raw bytes */
+    const ext = path.extname(key || "").toLowerCase();
+    if (ext === ".webp") {
+      const sharp = await getSharp();
+      if (sharp) {
+        try {
+          return await sharp(raw).png().toBuffer();
+        } catch {
+          /* not a decodable image — fall back to the raw bytes */
+        }
       }
     }
     return raw;
@@ -111,7 +116,7 @@ export const ensureSpace = (doc, needed) => {
 
 /**
  * Draws the official UPSC-style top header with dual emblems, municipality titles,
- * solid navy exam banner, and centered submission timestamp.
+ * solid purple exam banner, and centered submission timestamp.
  */
 export const drawUpscHeader = (
   doc,
@@ -119,21 +124,23 @@ export const drawUpscHeader = (
     mainTitleGu = "પાટણ નગરપાલિકા",
     mainTitleEn = "PATAN NAGARPALIKA",
     subTitle = "ONLINE APPLICATION CONFIRMATION",
+    bannerText,
     advtNo,
     postTitle,
     department,
     postClass,
     submittedAt,
+    submittedLabel = "Application Submitted On",
     logoBuffer,
   },
 ) => {
-  const { left, width, blue } = UPSC_PAGE;
+  const { left, width, purple, border } = UPSC_PAGE;
 
   const startY = doc.y;
   const headerHeight = 54;
 
-  // Outer frame for the municipal header
-  doc.lineWidth(0.8).strokeColor(blue);
+  // Outer frame for the municipal header in light purple border
+  doc.lineWidth(0.8).strokeColor(border);
   doc.rect(left, startY, width, headerHeight).stroke();
 
   // Left Emblem / Logo
@@ -147,32 +154,36 @@ export const drawUpscHeader = (
     } catch {}
   }
 
-  // Centered Municipality Title & Subtitle
+  // Centered Municipality Title & Subtitle in Logo Purple
   doc
     .font("Helvetica-Bold")
     .fontSize(12.5)
-    .fillColor(blue)
+    .fillColor(purple)
     .text(mainTitleEn, left, startY + 11, { width, align: "center" });
 
   doc
     .font("Helvetica-Bold")
     .fontSize(9.5)
-    .fillColor(blue)
+    .fillColor(purple)
     .text(subTitle, left, startY + 28, { width, align: "center" });
 
   doc.y = startY + headerHeight;
 
-  // Exam / Advertisement Bar (Solid Blue Box)
+  // Exam / Advertisement Bar (Solid Purple Box)
   const examBarY = doc.y;
   const examBarHeight = 22;
-  doc.rect(left, examBarY, width, examBarHeight).fill(blue);
+  doc.rect(left, examBarY, width, examBarHeight).fill(purple);
 
   const parts = [];
   if (advtNo) parts.push(`Advt. No : ${advtNo}`);
   if (postTitle) parts.push(`Post : ${postTitle}`);
   if (department) parts.push(`(${department})`);
   if (postClass) parts.push(`Class ${postClass}`);
-  const examText = parts.join("   |   ");
+  const examText =
+    bannerText ||
+    (parts.length
+      ? parts.join("   |   ")
+      : "ONE-TIME REGISTRATION (OTR) PROFILE");
 
   doc
     .font("Helvetica-Bold")
@@ -204,7 +215,7 @@ export const drawUpscHeader = (
       .font("Helvetica-Bold")
       .fontSize(10.5)
       .fillColor("#111827")
-      .text(`Application Submitted On: ${dateStr}`, left, doc.y, {
+      .text(`${submittedLabel}: ${dateStr}`, left, doc.y, {
         width,
         align: "center",
       });
@@ -213,13 +224,13 @@ export const drawUpscHeader = (
 };
 
 /**
- * Centered Section Header Banner (Solid navy blue with bold white centered text)
+ * Centered Section Header Banner (Solid purple with bold white centered text)
  */
 export const drawUpscCenteredSection = (doc, title) => {
-  const { left, width, blue } = UPSC_PAGE;
+  const { left, width, purple } = UPSC_PAGE;
   ensureSpace(doc, 22);
   const y = doc.y;
-  doc.rect(left, y, width, 18).fill(blue);
+  doc.rect(left, y, width, 18).fill(purple);
   doc
     .font("Helvetica-Bold")
     .fontSize(9)
@@ -236,7 +247,7 @@ export const drawUpscCenteredSection = (doc, title) => {
  * Section 1: Candidate Identity Table with Integrated Right Photo Box
  */
 export const drawUpscIdentityGrid = (doc, rows, photoBuffer) => {
-  const { left, width, blue } = UPSC_PAGE;
+  const { left, width, border } = UPSC_PAGE;
   const labelW = 150;
   const valW = 260;
   const photoColW = width - labelW - valW; // ~113.28pt
@@ -265,7 +276,7 @@ export const drawUpscIdentityGrid = (doc, rows, photoBuffer) => {
 
   validRows.forEach(([label, value], i) => {
     const rH = rowHeights[i];
-    doc.lineWidth(0.5).strokeColor(blue);
+    doc.lineWidth(0.5).strokeColor(border);
 
     // Label cell
     doc.rect(left, currentY, labelW, rH).stroke();
@@ -293,7 +304,7 @@ export const drawUpscIdentityGrid = (doc, rows, photoBuffer) => {
 
   // Right Photo Column (Spanning entire height of identity rows)
   const photoX = left + labelW + valW;
-  doc.lineWidth(0.5).strokeColor(blue);
+  doc.lineWidth(0.5).strokeColor(border);
   doc.rect(photoX, startY, photoColW, totalGridH).stroke();
 
   if (photoBuffer) {
@@ -329,7 +340,7 @@ export const drawUpscTable = (doc, title, rows) => {
   const validRows = rows.filter(([, v]) => !isEmpty(v));
   if (!validRows.length) return;
 
-  const { left, width, blue } = UPSC_PAGE;
+  const { left, width, border } = UPSC_PAGE;
   const labelW = 160;
   const valW = width - labelW;
   const pad = 4;
@@ -347,7 +358,7 @@ export const drawUpscTable = (doc, title, rows) => {
     ensureSpace(doc, rH);
     const y = doc.y;
 
-    doc.lineWidth(0.5).strokeColor(blue);
+    doc.lineWidth(0.5).strokeColor(border);
     doc.rect(left, y, labelW, rH).stroke();
     doc.rect(left + labelW, y, valW, rH).stroke();
 
@@ -375,7 +386,7 @@ export const drawUpscTable = (doc, title, rows) => {
  * Section 5: Official Legal Declaration Box with Candidate Signature on Bottom Right
  */
 export const drawUpscDeclaration = (doc, signatureBuffer) => {
-  const { left, width, blue } = UPSC_PAGE;
+  const { left, width, border } = UPSC_PAGE;
   const pad = 6;
   const fontSize = 8;
 
@@ -425,8 +436,8 @@ export const drawUpscDeclaration = (doc, signatureBuffer) => {
 
   const totalH = sigY + sigBoxH + 16 - startY;
 
-  // Outer framing around declaration
-  doc.lineWidth(0.5).strokeColor(blue);
+  // Outer framing around declaration in light purple
+  doc.lineWidth(0.5).strokeColor(border);
   doc.rect(left, startY, width, totalH).stroke();
 
   doc.y = startY + totalH + 6;
@@ -435,22 +446,20 @@ export const drawUpscDeclaration = (doc, signatureBuffer) => {
 /**
  * UPSC Bottom Footer
  */
-export const drawUpscFooter = (doc) => {
-  const { left, width, blue } = UPSC_PAGE;
+export const drawUpscFooter = (doc, customText) => {
+  const { left, width, border } = UPSC_PAGE;
   ensureSpace(doc, 20);
-  doc.lineWidth(0.5).strokeColor(blue);
+  doc.lineWidth(0.5).strokeColor(border);
   doc.moveTo(left, doc.y).lineTo(left + width, doc.y).stroke();
   doc.y += 4;
+  const footerText =
+    customText ||
+    `Generated on: ${new Date().toLocaleString("en-IN")} · Computer Generated Document · Patan Nagarpalika`;
   doc
     .font("Helvetica")
     .fontSize(7.5)
     .fillColor("#6b7280")
-    .text(
-      `Generated on: ${new Date().toLocaleString("en-IN")} · Computer Generated Application Form · Patan Nagarpalika Recruitment Portal`,
-      left,
-      doc.y,
-      { width, align: "center" },
-    );
+    .text(footerText, left, doc.y, { width, align: "center" });
 };
 
 // ============================================================================

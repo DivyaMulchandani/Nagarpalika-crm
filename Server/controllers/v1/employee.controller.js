@@ -2,6 +2,7 @@ import EmployeeModels from "../../models/Employee.js";
 import CompanyMaster from "../../models/CompanyMaster.js";
 import mongoose from "mongoose";
 import bcrypt from "bcrypt";
+import { escapeRegex } from "../../utils/escapeRegex.js";
 
 export const createEmployee = async (req, res) => {
   try {
@@ -53,7 +54,7 @@ export const createEmployee = async (req, res) => {
       status: 201,
     });
   } catch (error) {
-    console.log(error);
+    console.error("[error]", error);
     return res.status(500).json({
       isOk: false,
       message: error.message,
@@ -121,7 +122,7 @@ export const updateEmployee = async (req, res) => {
       status: 200,
     });
   } catch (error) {
-    console.log(error);
+    console.error("[error]", error);
     return res.status(500).json({
       isOk: false,
       message: error.message,
@@ -152,7 +153,7 @@ export const deleteEmployee = async (req, res) => {
       status: 200,
     });
   } catch (error) {
-    console.log(error);
+    console.error("[error]", error);
     return res.status(500).json({
       isOk: false,
       message: error.message,
@@ -186,7 +187,7 @@ export const getEmployeeById = async (req, res) => {
       status: 200,
     });
   } catch (error) {
-    console.log(error);
+    console.error("[error]", error);
     return res.status(500).json({
       isOk: false,
       message: error.message,
@@ -212,7 +213,7 @@ export const listAllEmployees = async (req, res) => {
       status: 200,
     });
   } catch (error) {
-    console.log(error);
+    console.error("[error]", error);
     return res.status(500).json({
       isOk: false,
       message: error.message,
@@ -290,12 +291,12 @@ export const listEmployeesByParams = async (req, res) => {
     if (match) {
       let searchConditions = {
         $or: [
-          { employeeName: { $regex: match, $options: "i" } },
-          { emailOffice: { $regex: match, $options: "i" } },
-          { mobileNumber: { $regex: match, $options: "i" } },
+          { employeeName: { $regex: escapeRegex(match), $options: "i" } },
+          { emailOffice: { $regex: escapeRegex(match), $options: "i" } },
+          { mobileNumber: { $regex: escapeRegex(match), $options: "i" } },
           {
             "department.departmentName": {
-              $regex: match,
+              $regex: escapeRegex(match),
               $options: "i",
             },
           },
@@ -340,8 +341,6 @@ export const listAllEmployeesByDepartment = async (req, res) => {
   try {
     const { departmentId } = req.params;
 
-    console.log(departmentId);
-
     const employees = await EmployeeModels.find({
       departmentId,
       isActive: true,
@@ -353,7 +352,7 @@ export const listAllEmployeesByDepartment = async (req, res) => {
       status: 200,
     });
   } catch (error) {
-    console.log(error);
+    console.error("[error]", error);
     return res.status(500).json({
       isOk: false,
       message: error.message,
@@ -409,7 +408,7 @@ export const loginEmployee = async (req, res) => {
       status: 200,
     });
   } catch (error) {
-    console.log(error);
+    console.error("[error]", error);
     return res.status(500).json({
       isOk: false,
       message: error.message,
@@ -558,7 +557,7 @@ export const resetPassword = async (req, res) => {
       status: 200,
     });
   } catch (error) {
-    console.log(error);
+    console.error("[error]", error);
     return res.status(500).json({
       isOk: false,
       message: error.message,

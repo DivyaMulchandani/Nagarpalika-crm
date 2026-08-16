@@ -1,5 +1,6 @@
 import MenuMaster from "../../models/MenuMaster.js";
 import mongoose from "mongoose";
+import { escapeRegex } from "../../utils/escapeRegex.js";
 
 export const createMenuMaster = async (req, res) => {
   try {
@@ -12,7 +13,6 @@ export const createMenuMaster = async (req, res) => {
       isParent,
       parentMenu,
     } = req.body;
-    console.log("Received createMenuMaster data:", req.body); // Debug incoming data
 
     const menuMaster = await MenuMaster.create({
       menuName,
@@ -31,7 +31,7 @@ export const createMenuMaster = async (req, res) => {
       data: menuMaster,
     });
   } catch (error) {
-    console.log("Error in createMenuMaster:", error);
+    console.error("Error in createMenuMaster:", error);
     res.status(500).json({
       isOk: false,
       message: "Error creating menu master",
@@ -49,7 +49,7 @@ export const getAllMenuMasters = async (req, res) => {
       data: menuMasters,
     });
   } catch (error) {
-    console.log(error);
+    console.error("[error]", error);
     res.status(500).json({
       isOk: false,
       message: "Error fetching menu masters",
@@ -70,7 +70,6 @@ export const updateMenuMaster = async (req, res) => {
       isParent,
       parentMenu,
     } = req.body;
-    console.log("Received updateMenuMaster data:", req.body); // Debug incoming data
 
     const menuMaster = await MenuMaster.findByIdAndUpdate(
       menuMasterId,
@@ -93,7 +92,7 @@ export const updateMenuMaster = async (req, res) => {
       data: menuMaster,
     });
   } catch (error) {
-    console.log("Error in updateMenuMaster:", error);
+    console.error("Error in updateMenuMaster:", error);
     res.status(500).json({
       isOk: false,
       message: "Error updating menu master",
@@ -105,7 +104,6 @@ export const updateMenuMaster = async (req, res) => {
 export const deleteMenuMaster = async (req, res) => {
   try {
     const { menuMasterId } = req.params;
-    console.log("Deleting menu master with ID:", menuMasterId);
 
     const menuMaster = await MenuMaster.findByIdAndUpdate(menuMasterId, {
       isActive: false,
@@ -117,7 +115,7 @@ export const deleteMenuMaster = async (req, res) => {
       data: menuMaster,
     });
   } catch (error) {
-    console.log("Error in deleteMenuMaster:", error);
+    console.error("Error in deleteMenuMaster:", error);
     res.status(500).json({
       isOk: false,
       message: "Error deleting menu master",
@@ -137,7 +135,7 @@ export const getMenuMasterById = async (req, res) => {
       data: menuMaster,
     });
   } catch (error) {
-    console.log(error);
+    console.error("[error]", error);
     res.status(500).json({
       isOk: false,
       message: "Error fetching menu master",
@@ -215,19 +213,19 @@ export const listMenuMasterByParams = async (req, res) => {
             $or: [
               {
                 menuName: {
-                  $regex: match,
+                  $regex: escapeRegex(match),
                   $options: "i",
                 },
               },
               {
                 menuGroup: {
-                  $regex: match,
+                  $regex: escapeRegex(match),
                   $options: "i",
                 },
               },
               {
                 menuUrl: {
-                  $regex: match,
+                  $regex: escapeRegex(match),
                   $options: "i",
                 },
               },
@@ -377,7 +375,7 @@ export const getMenuByGroups = async (req, res) => {
       data: result,
     });
   } catch (error) {
-    console.log("Error in getMenuByGroups:", error);
+    console.error("Error in getMenuByGroups:", error);
     res.status(500).json({
       isOk: false,
       message: "Error fetching menus by groups",
@@ -418,7 +416,7 @@ export const getMenuTest = async (req, res) => {
       data: testData,
     });
   } catch (error) {
-    console.log(error);
+    console.error("[error]", error);
     res.status(500).json({
       isOk: false,
       message: "Error fetching test menus",

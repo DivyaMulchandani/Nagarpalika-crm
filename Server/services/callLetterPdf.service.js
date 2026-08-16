@@ -13,14 +13,14 @@ const sectionTitle = (doc, title) => {
   doc
     .fontSize(11)
     .font("Helvetica-Bold")
-    .fillColor("#333333")
+    .fillColor("#6d235f")
     .text(title.toUpperCase(), { underline: true });
   doc.moveDown(0.3);
   doc.fontSize(10).fillColor("#000000");
 };
 
 const divider = (doc) => {
-  doc.moveTo(50, doc.y).lineTo(545, doc.y).strokeColor("#aaaaaa").stroke();
+  doc.moveTo(50, doc.y).lineTo(545, doc.y).strokeColor("#9b508d").stroke();
   doc.moveDown(0.5);
 };
 
@@ -43,10 +43,12 @@ export const generateCallLetterPdf = (data, dest) =>
     doc
       .fontSize(16)
       .font("Helvetica-Bold")
+      .fillColor("#6d235f")
       .text("Admit Card / Call Letter", { align: "center" });
     doc
       .fontSize(10)
       .font("Helvetica")
+      .fillColor("#4b5563")
       .text("Nagar Palika Recruitment Portal", { align: "center" });
     doc.moveDown(0.5);
     divider(doc);

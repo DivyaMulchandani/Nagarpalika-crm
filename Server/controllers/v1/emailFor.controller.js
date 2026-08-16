@@ -1,5 +1,6 @@
 import EmailForModels from "../../models/EmailFor.js";
 import EmailTemplateModels from "../../models/EmailTemplate.js";
+import { escapeRegex } from "../../utils/escapeRegex.js";
 
 export const createEmailFor = async (req, res) => {
   try {
@@ -28,7 +29,7 @@ export const createEmailFor = async (req, res) => {
       message: "Email For created successfully",
     });
   } catch (error) {
-    console.log(error);
+    console.error("[error]", error);
     return res.status(500).json({
       isOk: false,
       status: 500,
@@ -78,7 +79,7 @@ export const updateEmailFor = async (req, res) => {
       message: "Email For updated successfully",
     });
   } catch (error) {
-    console.log(error);
+    console.error("[error]", error);
     return res.status(500).json({
       isOk: false,
       status: 500,
@@ -108,7 +109,7 @@ export const getEmailForById = async (req, res) => {
       data: emailForData,
     });
   } catch (error) {
-    console.log(error);
+    console.error("[error]", error);
     return res.status(500).json({
       isOk: false,
       status: 500,
@@ -128,7 +129,7 @@ export const listAllEmailFor = async (req, res) => {
       data: emailForData,
     });
   } catch (error) {
-    console.log(error);
+    console.error("[error]", error);
     return res.status(500).json({
       isOk: false,
       status: 500,
@@ -174,7 +175,7 @@ export const deleteEmailFor = async (req, res) => {
       message: "Email For deleted successfully",
     });
   } catch (error) {
-    console.log(error);
+    console.error("[error]", error);
     return res.status(500).json({
       isOk: false,
       status: 500,
@@ -229,7 +230,7 @@ export const listEmailForByParams = async (req, res) => {
             $or: [
               {
                 emailFor: {
-                  $regex: match,
+                  $regex: escapeRegex(match),
                   $options: "i",
                 },
               },

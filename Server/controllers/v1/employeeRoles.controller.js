@@ -1,3 +1,4 @@
+import mongoose from "mongoose";
 import EmployeeRoles from "../../models/EmployeeRoles.js";
 
 export const createEmployeeRoles = async (req, res) => {
@@ -38,7 +39,7 @@ export const createEmployeeRoles = async (req, res) => {
       data: employeeRoles,
     });
   } catch (error) {
-    console.log(error);
+    console.error("[error]", error);
     return res.status(500).json({
       isOk: false,
       message: error.message,
@@ -49,6 +50,21 @@ export const createEmployeeRoles = async (req, res) => {
 export const getEmployeeRoles = async (req, res) => {
   try {
     const { roleId } = req.params;
+
+    if (
+      !roleId ||
+      roleId === "undefined" ||
+      roleId === "null" ||
+      roleId === "[object Object]" ||
+      !mongoose.Types.ObjectId.isValid(roleId)
+    ) {
+      return res.status(200).json({
+        isOk: true,
+        message: "No roles assigned yet",
+        data: [],
+      });
+    }
+
     const employeeRoles = await EmployeeRoles.find({ roleId });
     if (!employeeRoles || employeeRoles.length === 0) {
       return res.status(200).json({
@@ -63,7 +79,7 @@ export const getEmployeeRoles = async (req, res) => {
       data: employeeRoles,
     });
   } catch (error) {
-    console.log(error);
+    console.error("[error]", error);
     return res.status(500).json({
       isOk: false,
       message: error.message,
@@ -74,7 +90,24 @@ export const getEmployeeRoles = async (req, res) => {
 export const updateEmployeeRoles = async (req, res) => {
   try {
     // Get the ID parameter (which could be document _id or employeeId)
-    const id = req.params.id || req.body.roleId;
+    const rawId = req.params.roleId || req.params.id || req.body.roleId;
+    const id =
+      typeof rawId === "object" && rawId !== null
+        ? rawId._id || rawId.id
+        : rawId;
+
+    if (
+      !id ||
+      id === "undefined" ||
+      id === "null" ||
+      id === "[object Object]" ||
+      !mongoose.Types.ObjectId.isValid(id)
+    ) {
+      return res.status(400).json({
+        isOk: false,
+        message: "Invalid roleId provided",
+      });
+    }
     const { roles } = req.body;
 
     // Validate roles array
@@ -129,7 +162,7 @@ export const updateEmployeeRoles = async (req, res) => {
       data: employeeRoles,
     });
   } catch (error) {
-    console.log(error);
+    console.error("[error]", error);
     return res.status(500).json({
       isOk: false,
       message: error.message,

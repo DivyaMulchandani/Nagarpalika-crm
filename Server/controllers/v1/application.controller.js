@@ -8,6 +8,7 @@ import {
 } from "../../constants/applicationStatus.js";
 import Advertisement from "../../models/Advertisement.js";
 import Candidate from "../../models/Candidate.js";
+import Employee from "../../models/Employee.js";
 import { generateApplicationPdf } from "../../services/applicationPdf.service.js";
 import { sendTemplatedEmail } from "../../services/email.service.js";
 import {
@@ -21,6 +22,7 @@ import {
   streamApplicationsZip,
   buildExportZipFilename,
 } from "../../services/applicationExport.service.js";
+import { escapeRegex } from "../../utils/escapeRegex.js";
 
 const EDITABLE_FIELDS = [
   "exam_centre",
@@ -360,7 +362,7 @@ export const submitApplication = async (req, res) => {
   } catch (error) {
     return res
       .status(500)
-      .json({ isOk: false, status: 500, message: error.message });
+      .json({ isOk: false, status: 500, message: "An unexpected error occurred" });
   }
 };
 
@@ -403,7 +405,7 @@ export const getMyApplication = async (req, res) => {
   } catch (error) {
     return res
       .status(500)
-      .json({ isOk: false, status: 500, message: error.message });
+      .json({ isOk: false, status: 500, message: "An unexpected error occurred" });
   }
 };
 
@@ -457,7 +459,7 @@ export const editApplication = async (req, res) => {
   } catch (error) {
     return res
       .status(500)
-      .json({ isOk: false, status: 500, message: error.message });
+      .json({ isOk: false, status: 500, message: "An unexpected error occurred" });
   }
 };
 
@@ -473,7 +475,7 @@ export const getMyApplications = async (req, res) => {
   } catch (error) {
     return res
       .status(500)
-      .json({ isOk: false, status: 500, message: error.message });
+      .json({ isOk: false, status: 500, message: "An unexpected error occurred" });
   }
 };
 
@@ -519,7 +521,7 @@ export const getApplicationPdf = async (req, res) => {
     if (!res.headersSent)
       return res
         .status(500)
-        .json({ isOk: false, status: 500, message: error.message });
+        .json({ isOk: false, status: 500, message: "An unexpected error occurred" });
   }
 };
 
@@ -557,7 +559,7 @@ export const listApplications = async (req, res) => {
   } catch (error) {
     return res
       .status(500)
-      .json({ isOk: false, status: 500, message: error.message });
+      .json({ isOk: false, status: 500, message: "An unexpected error occurred" });
   }
 };
 
@@ -598,7 +600,7 @@ export const getApplicationForAdmin = async (req, res) => {
   } catch (error) {
     return res
       .status(500)
-      .json({ isOk: false, status: 500, message: error.message });
+      .json({ isOk: false, status: 500, message: "An unexpected error occurred" });
   }
 };
 
@@ -646,18 +648,31 @@ export const exportApplications = async (req, res) => {
     if (!res.headersSent) {
       return res
         .status(500)
-        .json({ isOk: false, status: 500, message: error.message });
+        .json({ isOk: false, status: 500, message: "An unexpected error occurred" });
     }
   }
 };
 
 export const updateApplicationStatus = async (req, res) => {
   try {
-    const { status } = req.body;
+    const { status, reason } = req.body;
     if (!APPLICATION_STATUSES.includes(status))
       return res
         .status(422)
         .json({ isOk: false, status: 422, message: "Invalid status" });
+
+    // Validate mandatory reason with minimum 10 words
+    const trimmedReason = typeof reason === "string" ? reason.trim() : "";
+    const words = trimmedReason
+      ? trimmedReason.split(/\s+/).filter(Boolean)
+      : [];
+    if (words.length < 10) {
+      return res.status(422).json({
+        isOk: false,
+        status: 422,
+        message: `Reason is required and must contain at least 10 words (provided: ${words.length} word${words.length === 1 ? "" : "s"}).`,
+      });
+    }
 
     const app = await Application.findById(req.params.id);
     if (!app)
@@ -672,10 +687,34 @@ export const updateApplicationStatus = async (req, res) => {
         message: `Cannot transition from "${app.status}" to "${status}"`,
       });
 
+    // Lookup officer display name and role
+    let userName = req.user?.name || req.user?.email || "Admin / Officer";
+    let userRole = req.user?.role || "ADMIN";
+    if (req.user?.id) {
+      try {
+        const emp = await Employee.findById(req.user.id)
+          .select("employeeName emailOffice role roleId")
+          .populate("roleId", "roleName")
+          .lean();
+        if (emp) {
+          userName = emp.employeeName || emp.emailOffice || userName;
+          if (emp.roleId?.roleName) {
+            userRole = emp.roleId.roleName;
+          } else if (emp.role) {
+            userRole = emp.role;
+          }
+        }
+      } catch {}
+    }
+
     app.edit_log.push({
       field: "status",
       old_value: app.status,
       new_value: status,
+      reason: trimmedReason,
+      changed_by: req.user?.id || null,
+      changed_by_name: userName,
+      changed_by_role: userRole,
       changed_at: new Date(),
     });
     app.status = status;
@@ -687,7 +726,7 @@ export const updateApplicationStatus = async (req, res) => {
   } catch (error) {
     return res
       .status(500)
-      .json({ isOk: false, status: 500, message: error.message });
+      .json({ isOk: false, status: 500, message: "An unexpected error occurred" });
   }
 };
 
@@ -735,9 +774,9 @@ export const searchApplications = async (req, res) => {
       pipeline.push({
         $match: {
           $or: [
-            { registration_id: { $regex: match, $options: "i" } },
-            { application_ref_no: { $regex: match, $options: "i" } },
-            { candidate_name: { $regex: match, $options: "i" } },
+            { registration_id: { $regex: escapeRegex(match), $options: "i" } },
+            { application_ref_no: { $regex: escapeRegex(match), $options: "i" } },
+            { candidate_name: { $regex: escapeRegex(match), $options: "i" } },
           ],
         },
       });
@@ -765,7 +804,7 @@ export const searchApplications = async (req, res) => {
   } catch (error) {
     return res
       .status(500)
-      .json({ isOk: false, status: 500, message: error.message });
+      .json({ isOk: false, status: 500, message: "An unexpected error occurred" });
   }
 };
 
@@ -822,6 +861,7 @@ export const uploadApplicationDocument = async (req, res) => {
       data: { label: label.trim(), file_url },
     });
   } catch (error) {
-    return res.status(500).json({ isOk: false, message: error.message });
+    console.error("[application] uploadApplicationDocument error:", error.message);
+    return res.status(500).json({ isOk: false, message: "An unexpected error occurred" });
   }
 };

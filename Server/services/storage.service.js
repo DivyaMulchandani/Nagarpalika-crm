@@ -130,12 +130,21 @@ export const resolveFileUrl = async (filePath, ttlSeconds = 3600) => {
   const key = normalizeKey(filePath);
   if (!key) return null;
 
+  if (!isS3Enabled()) {
+    return null;
+  }
+
   const publicBase = process.env.S3_PUBLIC_BASE_URL?.replace(/\/$/, "");
   if (publicBase && process.env.S3_PUBLIC_CDN === "true") {
     return `${publicBase}/${key}`.replace(/([^:]\/)\/+/g, "$1");
   }
 
-  return getSignedDownloadUrl(key, ttlSeconds);
+  try {
+    return await getSignedDownloadUrl(key, ttlSeconds);
+  } catch (err) {
+    console.error("[Storage] Failed to generate signed download URL:", err.message);
+    return null;
+  }
 };
 
 export const attachFileUrls = async (record, fields, ttlSeconds = 3600) => {

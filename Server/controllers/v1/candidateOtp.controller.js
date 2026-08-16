@@ -160,9 +160,10 @@ export const sendCandidateOtp = async (req, res) => {
       ...(Object.keys(extra).length ? { data: extra } : {}),
     });
   } catch (error) {
+    console.error("[candidateOtp] error:", error.message);
     return res
       .status(500)
-      .json({ isOk: false, status: 500, message: error.message });
+      .json({ isOk: false, status: 500, message: "An unexpected error occurred" });
   }
 };
 
@@ -223,9 +224,10 @@ export const verifyCandidateOtp = async (req, res) => {
       .status(200)
       .json({ isOk: true, status: 200, message: "OTP verified" });
   } catch (error) {
+    console.error("[candidateOtp] verifyCandidateOtp error:", error.message);
     return res
       .status(500)
-      .json({ isOk: false, status: 500, message: error.message });
+      .json({ isOk: false, status: 500, message: "An unexpected error occurred" });
   }
 };
 
@@ -282,9 +284,10 @@ export const sendPasswordResetOtp = async (req, res) => {
       message: "If this Registration ID exists, an OTP has been sent.",
     });
   } catch (error) {
+    console.error("[candidateOtp] sendPasswordResetOtp error:", error.message);
     return res
       .status(500)
-      .json({ isOk: false, status: 500, message: error.message });
+      .json({ isOk: false, status: 500, message: "An unexpected error occurred" });
   }
 };
 
@@ -374,9 +377,10 @@ export const sendLoginOtp = async (req, res) => {
       message: "If an account matches those details, an OTP has been sent.",
     });
   } catch (error) {
+    console.error("[candidateOtp] sendLoginOtp error:", error.message);
     return res
       .status(500)
-      .json({ isOk: false, status: 500, message: error.message });
+      .json({ isOk: false, status: 500, message: "An unexpected error occurred" });
   }
 };
 
@@ -485,9 +489,10 @@ export const verifyLoginOtp = async (req, res) => {
       },
     });
   } catch (error) {
+    console.error("[candidateOtp] verifyLoginOtp error:", error.message);
     return res
       .status(500)
-      .json({ isOk: false, status: 500, message: error.message });
+      .json({ isOk: false, status: 500, message: "An unexpected error occurred" });
   }
 };
 
@@ -552,8 +557,9 @@ export const verifyPasswordResetOtp = async (req, res) => {
       .status(200)
       .json({ isOk: true, status: 200, message: "OTP verified" });
   } catch (error) {
+    console.error("[candidateOtp] verifyPasswordResetOtp error:", error.message);
     return res
       .status(500)
-      .json({ isOk: false, status: 500, message: error.message });
+      .json({ isOk: false, status: 500, message: "An unexpected error occurred" });
   }
 };

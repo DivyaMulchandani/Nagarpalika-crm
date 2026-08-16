@@ -22,24 +22,8 @@ const UniversalSearch = () => {
             parentPath = [],
             depth = 0
         ) => {
-            console.log(
-                `${"  ".repeat(
-                    depth
-                )}🔍 Processing level ${depth}, groupName: "${groupName}", parentPath: [${parentPath.join(
-                    ", "
-                )}]`
-            );
 
             items.forEach((item, index) => {
-                console.log(`${"  ".repeat(depth)}  Item ${index}:`, {
-                    name: item.name || item.groupName,
-                    hasGroupId: !!item.groupId,
-                    hasMenus: !!(item.menus && item.menus.length),
-                    hasChildren: !!(item.children && item.children.length),
-                    hasUrl: !!item.url,
-                    isLink: item.isLink,
-                    url: item.url,
-                });
 
                 // Handle menu groups (check for groupId property, not menus.length)
                 if (item.groupId || (item.menus && item.menus.length > 0)) {
@@ -76,9 +60,6 @@ const UniversalSearch = () => {
                         : [...parentPath, item.name];
                     const label = fullPath.join(" > ");
 
-                    console.log(
-                        `${"  ".repeat(depth)}    ➕ Adding leaf menu: ${label}`
-                    );
                     options.push({
                         value: item.url,
                         label: label,

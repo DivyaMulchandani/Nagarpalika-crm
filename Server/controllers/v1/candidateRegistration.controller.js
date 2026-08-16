@@ -45,7 +45,8 @@ export const verifyAadhaar = async (req, res) => {
     req.session.aadhaarVerified = { hash: aadhaar_hash, at: Date.now() };
     return res.status(200).json({ isOk: true, status: 200, message: "Aadhaar verified" });
   } catch (error) {
-    return res.status(500).json({ isOk: false, status: 500, message: error.message });
+    console.error("[candidateReg] verifyAadhaar error:", error.message);
+    return res.status(500).json({ isOk: false, status: 500, message: "An unexpected error occurred" });
   }
 };
 
@@ -62,7 +63,8 @@ export const verifyMobile = async (req, res) => {
     req.session.mobileFormatVerified = { mobile, at: Date.now() };
     return res.status(200).json({ isOk: true, status: 200, message: "Mobile number verified" });
   } catch (error) {
-    return res.status(500).json({ isOk: false, status: 500, message: error.message });
+    console.error("[candidateReg] verifyMobile error:", error.message);
+    return res.status(500).json({ isOk: false, status: 500, message: "An unexpected error occurred" });
   }
 };
 
@@ -103,7 +105,7 @@ export const initRegistration = async (req, res) => {
   } catch (error) {
     return res
       .status(500)
-      .json({ isOk: false, status: 500, message: error.message });
+      .json({ isOk: false, status: 500, message: "An unexpected error occurred" });
   }
 };
 
@@ -254,7 +256,7 @@ export const saveStep = async (req, res) => {
   } catch (error) {
     return res
       .status(500)
-      .json({ isOk: false, status: 500, message: error.message });
+      .json({ isOk: false, status: 500, message: "An unexpected error occurred" });
   }
 };
 
@@ -280,7 +282,7 @@ export const uploadPhoto = async (req, res) => {
   } catch (error) {
     return res
       .status(500)
-      .json({ isOk: false, status: 500, message: error.message });
+      .json({ isOk: false, status: 500, message: "An unexpected error occurred" });
   }
 };
 
@@ -306,7 +308,7 @@ export const uploadSignature = async (req, res) => {
   } catch (error) {
     return res
       .status(500)
-      .json({ isOk: false, status: 500, message: error.message });
+      .json({ isOk: false, status: 500, message: "An unexpected error occurred" });
   }
 };
 
@@ -472,7 +474,7 @@ export const submitRegistration = async (req, res) => {
   } catch (error) {
     return res
       .status(500)
-      .json({ isOk: false, status: 500, message: error.message });
+      .json({ isOk: false, status: 500, message: "An unexpected error occurred" });
   }
 };
 
@@ -500,7 +502,7 @@ export const uploadCasteCert = async (req, res) => {
   } catch (error) {
     return res
       .status(500)
-      .json({ isOk: false, status: 500, message: error.message });
+      .json({ isOk: false, status: 500, message: "An unexpected error occurred" });
   }
 };
 
@@ -528,7 +530,7 @@ export const uploadUdidCert = async (req, res) => {
   } catch (error) {
     return res
       .status(500)
-      .json({ isOk: false, status: 500, message: error.message });
+      .json({ isOk: false, status: 500, message: "An unexpected error occurred" });
   }
 };
 
@@ -549,6 +551,6 @@ export const resumeRegistration = async (req, res) => {
   } catch (error) {
     return res
       .status(500)
-      .json({ isOk: false, status: 500, message: error.message });
+      .json({ isOk: false, status: 500, message: "An unexpected error occurred" });
   }
 };

@@ -1,5 +1,6 @@
 import EmailSetupModels from "../../models/EmailSetup.js";
 import EmailTemplateModels from "../../models/EmailTemplate.js";
+import { escapeRegex } from "../../utils/escapeRegex.js";
 
 export const createEmailSetup = async (req, res) => {
   try {
@@ -32,7 +33,7 @@ export const createEmailSetup = async (req, res) => {
       message: "Email Setup created successfully",
     });
   } catch (error) {
-    console.log(error);
+    console.error("[error]", error);
     res.status(500).json({
       isOk: false,
       status: 500,
@@ -88,7 +89,7 @@ export const updateEmailSetup = async (req, res) => {
       message: "Email Setup updated successfully",
     });
   } catch (error) {
-    console.log(error);
+    console.error("[error]", error);
     res.status(500).json({
       isOk: false,
       status: 500,
@@ -118,7 +119,7 @@ export const getEmailSetupById = async (req, res) => {
       data: emailSetup,
     });
   } catch (error) {
-    console.log(error);
+    console.error("[error]", error);
     res.status(500).json({
       isOk: false,
       status: 500,
@@ -138,7 +139,7 @@ export const listAllEmailSetup = async (req, res) => {
       data: emailSetup,
     });
   } catch (error) {
-    console.log(error);
+    console.error("[error]", error);
     res.status(500).json({
       isOk: false,
       status: 500,
@@ -183,7 +184,7 @@ export const deleteEmailSetup = async (req, res) => {
       message: "Email Setup deleted successfully",
     });
   } catch (error) {
-    console.log(error);
+    console.error("[error]", error);
     res.status(500).json({
       isOk: false,
       status: 500,
@@ -241,7 +242,7 @@ export const listEmailSetupByParams = async (req, res) => {
             $or: [
               {
                 email: {
-                  $regex: match,
+                  $regex: escapeRegex(match),
                   $options: "i",
                 },
               },

@@ -5,6 +5,7 @@ import {
   getReferencingCounts,
   formatReferenceMessage,
 } from "../../utils/referenceHelper.js";
+import { escapeRegex } from "../../utils/escapeRegex.js";
 
 // COUNTRY
 
@@ -35,7 +36,7 @@ export const createCountry = async (req, res) => {
       status: 201,
     });
   } catch (error) {
-    console.log("Error in createCountry", error);
+    console.error("Error in createCountry", error);
     return res.status(500).json({
       isOk: false,
       message: error.message,
@@ -54,7 +55,7 @@ export const listAllCountries = async (req, res) => {
       status: 200,
     });
   } catch (error) {
-    console.log("Error in listAllCountries", error);
+    console.error("Error in listAllCountries", error);
     return res.status(500).json({
       isOk: false,
       message: error.message,
@@ -98,7 +99,7 @@ export const deleteCountry = async (req, res) => {
       status: 200,
     });
   } catch (error) {
-    console.log("Error in deleteCountry", error);
+    console.error("Error in deleteCountry", error);
     return res.status(500).json({
       isOk: false,
       message: error.message,
@@ -134,7 +135,7 @@ export const updateCountry = async (req, res) => {
       status: 200,
     });
   } catch (error) {
-    console.log("Error in updateCountry", error);
+    console.error("Error in updateCountry", error);
     return res.status(500).json({
       isOk: false,
       message: error.message,
@@ -198,13 +199,13 @@ export const listCountryByParams = async (req, res) => {
             $or: [
               {
                 countryName: {
-                  $regex: match,
+                  $regex: escapeRegex(match),
                   $options: "i",
                 },
               },
               {
                 countryCode: {
-                  $regex: match,
+                  $regex: escapeRegex(match),
                   $options: "i",
                 },
               },
@@ -240,7 +241,7 @@ export const listCountryByParams = async (req, res) => {
       status: 200,
     });
   } catch (error) {
-    console.log(error);
+    console.error("[error]", error);
     return res.status(500).json({
       isOk: false,
       message: error.message,
@@ -269,7 +270,7 @@ export const getCountryById = async (req, res) => {
       status: 200,
     });
   } catch (error) {
-    console.log("Error in getCountryById", error);
+    console.error("Error in getCountryById", error);
     return res.status(500).json({
       isOk: false,
       message: error.message,
@@ -283,7 +284,6 @@ export const getCountryById = async (req, res) => {
 export const createState = async (req, res) => {
   try {
     const { stateName, stateCode, countryId, isActive } = req.body;
-    console.log(req.body);
 
     const existingState = await StateModels.findOne({ stateName });
 
@@ -310,7 +310,7 @@ export const createState = async (req, res) => {
       status: 201,
     });
   } catch (error) {
-    console.log("Error in createState", error);
+    console.error("Error in createState", error);
     return res.status(500).json({
       isOk: false,
       message: error.message,
@@ -332,7 +332,7 @@ export const listAllStates = async (req, res) => {
       status: 200,
     });
   } catch (error) {
-    console.log("Error in listAllStates", error);
+    console.error("Error in listAllStates", error);
     return res.status(500).json({
       isOk: false,
       message: error.message,
@@ -361,7 +361,7 @@ export const getStateById = async (req, res) => {
       status: 200,
     });
   } catch (error) {
-    console.log("Error in getStateById", error);
+    console.error("Error in getStateById", error);
     return res.status(500).json({
       isOk: false,
       message: error.message,
@@ -392,7 +392,7 @@ export const deleteState = async (req, res) => {
       status: 200,
     });
   } catch (error) {
-    console.log("Error in deleteState", error);
+    console.error("Error in deleteState", error);
     return res.status(500).json({
       isOk: false,
       message: error.message,
@@ -429,7 +429,7 @@ export const updateState = async (req, res) => {
       status: 200,
     });
   } catch (error) {
-    console.log("Error in updateState", error);
+    console.error("Error in updateState", error);
     return res.status(500).json({
       isOk: false,
       message: error.message,
@@ -450,7 +450,7 @@ export const listStateByCountry = async (req, res) => {
       status: 200,
     });
   } catch (error) {
-    console.log("Error in listStateByCountry", error);
+    console.error("Error in listStateByCountry", error);
     return res.status(500).json({
       isOk: false,
       message: error.message,
@@ -533,19 +533,19 @@ export const listStateByParams = async (req, res) => {
             $or: [
               {
                 stateName: {
-                  $regex: match,
+                  $regex: escapeRegex(match),
                   $options: "i",
                 },
               },
               {
                 stateCode: {
-                  $regex: match,
+                  $regex: escapeRegex(match),
                   $options: "i",
                 },
               },
               {
                 countryName: {
-                  $regex: match,
+                  $regex: escapeRegex(match),
                   $options: "i",
                 },
               },
@@ -581,7 +581,7 @@ export const listStateByParams = async (req, res) => {
       data: list,
     });
   } catch (error) {
-    console.log(error);
+    console.error("[error]", error);
     return res.status(500).status({
       isOk: false,
       message: error.message,
@@ -622,7 +622,7 @@ export const createCity = async (req, res) => {
       status: 201,
     });
   } catch (error) {
-    console.log("Error in createCity", error);
+    console.error("Error in createCity", error);
     return res.status(500).json({
       isOk: false,
       message: error.message,
@@ -644,7 +644,7 @@ export const listAllCities = async (req, res) => {
       status: 200,
     });
   } catch (error) {
-    console.log("Error in listAllCities", error);
+    console.error("Error in listAllCities", error);
     return res.status(500).json({
       isOk: false,
       message: error.message,
@@ -673,7 +673,7 @@ export const getCityById = async (req, res) => {
       status: 200,
     });
   } catch (error) {
-    console.log("Error in getCityById", error);
+    console.error("Error in getCityById", error);
     return res.status(500).json({
       isOk: false,
       message: error.message,
@@ -704,7 +704,7 @@ export const deleteCity = async (req, res) => {
       status: 200,
     });
   } catch (error) {
-    console.log("Error in deleteCity", error);
+    console.error("Error in deleteCity", error);
     return res.status(500).json({
       isOk: false,
       message: error.message,
@@ -742,7 +742,7 @@ export const updateCity = async (req, res) => {
       status: 200,
     });
   } catch (error) {
-    console.log("Error in updateCity", error);
+    console.error("Error in updateCity", error);
     return res.status(500).json({
       isOk: false,
       message: error.message,
@@ -763,7 +763,7 @@ export const listCityByState = async (req, res) => {
       status: 200,
     });
   } catch (error) {
-    console.log("Error in listCityByState", error);
+    console.error("Error in listCityByState", error);
     return res.status(500).json({
       isOk: false,
       message: error.message,
@@ -865,19 +865,19 @@ export const listCityByParams = async (req, res) => {
             $or: [
               {
                 stateName: {
-                  $regex: match,
+                  $regex: escapeRegex(match),
                   $options: "i",
                 },
               },
               {
                 countryName: {
-                  $regex: match,
+                  $regex: escapeRegex(match),
                   $options: "i",
                 },
               },
               {
                 cityName: {
-                  $regex: match,
+                  $regex: escapeRegex(match),
                   $options: "i",
                 },
               },
@@ -913,7 +913,7 @@ export const listCityByParams = async (req, res) => {
       status: 200,
     });
   } catch (error) {
-    console.log(error);
+    console.error("[error]", error);
     return res.status(500).json({
       isOk: false,
       message: error.message,
@@ -970,7 +970,7 @@ export const listCountryStateCity = async (req, res) => {
       status: 200,
     });
   } catch (error) {
-    console.log("Error in listCountryStateCity", error);
+    console.error("Error in listCountryStateCity", error);
     return res.status(500).json({
       isOk: false,
       message: error.message,

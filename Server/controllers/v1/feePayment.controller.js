@@ -12,6 +12,7 @@ import {
   sendTemplatedEmail,
   pdfToBuffer,
 } from "../../services/email.service.js";
+import { escapeRegex } from "../../utils/escapeRegex.js";
 
 const hashAadhaar = (raw) =>
   crypto.createHash("sha256").update(raw.replace(/\s/g, "")).digest("hex");
@@ -60,7 +61,7 @@ export const getFeeStatus = async (req, res) => {
   } catch (error) {
     return res
       .status(500)
-      .json({ isOk: false, status: 500, message: error.message });
+      .json({ isOk: false, status: 500, message: "An unexpected error occurred" });
   }
 };
 
@@ -131,7 +132,7 @@ export const initiateFeePayment = async (req, res) => {
   } catch (error) {
     return res
       .status(500)
-      .json({ isOk: false, status: 500, message: error.message });
+      .json({ isOk: false, status: 500, message: "An unexpected error occurred" });
   }
 };
 
@@ -175,7 +176,7 @@ export const getFeeReceipt = async (req, res) => {
     if (!res.headersSent)
       return res
         .status(500)
-        .json({ isOk: false, status: 500, message: error.message });
+        .json({ isOk: false, status: 500, message: "An unexpected error occurred" });
   }
 };
 
@@ -313,7 +314,7 @@ export const listFeePayments = async (req, res) => {
   } catch (error) {
     return res
       .status(500)
-      .json({ isOk: false, status: 500, message: error.message });
+      .json({ isOk: false, status: 500, message: "An unexpected error occurred" });
   }
 };
 
@@ -350,7 +351,7 @@ export const reconciliation = async (req, res) => {
   } catch (error) {
     return res
       .status(500)
-      .json({ isOk: false, status: 500, message: error.message });
+      .json({ isOk: false, status: 500, message: "An unexpected error occurred" });
   }
 };
 
@@ -391,7 +392,7 @@ export const manualVerification = async (req, res) => {
   } catch (error) {
     return res
       .status(500)
-      .json({ isOk: false, status: 500, message: error.message });
+      .json({ isOk: false, status: 500, message: "An unexpected error occurred" });
   }
 };
 
@@ -416,8 +417,8 @@ export const searchFeePayments = async (req, res) => {
       pipeline.push({
         $match: {
           $or: [
-            { registration_id: { $regex: match, $options: "i" } },
-            { payment_id: { $regex: match, $options: "i" } },
+            { registration_id: { $regex: escapeRegex(match), $options: "i" } },
+            { payment_id: { $regex: escapeRegex(match), $options: "i" } },
           ],
         },
       });
@@ -444,7 +445,7 @@ export const searchFeePayments = async (req, res) => {
   } catch (error) {
     return res
       .status(500)
-      .json({ isOk: false, status: 500, message: error.message });
+      .json({ isOk: false, status: 500, message: "An unexpected error occurred" });
   }
 };
 
@@ -459,6 +460,6 @@ export const getMyFeePayments = async (req, res) => {
   } catch (error) {
     return res
       .status(500)
-      .json({ isOk: false, status: 500, message: error.message });
+      .json({ isOk: false, status: 500, message: "An unexpected error occurred" });
   }
 };
