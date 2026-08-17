@@ -83,11 +83,32 @@ export default function FindRegistration() {
         <span className="guj">ઉમેદવાર લૉગિન</span>
       </div>
 
-      <div style={{ maxWidth: 460, margin: '0 auto' }}>
+      <div style={{ maxWidth: 500, margin: '0 auto' }}>
+        {/* Prominent New Candidate guidance */}
+        <div className="notice info" style={{ marginBottom: 16, padding: '14px 16px' }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 10 }}>
+            <div>
+              <strong style={{ fontSize: 13.5, color: 'var(--ojas-navy-deep)', display: 'block', marginBottom: 2 }}>
+                New Candidate? / નવા ઉમેદવાર?
+              </strong>
+              <span style={{ fontSize: 12, color: 'var(--ojas-ink-2)' }}>
+                One-Time Registration (OTR) is mandatory before applying.
+              </span>
+            </div>
+            <Link
+              to="/registration"
+              className="btn primary"
+              style={{ padding: '6px 14px', fontSize: 12, textDecoration: 'none', whiteSpace: 'nowrap' }}
+            >
+              Register (OTR) ▶
+            </Link>
+          </div>
+        </div>
 
         <div className="box">
           <div className="box-title">
-            <span>{step === 'phone' ? 'Candidate Login' : 'Verify OTP'}</span>
+            <span>{step === 'phone' ? 'Already Registered? Candidate Login' : 'Verify OTP'}</span>
+            <span className="guj">{step === 'phone' ? 'નોંધાયેલા ઉમેદવાર લૉગિન' : 'ઓટીપી ચકાસો'}</span>
           </div>
           <div className="box-body">
 
