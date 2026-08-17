@@ -94,13 +94,13 @@ export const initRegistration = async (req, res) => {
         message: "Aadhaar already registered",
       });
 
-    req.session.candidateStep = { step: 1, aadhaar_hash, mobile, data: {} };
+    req.session.candidateStep = { step: 2, aadhaar_hash, mobile, data: {} };
 
     return res.status(200).json({
       isOk: true,
       status: 200,
       message: "Registration initiated",
-      data: { step: 1 },
+      data: { step: 2 },
     });
   } catch (error) {
     return res
