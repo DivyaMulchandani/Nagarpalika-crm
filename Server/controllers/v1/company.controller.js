@@ -181,6 +181,7 @@ export const loginCompany = async (req, res) => {
       email,
       isActive: true,
     })
+      .select("+password")
       .populate("countryId")
       .populate("stateId")
       .populate("cityId")
@@ -190,6 +191,7 @@ export const loginCompany = async (req, res) => {
       emailOffice: email,
       isActive: true,
     })
+      .select("+password")
       .populate("departmentId")
       .populate("stateId")
       .populate("cityId")
@@ -234,6 +236,11 @@ export const loginCompany = async (req, res) => {
     } else if (role === "DOCTOR") {
       dataToSend.companyName = company ? company.companyName : "";
     }
+
+    // Session fixation prevention — issue a fresh session id on privilege change
+    await new Promise((resolve, reject) =>
+      req.session.regenerate((err) => (err ? reject(err) : resolve())),
+    );
 
     // Store user data in express session
     req.session.user = {

@@ -406,6 +406,18 @@ export const verifyLoginOtp = async (req, res) => {
         message: "No pending OTP for this login request",
       });
 
+    // The OTP is only valid for the identifier it was issued to. Without this
+    // check an attacker could request an OTP for their own account and then
+    // submit it alongside someone else's identifier to log in as them.
+    if (
+      String(stored.target || "").toLowerCase() !== input.toLowerCase()
+    )
+      return res.status(400).json({
+        isOk: false,
+        status: 400,
+        message: "No pending OTP for this login request",
+      });
+
     if (Date.now() > stored.expires_at) {
       delete req.session.candidateOtp;
       return res
@@ -437,23 +449,13 @@ export const verifyLoginOtp = async (req, res) => {
         .status(401)
         .json({ isOk: false, status: 401, message: "Invalid OTP" });
 
-    let query = {};
-    if (/^\d{10}$/.test(input)) {
-      query = { mobile: input };
-    } else if (/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(input)) {
-      query = { email: input.toLowerCase() };
-    } else {
-      query = { registration_id: input.toUpperCase() };
-    }
-
-    let candidate = await Candidate.findOne(query).select(
-      "_id registration_id name",
-    );
-    if (!candidate && stored?.candidateId) {
-      candidate = await Candidate.findById(stored.candidateId).select(
-        "_id registration_id name",
-      );
-    }
+    // Resolve the account from the id captured when the OTP was issued — never
+    // from the request body, which the caller controls.
+    const candidate = stored.candidateId
+      ? await Candidate.findById(stored.candidateId).select(
+          "_id registration_id name",
+        )
+      : null;
 
     if (!candidate)
       return res.status(401).json({

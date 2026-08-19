@@ -365,7 +365,14 @@ export const loginEmployee = async (req, res) => {
   try {
     const { email, password } = req.body;
 
-    const employee = await EmployeeModels.findOne({ emailOffice: email })
+    // isActive filter: a blocked account must not be able to log in here.
+    // Returning the same "Invalid credentials" message as a wrong password
+    // keeps blocked accounts indistinguishable from non-existent ones.
+    const employee = await EmployeeModels.findOne({
+      emailOffice: email,
+      isActive: true,
+    })
+      .select("+password")
       .populate("departmentId")
       .populate("countryId")
       .populate("stateId")
@@ -393,7 +400,12 @@ export const loginEmployee = async (req, res) => {
       });
     }
 
-    // Store user data in express session (in-memory)
+    // Session fixation prevention — issue a fresh session id on privilege change
+    await new Promise((resolve, reject) =>
+      req.session.regenerate((err) => (err ? reject(err) : resolve())),
+    );
+
+    // Store user data in express session
     req.session.user = {
       id: employee._id.toString(),
       role: "EMPLOYEE",
@@ -401,10 +413,19 @@ export const loginEmployee = async (req, res) => {
       name: employee.employeeName,
     };
 
+    // Explicit field list — never return the raw document
     return res.status(200).json({
       isOk: true,
       message: "Login successful",
-      data: employee,
+      data: {
+        _id: employee._id,
+        employeeName: employee.employeeName,
+        emailOffice: employee.emailOffice,
+        mobileNumber: employee.mobileNumber,
+        departmentId: employee.departmentId,
+        roleId: employee.roleId,
+        isActive: employee.isActive,
+      },
       status: 200,
     });
   } catch (error) {

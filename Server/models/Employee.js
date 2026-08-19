@@ -51,6 +51,9 @@ const EmployeeSchema = new mongoose.Schema(
       type: String,
       required: true,
       trim: true,
+      // Never returned by a query unless explicitly asked for with
+      // .select("+password") — keeps the hash out of API responses.
+      select: false,
     },
     isActive: {
       type: Boolean,
