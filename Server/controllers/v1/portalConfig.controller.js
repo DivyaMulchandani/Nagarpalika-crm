@@ -8,6 +8,7 @@ export const getPortalConfig = async (_req, res) => {
       data: getPortalConfigPayload(),
     });
   } catch (error) {
-    return res.status(500).json({ isOk: false, status: 500, message: error.message });
+    console.error("[portalConfig] getPortalConfig error:", error.message);
+    return res.status(500).json({ isOk: false, status: 500, message: "An unexpected error occurred" });
   }
 };

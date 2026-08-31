@@ -1,4 +1,5 @@
 import EmailTemplateModels from "../../models/EmailTemplate.js";
+import { escapeRegex } from "../../utils/escapeRegex.js";
 
 export const createEmailTemplate = async (req, res) => {
   try {
@@ -34,7 +35,7 @@ export const createEmailTemplate = async (req, res) => {
       message: "Email Template created successfully",
     });
   } catch (error) {
-    console.log(error);
+    console.error("[error]", error);
     res.status(500).json({
       isOk: false,
       status: 500,
@@ -92,7 +93,7 @@ export const updateEmailTemplate = async (req, res) => {
       message: "Email Template updated successfully",
     });
   } catch (error) {
-    console.log(error);
+    console.error("[error]", error);
     res.status(500).json({
       isOk: false,
       status: 500,
@@ -124,7 +125,7 @@ export const getEmailTemplateById = async (req, res) => {
       data: emailTemplate,
     });
   } catch (error) {
-    console.log(error);
+    console.error("[error]", error);
     res.status(500).json({
       isOk: false,
       status: 500,
@@ -156,7 +157,7 @@ export const deleteEmailTemplate = async (req, res) => {
       message: "Email Template deleted successfully",
     });
   } catch (error) {
-    console.log(error);
+    console.error("[error]", error);
     res.status(500).json({
       isOk: false,
       status: 500,
@@ -239,31 +240,31 @@ export const listEmailTemplateByParams = async (req, res) => {
             $or: [
               {
                 templateName: {
-                  $regex: match,
+                  $regex: escapeRegex(match),
                   $options: "i",
                 },
               },
               {
                 mailerName: {
-                  $regex: match,
+                  $regex: escapeRegex(match),
                   $options: "i",
                 },
               },
               {
                 emailSubject: {
-                  $regex: match,
+                  $regex: escapeRegex(match),
                   $options: "i",
                 },
               },
               {
                 "emailFrom.email": {
-                  $regex: match,
+                  $regex: escapeRegex(match),
                   $options: "i",
                 },
               },
               {
                 "emailFor.emailFor": {
-                  $regex: match,
+                  $regex: escapeRegex(match),
                   $options: "i",
                 },
               },

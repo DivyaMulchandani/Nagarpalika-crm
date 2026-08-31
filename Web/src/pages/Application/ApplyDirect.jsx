@@ -778,13 +778,28 @@ export default function ApplyDirect() {
       {heading}
 
       {screen === 'login' && (
-        <>
-          <div className="notice info" style={{ maxWidth: 440, margin: '0 auto 16px', fontSize: 13 }}>
-            <div className="title">Login Required</div>
-            Login with your registered mobile number to apply for this post.
+        <div style={{ maxWidth: 480, margin: '0 auto' }}>
+          <div className="notice info" style={{ marginBottom: 16, padding: '14px 16px' }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 10 }}>
+              <div>
+                <strong style={{ fontSize: 13.5, color: 'var(--ojas-navy-deep)', display: 'block', marginBottom: 2 }}>
+                  First time applying? / નવા ઉમેદવાર?
+                </strong>
+                <span style={{ fontSize: 12, color: 'var(--ojas-ink-2)' }}>
+                  Complete One-Time Registration (OTR) before applying.
+                </span>
+              </div>
+              <Link
+                to="/registration"
+                className="btn primary"
+                style={{ padding: '6px 14px', fontSize: 12, textDecoration: 'none', whiteSpace: 'nowrap' }}
+              >
+                Register (OTR) ▶
+              </Link>
+            </div>
           </div>
           <OtpLogin onSuccess={handleLoginSuccess} />
-        </>
+        </div>
       )}
 
       {screen === 'form' && (

@@ -1,6 +1,21 @@
 import { useState, useEffect, useContext } from "react";
 import {
-  Card, CardBody, CardHeader, Col, Container, Row, Badge, Button,
+  Card,
+  CardBody,
+  CardHeader,
+  Col,
+  Container,
+  Row,
+  Badge,
+  Button,
+  Modal,
+  ModalHeader,
+  ModalBody,
+  ModalFooter,
+  Input,
+  Label,
+  FormFeedback,
+  Spinner,
 } from "reactstrap";
 import { useParams, useNavigate } from "react-router-dom";
 import { getApplicationByRef, updateApplicationStatus } from "../../api/applications.api";
@@ -31,6 +46,11 @@ const ALLOWED_TRANSITIONS = {
   selected: [],
 };
 
+const countWords = (text) => {
+  if (!text || typeof text !== "string") return 0;
+  return text.trim().split(/\s+/).filter(Boolean).length;
+};
+
 const Field = ({ label, value, mono, span }) => (
   <Col md={span || 4} className="mb-3">
     <div style={{ fontSize: 11, color: "#888", marginBottom: 2, textTransform: "uppercase", letterSpacing: 0.3 }}>{label}</div>
@@ -57,6 +77,12 @@ const ApplicationView = () => {
   const [loading, setLoading] = useState(true);
   const [statusUpdating, setStatusUpdating] = useState(false);
 
+  // Status Change Modal State
+  const [statusModalOpen, setStatusModalOpen] = useState(false);
+  const [pendingStatus, setPendingStatus] = useState(null);
+  const [statusReason, setStatusReason] = useState("");
+  const [statusReasonError, setStatusReasonError] = useState(null);
+
   useEffect(() => {
     getApplicationByRef(ref)
       .then((r) => setRec(r.data.data))
@@ -64,12 +90,39 @@ const ApplicationView = () => {
       .finally(() => setLoading(false));
   }, [ref]);
 
-  const handleStatusChange = async (nextStatus) => {
+  const openStatusModal = (nextStatus) => {
+    setPendingStatus(nextStatus);
+    setStatusReason("");
+    setStatusReasonError(null);
+    setStatusModalOpen(true);
+  };
+
+  const handleStatusSubmit = async () => {
+    const words = countWords(statusReason);
+    if (words < 10) {
+      setStatusReasonError(
+        `Reason is mandatory and must be at least 10 words (currently ${words} word${words === 1 ? "" : "s"}).`
+      );
+      return;
+    }
+    setStatusReasonError(null);
     setStatusUpdating(true);
     try {
-      const res = await updateApplicationStatus(rec.application._id, nextStatus);
-      setRec((prev) => ({ ...prev, application: { ...prev.application, status: res.data.data.status, edit_log: res.data.data.edit_log } }));
-      toast.success("Status updated");
+      const res = await updateApplicationStatus(
+        rec.application._id,
+        pendingStatus,
+        statusReason.trim()
+      );
+      setRec((prev) => ({
+        ...prev,
+        application: {
+          ...prev.application,
+          status: res.data.data.status,
+          edit_log: res.data.data.edit_log,
+        },
+      }));
+      toast.success(`Application marked as ${pendingStatus.replace(/_/g, " ")}`);
+      setStatusModalOpen(false);
     } catch (err) {
       toast.error(err?.response?.data?.message || "Failed to update status");
     } finally {
@@ -77,7 +130,7 @@ const ApplicationView = () => {
     }
   };
 
-  document.title = `Application ${ref} | ${adminData?.companyName}`;
+  document.title = `Application ${ref} | ${adminData?.companyName || "Nagarpalika"}`;
 
   if (loading) {
     return (
@@ -220,7 +273,7 @@ const ApplicationView = () => {
                       color={statusColor[next] || "secondary"}
                       outline
                       disabled={statusUpdating}
-                      onClick={() => handleStatusChange(next)}
+                      onClick={() => openStatusModal(next)}
                     >
                       Mark {next.replace(/_/g, " ")}
                     </Button>
@@ -242,21 +295,58 @@ const ApplicationView = () => {
         </SectionCard>
 
         {app?.edit_log?.some((e) => e.field === "status") && (
-          <SectionCard title="Status History">
-            <table className="table table-sm table-bordered mb-0" style={{ fontSize: 13 }}>
-              <thead className="table-light">
-                <tr><th>From</th><th>To</th><th>Changed At</th></tr>
-              </thead>
-              <tbody>
-                {app.edit_log.filter((e) => e.field === "status").map((e, i) => (
-                  <tr key={i}>
-                    <td className="text-uppercase">{e.old_value?.replace(/_/g, " ") || "—"}</td>
-                    <td className="text-uppercase">{e.new_value?.replace(/_/g, " ") || "—"}</td>
-                    <td>{fmtDateTime(e.changed_at)}</td>
+          <SectionCard title="Status History & Audit Log">
+            <div className="table-responsive">
+              <table className="table table-sm table-bordered align-middle mb-0" style={{ fontSize: 13 }}>
+                <thead className="table-light">
+                  <tr>
+                    <th style={{ width: "13%" }}>From Status</th>
+                    <th style={{ width: "13%" }}>To Status</th>
+                    <th style={{ width: "38%" }}>Reason / Officer Remarks</th>
+                    <th style={{ width: "20%" }}>Action Taken By</th>
+                    <th style={{ width: "16%" }}>Date & Time</th>
                   </tr>
-                ))}
-              </tbody>
-            </table>
+                </thead>
+                <tbody>
+                  {app.edit_log
+                    .filter((e) => e.field === "status")
+                    .map((e, i) => (
+                      <tr key={i}>
+                        <td>
+                          <Badge color={statusColor[e.old_value] || "secondary"} className="text-uppercase">
+                            {e.old_value?.replace(/_/g, " ") || "—"}
+                          </Badge>
+                        </td>
+                        <td>
+                          <Badge color={statusColor[e.new_value] || "secondary"} className="text-uppercase">
+                            {e.new_value?.replace(/_/g, " ") || "—"}
+                          </Badge>
+                        </td>
+                        <td>
+                          <div style={{ whiteSpace: "pre-wrap", lineHeight: 1.4 }}>
+                            {e.reason ? (
+                              <span>{e.reason}</span>
+                            ) : (
+                              <span className="text-muted fst-italic">No reason recorded</span>
+                            )}
+                          </div>
+                        </td>
+                        <td>
+                          <div className="fw-semibold text-dark">
+                            {e.changed_by_name || "Admin Officer"}
+                          </div>
+                          {e.changed_by_role && (
+                            <small className="badge bg-light text-muted border">
+                              {e.changed_by_role}
+                            </small>
+                          )}
+                        </td>
+                        <td>{fmtDateTime(e.changed_at)}</td>
+                      </tr>
+                    ))}
+                </tbody>
+              </table>
+            </div>
           </SectionCard>
         )}
 
@@ -324,6 +414,135 @@ const ApplicationView = () => {
         <div className="mt-2 mb-4">
           <Button color="secondary" onClick={() => navigate("/applications")}>← Back to List</Button>
         </div>
+
+        {/* Status Confirmation & Mandatory 10-Word Reason Modal */}
+        <Modal
+          isOpen={statusModalOpen}
+          toggle={() => !statusUpdating && setStatusModalOpen(false)}
+          centered
+          backdrop="static"
+        >
+          <ModalHeader
+            toggle={() => !statusUpdating && setStatusModalOpen(false)}
+            className={
+              pendingStatus === "rejected"
+                ? "bg-danger text-white"
+                : pendingStatus === "under_review"
+                ? "bg-info text-white"
+                : pendingStatus === "shortlisted"
+                ? "bg-warning text-dark"
+                : pendingStatus === "selected"
+                ? "bg-success text-white"
+                : "bg-primary text-white"
+            }
+          >
+            Confirm Status Change: Mark {pendingStatus?.replace(/_/g, " ").toUpperCase()}
+          </ModalHeader>
+          <ModalBody>
+            <div className="mb-3 p-2 bg-light rounded border">
+              <Row className="g-2 text-muted" style={{ fontSize: 12 }}>
+                <Col sm={6}><strong>Candidate:</strong> {c?.name || "—"}</Col>
+                <Col sm={6}><strong>Reg. ID:</strong> {app?.registration_id || "—"}</Col>
+                <Col sm={6}><strong>Ref No:</strong> {app?.application_ref_no || "—"}</Col>
+                <Col sm={6}>
+                  <strong>Action:</strong>{" "}
+                  <Badge color={statusColor[app?.status] || "secondary"} className="text-uppercase me-1">
+                    {app?.status?.replace(/_/g, " ")}
+                  </Badge>
+                  →
+                  <Badge color={statusColor[pendingStatus] || "secondary"} className="text-uppercase ms-1">
+                    {pendingStatus?.replace(/_/g, " ")}
+                  </Badge>
+                </Col>
+              </Row>
+            </div>
+
+            <div className="mb-3">
+              <div className="d-flex justify-content-between align-items-center mb-1">
+                <Label htmlFor="statusReasonInput" className="form-label mb-0 fw-semibold">
+                  Reason for Status Change <span className="text-danger">*</span>
+                </Label>
+                <span
+                  style={{ fontSize: 12 }}
+                  className={
+                    countWords(statusReason) >= 10
+                      ? "text-success fw-semibold"
+                      : "text-danger fw-semibold"
+                  }
+                >
+                  {countWords(statusReason)} / 10 words minimum
+                </span>
+              </div>
+              <Input
+                id="statusReasonInput"
+                type="textarea"
+                rows={4}
+                value={statusReason}
+                onChange={(e) => {
+                  setStatusReason(e.target.value);
+                  if (statusReasonError && countWords(e.target.value) >= 10) {
+                    setStatusReasonError(null);
+                  }
+                }}
+                placeholder={
+                  pendingStatus === "rejected"
+                    ? "Enter detailed reason for rejection (e.g. Incomplete documentation, age criteria not met, qualification degree certificate not attached properly)..."
+                    : pendingStatus === "under_review"
+                    ? "Enter detailed reason for marking under review (e.g. Document scrutiny in progress for caste certificate validation and sports quota verification)..."
+                    : "Enter detailed reason or remarks for this status update..."
+                }
+                invalid={!!statusReasonError}
+                disabled={statusUpdating}
+              />
+              {statusReasonError ? (
+                <FormFeedback>{statusReasonError}</FormFeedback>
+              ) : (
+                <div className="mt-1" style={{ fontSize: 12 }}>
+                  {countWords(statusReason) < 10 ? (
+                    <span className="text-danger">
+                      Please write at least {10 - countWords(statusReason)} more word{10 - countWords(statusReason) === 1 ? "" : "s"}.
+                    </span>
+                  ) : (
+                    <span className="text-success fw-medium">
+                      ✓ Minimum word requirement satisfied ({countWords(statusReason)} words).
+                    </span>
+                  )}
+                </div>
+              )}
+            </div>
+
+            <div className="alert alert-secondary py-2 mb-0 d-flex align-items-center gap-2" style={{ fontSize: 12 }}>
+              <i className="ri-information-line fs-15 text-primary"></i>
+              <div>
+                This action and reason will be permanently recorded in the audit log under{" "}
+                <strong>{adminData?.employeeName || adminData?.name || adminData?.emailOffice || adminData?.email || "Current User"}</strong> (
+                {adminData?.role || "ADMIN"}).
+              </div>
+            </div>
+          </ModalBody>
+          <ModalFooter>
+            <Button
+              color="light"
+              disabled={statusUpdating}
+              onClick={() => setStatusModalOpen(false)}
+            >
+              Cancel
+            </Button>
+            <Button
+              color={statusColor[pendingStatus] || "primary"}
+              disabled={statusUpdating || countWords(statusReason) < 10}
+              onClick={handleStatusSubmit}
+            >
+              {statusUpdating ? (
+                <>
+                  <Spinner size="sm" className="me-1" /> Updating...
+                </>
+              ) : (
+                `Confirm & Mark ${pendingStatus?.replace(/_/g, " ")}`
+              )}
+            </Button>
+          </ModalFooter>
+        </Modal>
       </Container>
     </div>
   );

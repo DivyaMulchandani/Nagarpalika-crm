@@ -238,9 +238,9 @@ export default function Home() {
             </div>
             <div className="box-body ql-grid">
               {[
-                { label: 'How to Register',          to: '/registration' },
+                { label: 'New Registration (OTR)',   to: '/registration' },
+                { label: 'Candidate Login / Apply',  to: '/registration/find' },
                 { label: 'How to Apply',             to: '/careers' },
-                { label: 'Apply',                    to: '/registration/find' },
                 { label: 'Admit Card / Call Letter', to: '/callletter' },
                 { label: 'Results',                  to: '/results' },
                 { label: 'Help / Query',             to: '/contact' },

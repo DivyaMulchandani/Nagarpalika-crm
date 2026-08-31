@@ -3,6 +3,7 @@ import {
   getReferencingCounts,
   formatReferenceMessage,
 } from "../../utils/referenceHelper.js";
+import { escapeRegex } from "../../utils/escapeRegex.js";
 
 export const createRole = async (req, res) => {
   try {
@@ -170,7 +171,7 @@ export const listRoleByParams = async (req, res) => {
             $or: [
               {
                 roleName: {
-                  $regex: match,
+                  $regex: escapeRegex(match),
                   $options: "i",
                 },
               },

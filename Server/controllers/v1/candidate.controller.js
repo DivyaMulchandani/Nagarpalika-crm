@@ -10,6 +10,7 @@ import {
   streamCandidatesZip,
   buildCandidatesZipFilename,
 } from "../../services/candidateExport.service.js";
+import { escapeRegex } from "../../utils/escapeRegex.js";
 
 // Max candidates a single ZIP export may bundle (matches the list's largest page size).
 const ZIP_MAX_CANDIDATES = 100;
@@ -20,9 +21,9 @@ const buildCandidateListFilter = ({ match, otr_status }) => {
   if (otr_status) filter.otr_status = otr_status;
   if (match) {
     filter.$or = [
-      { name: { $regex: match, $options: "i" } },
-      { registration_id: { $regex: match, $options: "i" } },
-      { email: { $regex: match, $options: "i" } },
+      { name: { $regex: escapeRegex(match), $options: "i" } },
+      { registration_id: { $regex: escapeRegex(match), $options: "i" } },
+      { email: { $regex: escapeRegex(match), $options: "i" } },
     ];
   }
   return filter;
@@ -71,7 +72,7 @@ export const registerCandidate = async (req, res) => {
   } catch (error) {
     return res
       .status(500)
-      .json({ isOk: false, status: 500, message: error.message });
+      .json({ isOk: false, status: 500, message: "An unexpected error occurred" });
   }
 };
 
@@ -156,7 +157,7 @@ export const loginCandidate = async (req, res) => {
   } catch (error) {
     return res
       .status(500)
-      .json({ isOk: false, status: 500, message: error.message });
+      .json({ isOk: false, status: 500, message: "An unexpected error occurred" });
   }
 };
 
@@ -172,7 +173,7 @@ export const logoutCandidate = async (req, res) => {
   } catch (error) {
     return res
       .status(500)
-      .json({ isOk: false, status: 500, message: error.message });
+      .json({ isOk: false, status: 500, message: "An unexpected error occurred" });
   }
 };
 
@@ -220,7 +221,7 @@ export const resetCandidatePassword = async (req, res) => {
   } catch (error) {
     return res
       .status(500)
-      .json({ isOk: false, status: 500, message: error.message });
+      .json({ isOk: false, status: 500, message: "An unexpected error occurred" });
   }
 };
 
@@ -250,7 +251,7 @@ export const getMyProfile = async (req, res) => {
   } catch (error) {
     return res
       .status(500)
-      .json({ isOk: false, status: 500, message: error.message });
+      .json({ isOk: false, status: 500, message: "An unexpected error occurred" });
   }
 };
 
@@ -361,7 +362,7 @@ export const editCandidate = async (req, res) => {
   } catch (error) {
     return res
       .status(500)
-      .json({ isOk: false, status: 500, message: error.message });
+      .json({ isOk: false, status: 500, message: "An unexpected error occurred" });
   }
 };
 
@@ -397,7 +398,7 @@ export const uploadProfilePhoto = async (req, res) => {
       data: { url, photo_path: req.file.path },
     });
   } catch (error) {
-    return res.status(500).json({ isOk: false, status: 500, message: error.message });
+    return res.status(500).json({ isOk: false, status: 500, message: "An unexpected error occurred" });
   }
 };
 
@@ -430,7 +431,7 @@ export const uploadProfileSignature = async (req, res) => {
       data: { url, signature_path: req.file.path },
     });
   } catch (error) {
-    return res.status(500).json({ isOk: false, status: 500, message: error.message });
+    return res.status(500).json({ isOk: false, status: 500, message: "An unexpected error occurred" });
   }
 };
 
@@ -463,7 +464,7 @@ export const uploadProfileCasteCert = async (req, res) => {
       data: { url, caste_cert_path: req.file.path },
     });
   } catch (error) {
-    return res.status(500).json({ isOk: false, status: 500, message: error.message });
+    return res.status(500).json({ isOk: false, status: 500, message: "An unexpected error occurred" });
   }
 };
 
@@ -541,7 +542,7 @@ export const getCandidateById = async (req, res) => {
   } catch (error) {
     return res
       .status(500)
-      .json({ isOk: false, status: 500, message: error.message });
+      .json({ isOk: false, status: 500, message: "An unexpected error occurred" });
   }
 };
 
@@ -563,9 +564,9 @@ export const searchCandidates = async (req, res) => {
       pipeline.push({
         $match: {
           $or: [
-            { name: { $regex: match, $options: "i" } },
-            { registration_id: { $regex: match, $options: "i" } },
-            { email: { $regex: match, $options: "i" } },
+            { name: { $regex: escapeRegex(match), $options: "i" } },
+            { registration_id: { $regex: escapeRegex(match), $options: "i" } },
+            { email: { $regex: escapeRegex(match), $options: "i" } },
           ],
         },
       });
@@ -602,9 +603,10 @@ export const searchCandidates = async (req, res) => {
     const result = await Candidate.aggregate(pipeline);
     return res.status(200).json({ isOk: true, status: 200, data: result });
   } catch (error) {
+    console.error("[candidate] searchCandidates error:", error.message);
     return res
       .status(500)
-      .json({ isOk: false, status: 500, message: error.message });
+      .json({ isOk: false, status: 500, message: "An unexpected error occurred" });
   }
 };
 
@@ -621,10 +623,10 @@ export const exportCandidates = async (req, res) => {
     if (category) filter.category = category;
     if (match) {
       filter.$or = [
-        { name: { $regex: match, $options: "i" } },
-        { registration_id: { $regex: match, $options: "i" } },
-        { email: { $regex: match, $options: "i" } },
-        { mobile: { $regex: match, $options: "i" } },
+        { name: { $regex: escapeRegex(match), $options: "i" } },
+        { registration_id: { $regex: escapeRegex(match), $options: "i" } },
+        { email: { $regex: escapeRegex(match), $options: "i" } },
+        { mobile: { $regex: escapeRegex(match), $options: "i" } },
       ];
     }
 
@@ -667,7 +669,7 @@ export const exportCandidates = async (req, res) => {
   } catch (error) {
     return res
       .status(500)
-      .json({ isOk: false, status: 500, message: error.message });
+      .json({ isOk: false, status: 500, message: "An unexpected error occurred" });
   }
 };
 
@@ -723,6 +725,6 @@ export const exportCandidatesZip = async (req, res) => {
     }
     return res
       .status(500)
-      .json({ isOk: false, status: 500, message: error.message });
+      .json({ isOk: false, status: 500, message: "An unexpected error occurred" });
   }
 };

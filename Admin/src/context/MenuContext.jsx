@@ -55,12 +55,14 @@ const MenuProvider = ({ children }) => {
 
             if (response.data.isOk) {
                 const userData = response.data.data;
-                console.log("User data:", userData);
                 setIsStatusFetched(true);
                 // Set admin status, employee ID and role ID
                 setIsAdmin(userData.role === ROLES.ADMIN);
                 setEmployeeId(userData._id);
-                setEmployeeRoleId(userData.roleId);
+                const actualRoleId = typeof userData.roleId === 'object' && userData.roleId !== null
+                    ? (userData.roleId._id || userData.roleId.id || userData.roleId.roleId)
+                    : userData.roleId;
+                setEmployeeRoleId(actualRoleId);
                 return userData.role === ROLES.ADMIN;
             }
 
@@ -74,9 +76,12 @@ const MenuProvider = ({ children }) => {
     // Fetch employee roles based on roleId instead of employee ID
     const fetchEmployeeRoles = async (roleId) => {
         try {
-            if (!roleId) return null;
+            const cleanRoleId = typeof roleId === 'object' && roleId !== null
+                ? (roleId._id || roleId.id || roleId.roleId)
+                : roleId;
+            if (!cleanRoleId || cleanRoleId === '[object Object]') return null;
 
-            const response = await getEmployeeRolesByRoleId(roleId);
+            const response = await getEmployeeRolesByRoleId(cleanRoleId);
 
             if (response.data.isOk) {
                 setEmployeeRoles(response.data.data[0]);
@@ -121,17 +126,13 @@ const MenuProvider = ({ children }) => {
             // First check if user is admin
             const adminStatus = await checkUserRole();
 
-            console.log("Admin status:", adminStatus);
-
             // Check if we have valid cached data
             if (!forceRefresh && isCacheValid()) {
                 if (adminStatus && menuCache.adminMenus) {
-                    console.log("Using cached admin menus");
                     setMenuData(menuCache.adminMenus);
                     setLoading(false);
                     return;
                 } else if (!adminStatus && employeeRoleId && menuCache.roleMenus[employeeRoleId]) {
-                    console.log(`Using cached menus for role ${employeeRoleId}`);
                     setMenuData(menuCache.roleMenus[employeeRoleId]);
                     setLoading(false);
                     return;
@@ -148,7 +149,6 @@ const MenuProvider = ({ children }) => {
 
                 // If admin, store all menus
                 if (adminStatus) {
-                    console.log("Admin menus", menuGroups);
                     setMenuData(menuGroups);
                     setMenuCache(prev => ({
                         ...prev,

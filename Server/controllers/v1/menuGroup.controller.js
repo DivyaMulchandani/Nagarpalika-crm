@@ -1,9 +1,9 @@
 import MenuGroupMaster from "../../models/MenuGroupMaster.js";
+import { escapeRegex } from "../../utils/escapeRegex.js";
 
 export const createMenuGroup = async (req, res) => {
   try {
     const { menuGroupName, sequence, isActive, isLink, menuUrl } = req.body;
-    console.log("Creating menu group:", req.body);
 
     const menuGroup = await MenuGroupMaster.create({
       menuGroupName,
@@ -20,11 +20,10 @@ export const createMenuGroup = async (req, res) => {
       data: menuGroup,
     });
   } catch (error) {
-    console.log("Error creating menu group:", error);
+    console.error("[menuGroup] createMenuGroup error:", error);
     res.status(500).json({
       isOk: false,
-      message: "Error creating menu group",
-      error: error.message,
+      message: "An unexpected error occurred",
     });
   }
 };
@@ -39,11 +38,10 @@ export const getAllMenuGroups = async (req, res) => {
       data: menuGroups,
     });
   } catch (error) {
-    console.log(error);
+    console.error("[menuGroup] getAllMenuGroups error:", error);
     res.status(500).json({
       isOk: false,
-      message: "Error fetching menu groups",
-      error: error.message,
+      message: "An unexpected error occurred",
     });
   }
 };
@@ -60,11 +58,10 @@ export const getMenuGroupById = async (req, res) => {
       data: menuGroup,
     });
   } catch (error) {
-    console.log(error);
+    console.error("[menuGroup] getMenuGroupById error:", error);
     res.status(500).json({
       isOk: false,
-      message: "Error fetching menu group",
-      error: error.message,
+      message: "An unexpected error occurred",
     });
   }
 };
@@ -73,7 +70,6 @@ export const updateMenuGroup = async (req, res) => {
   try {
     const { menuGroupId } = req.params;
     const { menuGroupName, sequence, isActive, isLink, menuUrl } = req.body;
-    console.log("Updating menu group:", req.body);
 
     const menuGroup = await MenuGroupMaster.findByIdAndUpdate(
       menuGroupId,
@@ -94,11 +90,10 @@ export const updateMenuGroup = async (req, res) => {
       data: menuGroup,
     });
   } catch (error) {
-    console.log("Error updating menu group:", error);
+    console.error("[menuGroup] updateMenuGroup error:", error);
     res.status(500).json({
       isOk: false,
-      message: "Error updating menu group",
-      error: error.message,
+      message: "An unexpected error occurred",
     });
   }
 };
@@ -119,11 +114,10 @@ export const deleteMenuGroup = async (req, res) => {
       data: menuGroup,
     });
   } catch (error) {
-    console.log(error);
+    console.error("[menuGroup] deleteMenuGroup error:", error);
     res.status(500).json({
       isOk: false,
-      message: "Error deleting menu group",
-      error: error.message,
+      message: "An unexpected error occurred",
     });
   }
 };
@@ -173,7 +167,7 @@ export const listMenuGroupByParams = async (req, res) => {
             $or: [
               {
                 menuGroupName: {
-                  $regex: match,
+                  $regex: escapeRegex(match),
                   $options: "i",
                 },
               },
@@ -200,10 +194,10 @@ export const listMenuGroupByParams = async (req, res) => {
       status: 200,
     });
   } catch (error) {
-    console.error("Error:", error);
+    console.error("[menuGroup] listMenuGroupByParams error:", error);
     return res.status(500).json({
       isOk: false,
-      message: error.message,
+      message: "An unexpected error occurred",
       status: 500,
     });
   }

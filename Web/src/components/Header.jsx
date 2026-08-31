@@ -104,59 +104,61 @@ export default function Header() {
 
   return (
     <>
-      <div className="tricolor">
-        <span className="saffron" />
-        <span className="white" />
-        <span className="green" />
-      </div>
-
-      <div className="brand-bar">
-        <div style={{ minWidth: 0, flex: '1 1 auto' }}>
-          <div className="brand-title">{t('brand.title')}</div>
-          <div className="brand-sub">{t('brand.sub')}</div>
+      <header className="site-header">
+        <div className="tricolor">
+          <span className="saffron" />
+          <span className="white" />
+          <span className="green" />
         </div>
-        <div className="brand-utility">
-          <FontSizeControls />
-          <span className="sep">|</span>
-          <div className="lang-toggle" role="group" aria-label="Language">
-            {[['en', 'EN'], ['hi', 'हिं'], ['gu', 'ગુ']].map(([code, label]) => (
-              <button
-                key={code}
-                type="button"
-                className={lang === code ? 'active' : ''}
-                onClick={() => setLang(code)}
-              >
-                {label}
-              </button>
-            ))}
+
+        <div className="brand-bar">
+          <div style={{ minWidth: 0, flex: '1 1 auto' }}>
+            <div className="brand-title">{t('brand.title')}</div>
+            <div className="brand-sub">{t('brand.sub')}</div>
+          </div>
+          <div className="brand-utility">
+            <FontSizeControls />
+            <span className="sep">|</span>
+            <div className="lang-toggle" role="group" aria-label="Language">
+              {[['en', 'EN'], ['hi', 'हिं'], ['gu', 'ગુ']].map(([code, label]) => (
+                <button
+                  key={code}
+                  type="button"
+                  className={lang === code ? 'active' : ''}
+                  onClick={() => setLang(code)}
+                >
+                  {label}
+                </button>
+              ))}
+            </div>
           </div>
         </div>
-      </div>
 
-      <nav className="nav-row">
-        {NAV.filter(({ path }) => !(user && path === '/registration')).map(({ path, key, fallback }) => {
-          const isActive = path === '/'
-            ? pathname === '/'
-            : pathname.startsWith(path) &&
-              !NAV.some(other => other.path !== path && other.path.startsWith(path) && pathname.startsWith(other.path))
-          return (
-            <Link
-              key={path}
-              to={path}
-              className={isActive ? 'active' : undefined}
-            >
-              {t(key) || fallback}
+        <nav className="nav-row">
+          {NAV.filter(({ path }) => !(user && path === '/registration')).map(({ path, key, fallback }) => {
+            const isActive = path === '/'
+              ? pathname === '/'
+              : pathname.startsWith(path) &&
+                !NAV.some(other => other.path !== path && other.path.startsWith(path) && pathname.startsWith(other.path))
+            return (
+              <Link
+                key={path}
+                to={path}
+                className={isActive ? 'active' : undefined}
+              >
+                {t(key) || fallback}
+              </Link>
+            )
+          })}
+          {user ? (
+            <UserMenu user={user} onLogout={handleLogout} />
+          ) : (
+            <Link to="/registration/find" className="nav-login-pill">
+              {t('nav.login') || 'Login'}
             </Link>
-          )
-        })}
-        {user ? (
-          <UserMenu user={user} onLogout={handleLogout} />
-        ) : (
-          <Link to="/registration/find" className="nav-login-pill">
-            {t('nav.login') || 'Login'}
-          </Link>
-        )}
-      </nav>
+          )}
+        </nav>
+      </header>
 
       <SiteMarquee />
     </>

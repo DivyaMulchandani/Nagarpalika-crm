@@ -5,4 +5,4 @@ export const searchApplications      = (params)         => api.post(ENDPOINTS.AP
 export const listApplications        = (params)         => api.get(ENDPOINTS.APPLICATIONS.BASE, { params });
 export const getApplicationByRef     = (ref)            => api.get(ENDPOINTS.APPLICATIONS.BY_REF(ref));
 export const exportApplications      = (data)           => api.post(ENDPOINTS.APPLICATIONS.EXPORT, data, { responseType: "blob", timeout: 300000 });
-export const updateApplicationStatus = (id, status)     => api.put(ENDPOINTS.APPLICATIONS.STATUS(id), { status });
+export const updateApplicationStatus = (id, status, reason) => api.put(ENDPOINTS.APPLICATIONS.STATUS(id), { status, reason });

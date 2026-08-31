@@ -28,9 +28,9 @@ export default function ApplicationEntry() {
     return (
       <>
         <div className="page-heading"><h1>Apply Online</h1></div>
-        <div className="notice warn">
-          <div className="title">Login Required</div>
-          Please <Link to="/registration/find" style={{ color: 'var(--ojas-saffron-deep)', fontWeight: 700 }}>login with your Registration ID</Link> to apply for a post.
+        <div className="notice warn" style={{ maxWidth: 500, margin: '20px auto' }}>
+          <div className="title">Login / Registration Required</div>
+          Please <Link to="/registration/find" style={{ color: 'var(--ojas-saffron-deep)', fontWeight: 700 }}>login with your Registration ID</Link> to apply for a post. If you are applying for the first time, please <Link to="/registration" style={{ color: 'var(--ojas-saffron-deep)', fontWeight: 700 }}>Register for OTR first</Link>.
         </div>
       </>
     )

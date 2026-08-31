@@ -52,7 +52,8 @@ export const downloadDocument = async (req, res) => {
     res.setHeader("Content-Type", types[ext] || "application/octet-stream");
     stream.pipe(res);
   } catch (error) {
-    return res.status(500).json({ isOk: false, message: error.message });
+    console.error("[document] downloadDocument error:", error.message);
+    return res.status(500).json({ isOk: false, message: "An unexpected error occurred" });
   }
 };
 
@@ -70,7 +71,8 @@ export const getDocumentSignedUrl = async (req, res) => {
     }
     return res.status(200).json({ isOk: true, data: { url: signed } });
   } catch (error) {
-    return res.status(500).json({ isOk: false, message: error.message });
+    console.error("[document] getDocumentSignedUrl error:", error.message);
+    return res.status(500).json({ isOk: false, message: "An unexpected error occurred" });
   }
 };
 
@@ -84,6 +86,7 @@ export const downloadByToken = async (req, res) => {
 
     stream.pipe(res);
   } catch (error) {
-    return res.status(500).json({ isOk: false, message: error.message });
+    console.error("[document] downloadByToken error:", error.message);
+    return res.status(500).json({ isOk: false, message: "An unexpected error occurred" });
   }
 };

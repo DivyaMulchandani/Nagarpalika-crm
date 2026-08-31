@@ -1,6 +1,7 @@
 import WhatsAppConfig from "../../models/WhatsAppConfig.js";
 import WhatsAppMessage from "../../models/WhatsAppMessage.js";
 import { testWhatsAppConnection, sendWhatsAppTemplate } from "../../services/whatsapp.service.js";
+import { escapeRegex } from "../../utils/escapeRegex.js";
 
 export const getConfig = async (req, res) => {
   try {
@@ -10,7 +11,8 @@ export const getConfig = async (req, res) => {
     if (data.accessToken) data.accessToken = "••••••••";
     return res.status(200).json({ isOk: true, status: 200, data });
   } catch (error) {
-    return res.status(500).json({ isOk: false, status: 500, message: error.message });
+    console.error("[whatsapp] getConfig error:", error.message);
+    return res.status(500).json({ isOk: false, status: 500, message: "An unexpected error occurred" });
   }
 };
 
@@ -28,7 +30,8 @@ export const updateConfig = async (req, res) => {
     await config.save();
     return res.status(200).json({ isOk: true, status: 200, message: "Config updated" });
   } catch (error) {
-    return res.status(500).json({ isOk: false, status: 500, message: error.message });
+    console.error("[whatsapp] updateConfig error:", error.message);
+    return res.status(500).json({ isOk: false, status: 500, message: "An unexpected error occurred" });
   }
 };
 
@@ -37,7 +40,8 @@ export const testConfig = async (req, res) => {
     const result = await testWhatsAppConnection();
     return res.status(result.ok ? 200 : 400).json({ isOk: result.ok, status: result.ok ? 200 : 400, message: result.message, data: result.data });
   } catch (error) {
-    return res.status(500).json({ isOk: false, status: 500, message: error.message });
+    console.error("[whatsapp] testConfig error:", error.message);
+    return res.status(500).json({ isOk: false, status: 500, message: "An unexpected error occurred" });
   }
 };
 
@@ -47,7 +51,7 @@ export const searchMessages = async (req, res) => {
     const filter = {};
     if (trigger) filter.trigger = trigger;
     if (status) filter.status = status;
-    if (match) filter.recipient = { $regex: match, $options: "i" };
+    if (match) filter.recipient = { $regex: escapeRegex(match), $options: "i" };
     if (dateFrom || dateTo) {
       filter.createdAt = {};
       if (dateFrom) filter.createdAt.$gte = new Date(dateFrom);
@@ -61,7 +65,8 @@ export const searchMessages = async (req, res) => {
 
     return res.status(200).json({ isOk: true, status: 200, data: [{ count: total, data }] });
   } catch (error) {
-    return res.status(500).json({ isOk: false, status: 500, message: error.message });
+    console.error("[whatsapp] searchMessages error:", error.message);
+    return res.status(500).json({ isOk: false, status: 500, message: "An unexpected error occurred" });
   }
 };
 
@@ -78,7 +83,8 @@ export const getStats = async (req, res) => {
     });
     return res.status(200).json({ isOk: true, status: 200, data: stats });
   } catch (error) {
-    return res.status(500).json({ isOk: false, status: 500, message: error.message });
+    console.error("[whatsapp] getStats error:", error.message);
+    return res.status(500).json({ isOk: false, status: 500, message: "An unexpected error occurred" });
   }
 };
 
@@ -105,7 +111,8 @@ export const sendCustom = async (req, res) => {
 
     return res.status(result.ok ? 200 : 500).json({ isOk: result.ok, status: result.ok ? 200 : 500, data: msg });
   } catch (error) {
-    return res.status(500).json({ isOk: false, status: 500, message: error.message });
+    console.error("[whatsapp] sendCustom error:", error.message);
+    return res.status(500).json({ isOk: false, status: 500, message: "An unexpected error occurred" });
   }
 };
 
@@ -132,7 +139,8 @@ export const sendBroadcast = async (req, res) => {
     }
     return res.status(200).json({ isOk: true, status: 200, data: results });
   } catch (error) {
-    return res.status(500).json({ isOk: false, status: 500, message: error.message });
+    console.error("[whatsapp] sendBroadcast error:", error.message);
+    return res.status(500).json({ isOk: false, status: 500, message: "An unexpected error occurred" });
   }
 };
 
@@ -157,6 +165,7 @@ export const retryFailed = async (req, res) => {
     }
     return res.status(200).json({ isOk: true, status: 200, message: `Retried ${retried} messages` });
   } catch (error) {
-    return res.status(500).json({ isOk: false, status: 500, message: error.message });
+    console.error("[whatsapp] retryFailed error:", error.message);
+    return res.status(500).json({ isOk: false, status: 500, message: "An unexpected error occurred" });
   }
 };

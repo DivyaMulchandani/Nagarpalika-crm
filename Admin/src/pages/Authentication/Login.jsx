@@ -425,7 +425,6 @@ const Login = () => {
     };
 
     document.title = `Sign in · ${adminData?.companyName || adminData?.data?.companyName || adminData?.employeeName || "Nagar Palika"}`;
-    console.log('adminData:', adminData);
 
 
     const renderLoginForm = () => (

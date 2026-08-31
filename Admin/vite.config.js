@@ -24,6 +24,7 @@ export default defineConfig(({ mode }) => ({
     },
     esbuild: {
         jsx: 'automatic',
+        drop: mode === 'production' ? ['console', 'debugger'] : [],
     },
     optimizeDeps: {
         esbuildOptions: {

@@ -10,6 +10,7 @@ import {
   attachFileUrls,
   resolveFileUrl,
 } from "../../services/storage.service.js";
+import { escapeRegex } from "../../utils/escapeRegex.js";
 
 export const createAdvertisement = async (req, res) => {
   try {
@@ -83,7 +84,7 @@ export const createAdvertisement = async (req, res) => {
   } catch (error) {
     return res
       .status(500)
-      .json({ isOk: false, status: 500, message: error.message });
+      .json({ isOk: false, status: 500, message: "An unexpected error occurred" });
   }
 };
 
@@ -223,7 +224,7 @@ export const listAdvertisements = async (req, res) => {
   } catch (error) {
     return res
       .status(500)
-      .json({ isOk: false, status: 500, message: error.message });
+      .json({ isOk: false, status: 500, message: "An unexpected error occurred" });
   }
 };
 
@@ -253,7 +254,7 @@ export const getAdvertisementPdf = async (req, res) => {
   } catch (error) {
     return res
       .status(500)
-      .json({ isOk: false, status: 500, message: error.message });
+      .json({ isOk: false, status: 500, message: "An unexpected error occurred" });
   }
 };
 
@@ -283,7 +284,7 @@ export const getAdvertisementById = async (req, res) => {
   } catch (error) {
     return res
       .status(500)
-      .json({ isOk: false, status: 500, message: error.message });
+      .json({ isOk: false, status: 500, message: "An unexpected error occurred" });
   }
 };
 
@@ -338,7 +339,7 @@ export const patchAdvertisement = async (req, res) => {
   } catch (error) {
     return res
       .status(500)
-      .json({ isOk: false, status: 500, message: error.message });
+      .json({ isOk: false, status: 500, message: "An unexpected error occurred" });
   }
 };
 
@@ -368,7 +369,7 @@ export const deleteAdvertisement = async (req, res) => {
   } catch (error) {
     return res
       .status(500)
-      .json({ isOk: false, status: 500, message: error.message });
+      .json({ isOk: false, status: 500, message: "An unexpected error occurred" });
   }
 };
 
@@ -394,8 +395,8 @@ export const searchAdvertisements = async (req, res) => {
       pipeline.push({
         $match: {
           $or: [
-            { "post_title.en": { $regex: match, $options: "i" } },
-            { advt_no: { $regex: match, $options: "i" } },
+            { "post_title.en": { $regex: escapeRegex(match), $options: "i" } },
+            { advt_no: { $regex: escapeRegex(match), $options: "i" } },
           ],
         },
       });
@@ -448,7 +449,7 @@ export const searchAdvertisements = async (req, res) => {
   } catch (error) {
     return res
       .status(500)
-      .json({ isOk: false, status: 500, message: error.message });
+      .json({ isOk: false, status: 500, message: "An unexpected error occurred" });
   }
 };
 
@@ -513,7 +514,7 @@ export const patchAdvertisementStatus = async (req, res) => {
   } catch (error) {
     return res
       .status(500)
-      .json({ isOk: false, status: 500, message: error.message });
+      .json({ isOk: false, status: 500, message: "An unexpected error occurred" });
   }
 };
 
@@ -558,7 +559,7 @@ export const uploadAdvertisementPdf = async (req, res) => {
   } catch (error) {
     return res
       .status(500)
-      .json({ isOk: false, status: 500, message: error.message });
+      .json({ isOk: false, status: 500, message: "An unexpected error occurred" });
   }
 };
 
@@ -592,7 +593,7 @@ export const triggerZipExport = async (req, res) => {
   } catch (error) {
     return res
       .status(500)
-      .json({ isOk: false, status: 500, message: error.message });
+      .json({ isOk: false, status: 500, message: "An unexpected error occurred" });
   }
 };
 
@@ -613,7 +614,7 @@ export const getZipExportStatus = async (req, res) => {
   } catch (error) {
     return res
       .status(500)
-      .json({ isOk: false, status: 500, message: error.message });
+      .json({ isOk: false, status: 500, message: "An unexpected error occurred" });
   }
 };
 
@@ -655,6 +656,6 @@ export const downloadZipExport = async (req, res) => {
   } catch (error) {
     return res
       .status(500)
-      .json({ isOk: false, status: 500, message: error.message });
+      .json({ isOk: false, status: 500, message: "An unexpected error occurred" });
   }
 };

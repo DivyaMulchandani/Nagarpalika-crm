@@ -18,7 +18,6 @@ export const deliverOtp = async ({
   trigger = "otp_registration",
   preferredChannel,
 }) => {
-  const smsText = `Your Nagarpalika portal OTP is ${otp}. Valid for 10 minutes. Do not share.`;
   const emailSubject = "Your Nagarpalika Portal OTP Code";
   const emailHtml = `
     <div style="font-family: Arial, sans-serif; padding: 20px; color: #333;">
@@ -133,7 +132,13 @@ export const deliverOtp = async ({
         continue;
       }
 
-      const smsResult = await sendSms({ to: mobile, message: smsText });
+      // Pass the code and validity separately so a templated gateway fills its
+      // own {{otp}} / {{expiry}} slots with the real OTP_EXPIRE_MINUTES value.
+      const smsResult = await sendSms({
+        to: mobile,
+        otp,
+        expiryMinutes: otpSettings.expireMinutes,
+      });
       if (smsResult.ok) {
         await logMessage({
           recipient: mobile,
@@ -151,8 +156,10 @@ export const deliverOtp = async ({
     }
   }
 
-  // Non-production fallback stub if active provider fails or is unconfigured
-  if (process.env.NODE_ENV !== "production") {
+  // Opt-in local stub. Gated on ENABLE_DEV_OTP rather than NODE_ENV: reporting
+  // success just because a server isn't flagged "production" hides genuine
+  // delivery failures behind a 200, which is how an undelivered OTP goes unnoticed.
+  if (process.env.ENABLE_DEV_OTP === "true") {
     console.log(`[OTP DEV STUB] Primary channel (${primary}) targeted. Dev stub fallback active.`);
     return { ok: true, channel: primary, stub: true };
   }

@@ -220,7 +220,7 @@ export const downloadCallLetter = async (req, res) => {
     if (!res.headersSent)
       return res
         .status(500)
-        .json({ isOk: false, status: 500, message: error.message });
+        .json({ isOk: false, status: 500, message: "An unexpected error occurred" });
   }
 };
 
@@ -320,7 +320,7 @@ export const getCallLetterSettings = async (req, res) => {
   } catch (error) {
     return res
       .status(500)
-      .json({ isOk: false, status: 500, message: error.message });
+      .json({ isOk: false, status: 500, message: "An unexpected error occurred" });
   }
 };
 
@@ -400,7 +400,7 @@ export const patchCallLetter = async (req, res) => {
   } catch (error) {
     return res
       .status(500)
-      .json({ isOk: false, status: 500, message: error.message });
+      .json({ isOk: false, status: 500, message: "An unexpected error occurred" });
   }
 };
 
@@ -522,7 +522,7 @@ export const uploadRollNumbers = async (req, res) => {
   } catch (error) {
     return res
       .status(500)
-      .json({ isOk: false, status: 500, message: error.message });
+      .json({ isOk: false, status: 500, message: "An unexpected error occurred" });
   }
 };
 
@@ -578,7 +578,7 @@ export const previewCallLetter = async (req, res) => {
     if (!res.headersSent)
       return res
         .status(500)
-        .json({ isOk: false, status: 500, message: error.message });
+        .json({ isOk: false, status: 500, message: "An unexpected error occurred" });
   }
 };
 
@@ -617,6 +617,6 @@ export const searchCallLetters = async (req, res) => {
   } catch (error) {
     return res
       .status(500)
-      .json({ isOk: false, status: 500, message: error.message });
+      .json({ isOk: false, status: 500, message: "An unexpected error occurred" });
   }
 };

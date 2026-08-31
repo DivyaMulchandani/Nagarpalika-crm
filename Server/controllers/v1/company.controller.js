@@ -17,7 +17,7 @@ export const getPublicDetails = async (req, res) => {
   } catch (error) {
     return res
       .status(500)
-      .json({ isOk: false, status: 500, message: error.message });
+      .json({ isOk: false, status: 500, message: "An unexpected error occurred" });
   }
 };
 
@@ -100,7 +100,7 @@ export const createCompanyMaster = async (req, res) => {
       message: "Company Master created successfully",
     });
   } catch (error) {
-    console.log("Error in createCompanyMaster", error);
+    console.error("Error in createCompanyMaster", error);
     return res.status(500).json({
       isOk: false,
       message: error.message,
@@ -181,6 +181,7 @@ export const loginCompany = async (req, res) => {
       email,
       isActive: true,
     })
+      .select("+password")
       .populate("countryId")
       .populate("stateId")
       .populate("cityId")
@@ -190,6 +191,7 @@ export const loginCompany = async (req, res) => {
       emailOffice: email,
       isActive: true,
     })
+      .select("+password")
       .populate("departmentId")
       .populate("stateId")
       .populate("cityId")
@@ -234,6 +236,11 @@ export const loginCompany = async (req, res) => {
     } else if (role === "DOCTOR") {
       dataToSend.companyName = company ? company.companyName : "";
     }
+
+    // Session fixation prevention — issue a fresh session id on privilege change
+    await new Promise((resolve, reject) =>
+      req.session.regenerate((err) => (err ? reject(err) : resolve())),
+    );
 
     // Store user data in express session
     req.session.user = {
@@ -329,7 +336,7 @@ export const getCurrentUserDetails = async (req, res) => {
       status: 200,
     });
   } catch (error) {
-    console.log(error);
+    console.error("[error]", error);
     return res.status(500).json({
       isOk: false,
       message: error.message,

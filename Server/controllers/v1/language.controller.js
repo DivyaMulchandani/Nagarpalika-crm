@@ -1,4 +1,5 @@
 import Language from "../../models/Language.js";
+import { escapeRegex } from "../../utils/escapeRegex.js";
 
 export const createLanguage = async (req, res) => {
   try {
@@ -24,7 +25,8 @@ export const createLanguage = async (req, res) => {
       .status(201)
       .json({ isOk: true, message: "Language created", data: doc });
   } catch (error) {
-    return res.status(500).json({ isOk: false, message: error.message });
+    console.error("[language] createLanguage error:", error.message);
+    return res.status(500).json({ isOk: false, message: "An unexpected error occurred" });
   }
 };
 
@@ -42,7 +44,7 @@ export const searchLanguages = async (req, res) => {
     const filter = {};
     if (isActive !== undefined && isActive !== "")
       filter.isActive = isActive === true || isActive === "true";
-    if (match) filter.name = { $regex: match, $options: "i" };
+    if (match) filter.name = { $regex: escapeRegex(match), $options: "i" };
 
     const sort = { [sorton || "order"]: sortdir === "desc" ? -1 : 1 };
 
@@ -64,7 +66,8 @@ export const searchLanguages = async (req, res) => {
     const result = await Language.aggregate(pipeline);
     return res.status(200).json({ isOk: true, data: result });
   } catch (error) {
-    return res.status(500).json({ isOk: false, message: error.message });
+    console.error("[language] searchLanguages error:", error.message);
+    return res.status(500).json({ isOk: false, message: "An unexpected error occurred" });
   }
 };
 
@@ -76,7 +79,8 @@ export const listPublicLanguages = async (_req, res) => {
       .lean();
     return res.status(200).json({ isOk: true, data: docs });
   } catch (error) {
-    return res.status(500).json({ isOk: false, message: error.message });
+    console.error("[language] listPublicLanguages error:", error.message);
+    return res.status(500).json({ isOk: false, message: "An unexpected error occurred" });
   }
 };
 
@@ -88,7 +92,8 @@ export const getAllLanguages = async (req, res) => {
     const docs = await Language.find(filter).sort({ order: 1 });
     return res.status(200).json({ isOk: true, data: docs });
   } catch (error) {
-    return res.status(500).json({ isOk: false, message: error.message });
+    console.error("[language] getAllLanguages error:", error.message);
+    return res.status(500).json({ isOk: false, message: "An unexpected error occurred" });
   }
 };
 
@@ -99,7 +104,8 @@ export const getLanguageById = async (req, res) => {
       return res.status(404).json({ isOk: false, message: "Not found" });
     return res.status(200).json({ isOk: true, data: doc });
   } catch (error) {
-    return res.status(500).json({ isOk: false, message: error.message });
+    console.error("[language] getLanguageById error:", error.message);
+    return res.status(500).json({ isOk: false, message: "An unexpected error occurred" });
   }
 };
 
@@ -129,7 +135,8 @@ export const updateLanguage = async (req, res) => {
       .status(200)
       .json({ isOk: true, message: "Language updated", data: doc });
   } catch (error) {
-    return res.status(500).json({ isOk: false, message: error.message });
+    console.error("[language] updateLanguage error:", error.message);
+    return res.status(500).json({ isOk: false, message: "An unexpected error occurred" });
   }
 };
 
@@ -142,6 +149,7 @@ export const deleteLanguage = async (req, res) => {
       .status(200)
       .json({ isOk: true, message: "Language deleted" });
   } catch (error) {
-    return res.status(500).json({ isOk: false, message: error.message });
+    console.error("[language] deleteLanguage error:", error.message);
+    return res.status(500).json({ isOk: false, message: "An unexpected error occurred" });
   }
 };

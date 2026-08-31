@@ -577,11 +577,11 @@ export default function RegistrationStep() {
                 <label>Full Name (English) / પૂરું નામ (અંગ્રેજી) *</label>
                 <input
                   type="text"
-                  value={data.name_en || ""}
-                  onChange={setName("name_en")}
+                  value={data.name || ""}
+                  onChange={setName("name")}
                   maxLength={100}
                 />
-                <FieldError msg={errors.name_en} />
+                <FieldError msg={errors.name} />
               </div>
               <div className="form-field">
                 <label>Father's / Husband's Name / પિતા / પતિનું નામ *</label>
@@ -700,7 +700,7 @@ export default function RegistrationStep() {
                   disabled={loading}
                   onClick={async () => {
                     const e = {};
-                    if (!data.name_en?.trim()) e.name_en = "Required";
+                    if (!data.name?.trim()) e.name = "Required";
                     if (!data.father_husband_name?.trim())
                       e.father_husband_name = "Required";
                     if (!data.dob) e.dob = "Required";
@@ -755,7 +755,7 @@ export default function RegistrationStep() {
                     }
 
                     saveStep({
-                      name_en: data.name_en,
+                      name: data.name,
                       father_husband_name: data.father_husband_name,
                       dob: data.dob,
                       gender: data.gender,
@@ -1437,7 +1437,7 @@ export default function RegistrationStep() {
                       setLoading(true);
                       try {
                         const res = await post("/api/v1/candidates/register/submit", {
-                          name: data.name_en || data.name_gu || "Candidate",
+                          name: data.name || "",
                           password: data.password,
                         });
                         sessionStorage.removeItem(SESSION_KEY);

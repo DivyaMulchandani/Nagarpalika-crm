@@ -1,4 +1,5 @@
 import Qualification from "../../models/Qualification.js";
+import { escapeRegex } from "../../utils/escapeRegex.js";
 
 export const createQualification = async (req, res) => {
   try {
@@ -23,7 +24,8 @@ export const createQualification = async (req, res) => {
       .status(201)
       .json({ isOk: true, message: "Qualification created", data: doc });
   } catch (error) {
-    return res.status(500).json({ isOk: false, message: error.message });
+    console.error("[qualification] createQualification error:", error.message);
+    return res.status(500).json({ isOk: false, message: "An unexpected error occurred" });
   }
 };
 
@@ -41,7 +43,7 @@ export const searchQualifications = async (req, res) => {
     const filter = {};
     if (isActive !== undefined && isActive !== "")
       filter.isActive = isActive === true || isActive === "true";
-    if (match) filter.name = { $regex: match, $options: "i" };
+    if (match) filter.name = { $regex: escapeRegex(match), $options: "i" };
 
     const sort = { [sorton || "name"]: sortdir === "desc" ? -1 : 1 };
 
@@ -63,7 +65,8 @@ export const searchQualifications = async (req, res) => {
     const result = await Qualification.aggregate(pipeline);
     return res.status(200).json({ isOk: true, data: result });
   } catch (error) {
-    return res.status(500).json({ isOk: false, message: error.message });
+    console.error("[qualification] searchQualifications error:", error.message);
+    return res.status(500).json({ isOk: false, message: "An unexpected error occurred" });
   }
 };
 
@@ -76,7 +79,8 @@ export const listPublicQualifications = async (_req, res) => {
       .lean();
     return res.status(200).json({ isOk: true, data: docs });
   } catch (error) {
-    return res.status(500).json({ isOk: false, message: error.message });
+    console.error("[qualification] listPublicQualifications error:", error.message);
+    return res.status(500).json({ isOk: false, message: "An unexpected error occurred" });
   }
 };
 
@@ -88,7 +92,8 @@ export const getAllQualifications = async (req, res) => {
     const docs = await Qualification.find(filter).sort({ name: 1 });
     return res.status(200).json({ isOk: true, data: docs });
   } catch (error) {
-    return res.status(500).json({ isOk: false, message: error.message });
+    console.error("[qualification] getAllQualifications error:", error.message);
+    return res.status(500).json({ isOk: false, message: "An unexpected error occurred" });
   }
 };
 
@@ -99,7 +104,8 @@ export const getQualificationById = async (req, res) => {
       return res.status(404).json({ isOk: false, message: "Not found" });
     return res.status(200).json({ isOk: true, data: doc });
   } catch (error) {
-    return res.status(500).json({ isOk: false, message: error.message });
+    console.error("[qualification] getQualificationById error:", error.message);
+    return res.status(500).json({ isOk: false, message: "An unexpected error occurred" });
   }
 };
 
@@ -129,7 +135,8 @@ export const updateQualification = async (req, res) => {
       .status(200)
       .json({ isOk: true, message: "Qualification updated", data: doc });
   } catch (error) {
-    return res.status(500).json({ isOk: false, message: error.message });
+    console.error("[qualification] updateQualification error:", error.message);
+    return res.status(500).json({ isOk: false, message: "An unexpected error occurred" });
   }
 };
 
@@ -142,6 +149,7 @@ export const deleteQualification = async (req, res) => {
       .status(200)
       .json({ isOk: true, message: "Qualification deleted" });
   } catch (error) {
-    return res.status(500).json({ isOk: false, message: error.message });
+    console.error("[qualification] deleteQualification error:", error.message);
+    return res.status(500).json({ isOk: false, message: "An unexpected error occurred" });
   }
 };

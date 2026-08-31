@@ -88,11 +88,10 @@ export const createOtp = async (req, res) => {
       message: "OTP sent successfully to your email",
     });
   } catch (error) {
-    console.error("Error in createOtp:", error);
+    console.error("[otp] createOtp error:", error);
     return res.status(500).json({
       isOk: false,
-      message: "Failed to send OTP",
-      error: error.message,
+      message: "An unexpected error occurred",
     });
   }
 };
@@ -128,8 +127,8 @@ export const verifyOtp = async (req, res) => {
     const inputBuf = Buffer.from(inputHash, "hex");
 
     const match =
-      (storedBuf.length === inputBuf.length && crypto.timingSafeEqual(storedBuf, inputBuf)) ||
-      otpRecord.otp === otp;
+      storedBuf.length === inputBuf.length &&
+      crypto.timingSafeEqual(storedBuf, inputBuf);
 
     if (!match) {
       otpRecord.attempts = (otpRecord.attempts || 0) + 1;
@@ -153,11 +152,10 @@ export const verifyOtp = async (req, res) => {
       message: "OTP verified successfully",
     });
   } catch (error) {
-    console.error("Error in verifyOtp:", error);
+    console.error("[otp] verifyOtp error:", error);
     return res.status(500).json({
       isOk: false,
-      message: "Failed to verify OTP",
-      error: error.message,
+      message: "An unexpected error occurred",
     });
   }
 };
@@ -181,8 +179,8 @@ export const resetPassword = async (req, res) => {
     const inputBuf = Buffer.from(inputHash, "hex");
 
     const match =
-      (storedBuf.length === inputBuf.length && crypto.timingSafeEqual(storedBuf, inputBuf)) ||
-      otpRecord.otp === otp;
+      storedBuf.length === inputBuf.length &&
+      crypto.timingSafeEqual(storedBuf, inputBuf);
 
     if (!match) {
       otpRecord.attempts = (otpRecord.attempts || 0) + 1;
@@ -240,11 +238,10 @@ export const resetPassword = async (req, res) => {
       message: "Password reset successfully",
     });
   } catch (error) {
-    console.error("Error in resetPassword:", error);
+    console.error("[otp] resetPassword error:", error);
     return res.status(500).json({
       isOk: false,
-      message: "Failed to reset password",
-      error: error.message,
+      message: "An unexpected error occurred",
     });
   }
 };

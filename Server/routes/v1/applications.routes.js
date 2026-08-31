@@ -4,6 +4,7 @@ import fs from "fs";
 import express from "express";
 import { uploadLimits } from "../../config/portal.config.js";
 import multer from "multer";
+import { fileTypeFromBuffer } from "file-type";
 import { authMiddleware } from "../../middlewares/authMiddleware.js";
 import {
   submitApplication,
@@ -32,9 +33,25 @@ const docUpload = multer({
   },
 });
 
-const handleDocUpload = (req, res, next) => {
-  docUpload.single("file")(req, res, (err) => {
+const ALLOWED_EXTENSIONS = [".pdf", ".jpg", ".jpeg", ".png"];
+const ALLOWED_MIME_MAGIC = new Set(["application/pdf", "image/jpeg", "image/png"]);
+
+const handleDocUpload = async (req, res, next) => {
+  docUpload.single("file")(req, res, async (err) => {
     if (err) return res.status(422).json({ isOk: false, message: err.message });
+    if (!req.file) return next();
+    // Magic byte validation — catch renamed files (e.g. malware.php → malware.pdf)
+    try {
+      const type = await fileTypeFromBuffer(req.file.buffer);
+      if (!type || !ALLOWED_MIME_MAGIC.has(type.mime)) {
+        return res.status(422).json({
+          isOk: false,
+          message: "Invalid file content. Only PDF, JPG, and PNG files are permitted.",
+        });
+      }
+    } catch {
+      return res.status(422).json({ isOk: false, message: "Could not validate file type." });
+    }
     next();
   });
 };
