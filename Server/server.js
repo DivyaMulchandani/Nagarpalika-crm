@@ -94,15 +94,7 @@ app.use(cors(corsConfig));
 app.options("*", cors(corsConfig));
 
 // 3. Body Parsing with size limits (OWASP: limit request body size)
-// verify callback captures raw body for Razorpay webhook HMAC verification
-app.use(
-  bodyParser.json({
-    limit: "10mb",
-    verify: (req, _res, buf) => {
-      if (req.path && req.path.includes("/webhooks/")) req.rawBody = buf;
-    },
-  }),
-);
+app.use(bodyParser.json({ limit: "10mb" }));
 app.use(bodyParser.urlencoded({ extended: true, limit: "10mb" }));
 
 // 5. MongoDB NoSQL Injection Protection

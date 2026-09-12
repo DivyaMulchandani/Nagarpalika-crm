@@ -15,6 +15,14 @@ const Field = ({ label, value, mono }) => (
 
 const statusColor = { pending: "warning", paid: "success", failed: "danger" };
 
+// EasyPay PMD codes — the mode the payer actually used.
+const PAYMENT_MODES = {
+  AIB: "Axis Bank Net Banking",
+  OIB: "Net Banking",
+  CD: "Debit / Credit Card",
+  NR: "NEFT / RTGS",
+};
+
 const FeePaymentView = () => {
   const { id } = useParams();
   const navigate = useNavigate();
@@ -51,8 +59,10 @@ const FeePaymentView = () => {
               <Field label="Advertisement No" value={fee.advt_no} mono />
               <Field label="Application Ref No" value={fee.application_ref_no} mono />
               <Field label="Amount (₹)" value={fee.amount != null ? `₹${fee.amount}` : null} />
-              <Field label="Razorpay Order ID" value={fee.razorpay_order_id} mono />
-              <Field label="Gateway Txn ID" value={fee.gateway_txn_id} mono />
+              <Field label="Gateway Ref (RID)" value={fee.easypay_rid} mono />
+              <Field label="Bank Ref No (BRN)" value={fee.bank_ref_no} mono />
+              <Field label="Gateway Txn ID (TRN)" value={fee.gateway_txn_id} mono />
+              <Field label="Payment Mode" value={PAYMENT_MODES[fee.payment_mode_code] || fee.payment_mode_code} />
               <Field label="Paid At" value={fmtDate(fee.paid_at)} />
               <Field label="Created At" value={fmtDate(fee.createdAt)} />
             </Row>

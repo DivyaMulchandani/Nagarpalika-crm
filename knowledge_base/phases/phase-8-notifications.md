@@ -57,7 +57,7 @@ Wire `email.service.sendTemplatedEmail()` at each recruitment event:
 |-------|-----------------|-----------|--------------|-----------|
 | Registration ID issued | `candidates.controller.js` → submit | Candidate email | `registration_id_issued` | None |
 | Application submitted | `applications.controller.js` → POST | Candidate email | `application_submitted` | None |
-| Fee payment received | `webhooks/razorpay` handler | Candidate email | `fee_receipt` | Receipt PDF |
+| Fee payment received | EasyPay return handler / reconciliation sweep | Candidate email | `fee_receipt` | Receipt PDF |
 | Call letter published | `callLetters.controller.js` → PATCH enable | Candidate email | `call_letter_published` | None |
 | Bulk ZIP export ready | `advertisements.controller.js` → ZIP done | Admin email | `bulk_export_ready` | None (link in body) |
 
@@ -109,7 +109,7 @@ These rules must be verified/implemented in `Server/controllers/v1/otp.controlle
 
 - `POST /api/v1/candidates/register/submit` → candidate receives email with Registration ID
 - `POST /api/v1/applications` → candidate receives application confirmation email
-- Razorpay webhook `payment.captured` → candidate receives fee receipt email with PDF attachment
+- EasyPay payment confirmed (STC=000, via redirect or the enquiry sweep) → candidate receives fee receipt email with PDF attachment
 - `PATCH /api/v1/call-letters/:advt_no` with `enabled: true` → candidate receives call letter notification email
 - OTP email delivered within 30 seconds under normal SMTP conditions
 - OTP expires after 10 minutes — verification after expiry returns 400

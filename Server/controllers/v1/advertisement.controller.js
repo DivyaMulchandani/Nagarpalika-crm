@@ -228,12 +228,30 @@ export const listAdvertisements = async (req, res) => {
   }
 };
 
+// Staff may see Drafts; nobody else may. Mirrors getAdvertisementById.
+const ADVT_STAFF_ROLES = new Set(["ADMIN", "EMPLOYEE", "DEPT_ADMIN"]);
+
 export const getAdvertisementPdf = async (req, res) => {
   try {
+    if (!mongoose.Types.ObjectId.isValid(req.params.id))
+      return res
+        .status(404)
+        .json({ isOk: false, status: 404, message: "Not found" });
+
     const adv = await Advertisement.findById(req.params.id).select(
       "pdf_path status",
     );
     if (!adv)
+      return res
+        .status(404)
+        .json({ isOk: false, status: 404, message: "Not found" });
+
+    // status was already being selected here but never checked, so the PDF of
+    // an unpublished Draft was downloadable by anyone holding the id.
+    if (
+      adv.status === "Draft" &&
+      !ADVT_STAFF_ROLES.has(req.session?.user?.role)
+    )
       return res
         .status(404)
         .json({ isOk: false, status: 404, message: "Not found" });

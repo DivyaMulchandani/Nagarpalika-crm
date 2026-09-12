@@ -16,6 +16,13 @@ import {
 const PUBLIC_NOTICE_PROJECTION =
   "title body pdf_path slug type publish_date expiry_date status is_important_instruction createdAt updatedAt";
 
+const NOTICE_STATUSES = ["draft", "published", "unpublished"];
+
+// Only staff may see anything other than a published notice. A candidate
+// session is not staff — it must be treated exactly like an anonymous visitor.
+const STAFF_ROLES = new Set(["ADMIN", "EMPLOYEE", "DEPT_ADMIN"]);
+const isStaffSession = (req) => STAFF_ROLES.has(req.session?.user?.role);
+
 export const createNotice = async (req, res) => {
   try {
     const {
@@ -58,12 +65,19 @@ const MARQUEE_NOTICE_PROJECTION =
 
 export const listNotices = async (req, res) => {
   try {
-    const isAuthenticated = !!req.session?.user;
+    const isStaff = isStaffSession(req);
     const filter = {};
 
-    const rawStatus = typeof req.query.status === "string" ? req.query.status.trim() : null;
-    filter.status = rawStatus || (isAuthenticated ? undefined : "published");
-    if (!filter.status) delete filter.status;
+    if (isStaff) {
+      const requested =
+        typeof req.query.status === "string" ? req.query.status.trim() : "";
+      if (NOTICE_STATUSES.includes(requested)) filter.status = requested;
+    } else {
+      // Everyone else sees published notices only, whatever they put in the
+      // query string. Previously ?status=draft overrode this default and
+      // exposed unpublished notices to anonymous callers.
+      filter.status = "published";
+    }
 
     if (typeof req.query.type === "string" && req.query.type.trim()) {
       filter.type = req.query.type.trim();
@@ -78,9 +92,7 @@ export const listNotices = async (req, res) => {
     const page = Math.max(parseInt(req.query.page) || 1, 1);
     const skip = (page - 1) * limit;
 
-    const projection = isAuthenticated
-      ? undefined
-      : MARQUEE_NOTICE_PROJECTION;
+    const projection = isStaff ? undefined : MARQUEE_NOTICE_PROJECTION;
 
     const [total, raw] = await Promise.all([
       Notice.countDocuments(filter),
@@ -107,11 +119,24 @@ export const listNotices = async (req, res) => {
 
 export const getNoticePdf = async (req, res) => {
   try {
+    if (!mongoose.Types.ObjectId.isValid(req.params.id))
+      return res
+        .status(404)
+        .json({ isOk: false, status: 404, message: "Not found" });
+
     const notice = await Notice.findOne({
       _id: req.params.id,
       is_deleted: { $ne: true },
     }).select("pdf_path status");
     if (!notice)
+      return res
+        .status(404)
+        .json({ isOk: false, status: 404, message: "Not found" });
+
+    // status was already being selected here but never checked, so the PDF of
+    // a draft notice was downloadable by anyone holding the id. 404 rather
+    // than 403 so an unpublished notice can't be confirmed to exist.
+    if (notice.status !== "published" && !isStaffSession(req))
       return res
         .status(404)
         .json({ isOk: false, status: 404, message: "Not found" });
@@ -139,15 +164,15 @@ export const getNoticePdf = async (req, res) => {
 export const getNoticeById = async (req, res) => {
   try {
     const { id } = req.params;
-    const isAuthenticated = !!req.session?.user;
+    const isStaff = isStaffSession(req);
     const query = mongoose.Types.ObjectId.isValid(id)
       ? { _id: id, is_deleted: { $ne: true } }
       : { slug: id, is_deleted: { $ne: true } };
 
-    if (!isAuthenticated) query.status = "published";
+    if (!isStaff) query.status = "published";
 
     let find = Notice.findOne(query);
-    if (!isAuthenticated) {
+    if (!isStaff) {
       find = find.select(PUBLIC_NOTICE_PROJECTION);
     } else {
       find = find.select("-__v");
@@ -278,8 +303,7 @@ export const searchNotices = async (req, res) => {
 export const patchNoticeStatus = async (req, res) => {
   try {
     const { status } = req.body;
-    const VALID = ["draft", "published", "unpublished"];
-    if (!VALID.includes(status))
+    if (!NOTICE_STATUSES.includes(status))
       return res
         .status(422)
         .json({

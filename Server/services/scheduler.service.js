@@ -1,5 +1,6 @@
 import mongoose from "mongoose";
 import Advertisement from "../models/Advertisement.js";
+import { reconcilePendingEasyPayPayments } from "./feeReconciliation.service.js";
 
 const RUN_INTERVAL_MS = 15 * 60 * 1000; // every 15 minutes
 
@@ -30,6 +31,13 @@ async function runJobs() {
   } catch (err) {
     console.error("[CRON] archiveExpiredAdvertisements failed:", err.message);
   }
+  // Runs even if the job above threw — a failed archive must not stop money
+  // from being reconciled.
+  try {
+    await reconcilePendingEasyPayPayments();
+  } catch (err) {
+    console.error("[CRON] reconcilePendingEasyPayPayments failed:", err.message);
+  }
 }
 
 let timer = null;
@@ -39,5 +47,7 @@ export function startScheduler() {
   runJobs(); // run once at startup so statuses are correct immediately
   timer = setInterval(runJobs, RUN_INTERVAL_MS);
   timer.unref?.();
-  console.log("✅ Scheduler started (advertisement status sync every 15 min)");
+  console.log(
+    "✅ Scheduler started (advertisement status sync + fee reconciliation every 15 min)",
+  );
 }

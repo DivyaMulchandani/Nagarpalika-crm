@@ -3,6 +3,16 @@ import PDFDocument from "pdfkit";
 
 const esc = (v) => String(v ?? "—").slice(0, 500);
 
+// EasyPay reports the mode the payer actually used as a PMD code.
+const PAYMENT_MODES = {
+  AIB: "Online — Axis Bank Net Banking",
+  OIB: "Online — Net Banking",
+  CD: "Online — Debit / Credit Card",
+  NR: "Online — NEFT / RTGS",
+};
+
+const describePaymentMode = (code) => PAYMENT_MODES[code] || "Online";
+
 const row = (doc, label, value) => {
   doc.font("Helvetica-Bold").text(`${label}: `, { continued: true });
   doc.font("Helvetica").text(esc(value));
@@ -71,7 +81,7 @@ export const generateReceiptPdf = (data, dest) =>
       "Amount Paid",
       fee.amount != null ? `Rs. ${Number(fee.amount).toFixed(2)}` : null,
     );
-    row(doc, "Payment Mode", "Online (Razorpay)");
+    row(doc, "Payment Mode", describePaymentMode(fee.payment_mode_code));
     row(doc, "Application Ref No", fee.application_ref_no);
     row(doc, "Advertisement No", fee.advt_no);
     if (advt) {

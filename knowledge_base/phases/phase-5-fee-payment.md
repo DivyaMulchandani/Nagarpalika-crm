@@ -8,9 +8,29 @@
 | **Blocks** | Phase 6 (Call Letter eligibility requires fee = Paid) |
 | **PRD Sections** | §5 M4 Fee Payment · §9.9 Payment Security |
 
-> **Gateway: Razorpay.** Online only — no DD, challan, or offline payment.
+> ## ⚠️ SUPERSEDED — gateway changed to Axis Bank EasyPay 2.0
+>
+> The Razorpay design below is **no longer what is built**, and every Razorpay
+> reference in this file is historical. Razorpay has been removed from the
+> codebase entirely — service, webhook, model fields, dependency and env keys.
+>
+> **What ships instead:** Axis EasyPay 2.0 URL-redirection (site-to-site).
+>
+> | | Razorpay (this doc) | Axis EasyPay (actual) |
+> |---|---|---|
+> | Flow | JS SDK modal | Browser form POST redirect |
+> | Payload | JSON | AES-128-ECB encrypted `i` field |
+> | Authenticity | Webhook HMAC | SHA-256 checksum on the redirect response |
+> | Settlement push | `payment.captured` webhook | **None** — redirect only |
+> | Missed payments | Webhook retries | Scheduled enquiry sweep (no webhook exists) |
+>
+> Implementation: `Server/services/easypay.service.js`,
+> `Server/services/feeReconciliation.service.js`, and the `easyPay*` handlers in
+> `Server/controllers/v1/feePayment.controller.js`. Env keys are `EASYPAY_*`.
 
-> **Backend-first:** This phase builds the full Razorpay integration and webhook handler. The payment frontend pages are deferred to **Frontend Binding**.
+> **Online only** — no DD, challan, or offline payment.
+
+> **Backend-first:** The payment frontend pages are deferred to **Frontend Binding**.
 
 > **Definition of Done** is defined in Phase 1. Apply those criteria here.
 

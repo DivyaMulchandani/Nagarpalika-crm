@@ -225,7 +225,7 @@ Create all 6 fresh. None exist yet.
   payment_mode: ObjectId → MasterData,
   status: Enum ['pending','paid','failed','refunded'],
   receipt_path: String,
-  webhook_payload: Mixed,
+  gateway_response: Mixed,
   paid_at: Date,
   timestamps
 }

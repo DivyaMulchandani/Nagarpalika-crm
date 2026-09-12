@@ -88,7 +88,7 @@
 | 4 | Shared or separate admin credentials per subdomain? | Admin architecture | ✅ **Separate deployments — no multi-tenant** |
 | 5 | Separate Results module? | Scope | ❓ Open |
 | 6 | Advertisement PDFs — admin upload or system-generated? | Advt management | ❓ Open |
-| 7 | Payment gateway — Razorpay / PayGov / Paytm / state portal? | Fee integration | ✅ **Razorpay** |
+| 7 | Payment gateway? | Fee integration | ✅ **Axis Bank EasyPay 2.0** (URL redirection) |
 | 8 | Application form fields beyond OTR? (exam centre, quals, experience) | Apply module | ❓ Open |
 | 9 | WhatsApp Business API account — municipality to register? | OTP + notification cost | ❓ Open |
 
@@ -182,7 +182,7 @@ Build order is sequential. 🟡 = infra done, recruitment features pending. 🔴
 | 2 | ~~Online only or DD/challan too?~~ | Phase 5 | ✅ Online only |
 | 3 | ~~Aadhaar OTP-based or offline XML?~~ | Phase 3 | ✅ Aadhaar + phone OTP (UIDAI) |
 | 4 | ~~Shared or separate admin credentials?~~ | Phase 7 | ✅ Separate deployments |
-| 7 | ~~Payment gateway choice?~~ | Phase 5 | ✅ Razorpay |
+| 7 | ~~Payment gateway choice?~~ | Phase 5 | ✅ Axis Bank EasyPay 2.0 |
 | **8** | **Application form fields?** | **Phase 4 (HARD BLOCK)** | ❓ Open |
 | **9** | **WhatsApp BSP registered?** | **Phase 8 (HARD BLOCK)** | ❓ Open |
 
