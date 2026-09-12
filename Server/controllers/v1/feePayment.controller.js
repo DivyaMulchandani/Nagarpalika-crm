@@ -9,6 +9,7 @@ import {
   sendFeeReceiptEmail,
   settleFromEnquiry,
 } from "../../services/feeReconciliation.service.js";
+import { resolveApplicationFee } from "../../services/feeCalculator.service.js";
 import { generateReceiptPdf } from "../../services/receiptPdf.service.js";
 import { escapeRegex } from "../../utils/escapeRegex.js";
 
@@ -197,7 +198,14 @@ export const initiateEasyPayPayment = async (req, res) => {
         .status(404)
         .json({ isOk: false, status: 404, message: "Advertisement not found" });
 
-    const amount = Number(advt.application_fee || 0);
+    // Fee tier is resolved from the stored candidate record, never from the
+    // request — a candidate must not be able to choose which fee they pay.
+    const candidate = await Candidate.findOne({ registration_id })
+      .select("category gender")
+      .lean();
+    const fees = resolveApplicationFee(advt, candidate);
+    const amount = fees.amount;
+
     if (!(amount > 0))
       return res.status(400).json({
         isOk: false,
@@ -242,7 +250,14 @@ export const initiateEasyPayPayment = async (req, res) => {
       message: "Payment request created",
       // The browser must POST `i` to `url` as a form — this is a redirect
       // integration, not a JS SDK.
-      data: { url, i, payment_id: fee.payment_id, amount },
+      data: {
+        url,
+        i,
+        payment_id: fee.payment_id,
+        amount,
+        fee_tier: fees.tier,
+        fee_reason: fees.reason,
+      },
     });
   } catch (error) {
     console.error("[easypay] initiate error:", error.message);

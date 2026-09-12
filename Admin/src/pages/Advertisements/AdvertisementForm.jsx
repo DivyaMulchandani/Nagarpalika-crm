@@ -102,6 +102,7 @@ const empty = {
   start_date: "",
   end_date: "",
   application_fee: "",
+  application_fee_concessional: "",
   probation_period: "",
   age_min: "",
   age_max: "",
@@ -187,6 +188,7 @@ const AdvertisementForm = () => {
           start_date: d.start_date ? d.start_date.slice(0, 10) : "",
           end_date: d.end_date ? d.end_date.slice(0, 10) : "",
           application_fee: d.application_fee ?? "",
+          application_fee_concessional: d.application_fee_concessional ?? "",
           probation_period: d.probation_period || "",
           age_min: d.age_limit?.min ?? "",
           age_max: d.age_limit?.max ?? "",
@@ -270,6 +272,11 @@ const AdvertisementForm = () => {
       application_fee:
         values.application_fee !== ""
           ? Number(values.application_fee)
+          : undefined,
+      // Left blank => single-fee advertisement; everyone pays application_fee.
+      application_fee_concessional:
+        values.application_fee_concessional !== ""
+          ? Number(values.application_fee_concessional)
           : undefined,
       probation_period: values.probation_period || undefined,
       age_limit: {
@@ -567,7 +574,14 @@ const AdvertisementForm = () => {
                       </div>
                     </Col>
                     <Col md={3}>
-                      <div className="mb-3"><Label>Application Fee (₹)</Label><Input type="number" min={0} value={values.application_fee} onChange={(e) => set("application_fee", e.target.value)} disabled={isView} /></div>
+                      <div className="mb-3"><Label>Application Fee — General Male (₹)</Label><Input type="number" min={0} value={values.application_fee} onChange={(e) => set("application_fee", e.target.value)} disabled={isView} /></div>
+                    </Col>
+                    <Col md={3}>
+                      <div className="mb-3">
+                        <Label>Concessional Fee (₹)</Label>
+                        <Input type="number" min={0} value={values.application_fee_concessional} onChange={(e) => set("application_fee_concessional", e.target.value)} disabled={isView} />
+                        <small className="text-muted">Reserved categories and all non-male candidates. Leave blank to charge everyone the same fee.</small>
+                      </div>
                     </Col>
                     <Col md={3}>
                       <div className="mb-3"><Label>Probation Period</Label><Input value={values.probation_period} onChange={(e) => set("probation_period", e.target.value)} disabled={isView} /></div>

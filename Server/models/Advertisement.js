@@ -53,7 +53,12 @@ const AdvertisementSchema = new mongoose.Schema(
     },
     ph_description: { type: String, trim: true },
     experience_required: { type: String, trim: true },
+    // Full fee — paid by unreserved (General) male candidates.
     application_fee: { type: Number, default: 0 },
+    // Concessional fee — paid by everyone else (reserved categories and all
+    // non-male candidates). Left unset means a single-fee advertisement where
+    // everyone pays application_fee, so existing records need no migration.
+    application_fee_concessional: { type: Number },
     start_date: { type: Date },
     end_date: { type: Date },
     probation_period: { type: String, trim: true },
