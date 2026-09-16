@@ -25,6 +25,7 @@ export const createAdvertisement = async (req, res) => {
       ph_description,
       experience_required,
       application_fee,
+      application_fee_concessional,
       start_date,
       end_date,
       probation_period,
@@ -60,6 +61,7 @@ export const createAdvertisement = async (req, res) => {
       ph_description,
       experience_required,
       application_fee,
+      application_fee_concessional,
       start_date,
       end_date,
       probation_period,
@@ -91,11 +93,11 @@ export const createAdvertisement = async (req, res) => {
 // Fields safe to expose to the public (no audit/internal/export data)
 const PUBLIC_ADVT_PROJECTION =
   "advt_no slug post_title department class pay_scale vacancies age_limit " +
-  "qualification required_qualifications caste_certificate ph_description experience_required application_fee " +
+  "qualification required_qualifications caste_certificate ph_description experience_required application_fee application_fee_concessional " +
   "start_date end_date probation_period other_conditions note enforce_reservation_rules status pdf_path";
 
 const LIST_ADVT_PROJECTION =
-  "advt_no slug post_title department class vacancies application_fee end_date status pdf_path note pay_scale enforce_reservation_rules";
+  "advt_no slug post_title department class vacancies application_fee application_fee_concessional end_date status pdf_path note pay_scale enforce_reservation_rules";
 
 const VALID_STATUSES = ["Draft", "Published", "Closed", "Archived"];
 
@@ -228,12 +230,30 @@ export const listAdvertisements = async (req, res) => {
   }
 };
 
+// Staff may see Drafts; nobody else may. Mirrors getAdvertisementById.
+const ADVT_STAFF_ROLES = new Set(["ADMIN", "EMPLOYEE", "DEPT_ADMIN"]);
+
 export const getAdvertisementPdf = async (req, res) => {
   try {
+    if (!mongoose.Types.ObjectId.isValid(req.params.id))
+      return res
+        .status(404)
+        .json({ isOk: false, status: 404, message: "Not found" });
+
     const adv = await Advertisement.findById(req.params.id).select(
       "pdf_path status",
     );
     if (!adv)
+      return res
+        .status(404)
+        .json({ isOk: false, status: 404, message: "Not found" });
+
+    // status was already being selected here but never checked, so the PDF of
+    // an unpublished Draft was downloadable by anyone holding the id.
+    if (
+      adv.status === "Draft" &&
+      !ADVT_STAFF_ROLES.has(req.session?.user?.role)
+    )
       return res
         .status(404)
         .json({ isOk: false, status: 404, message: "Not found" });
@@ -316,6 +336,7 @@ export const patchAdvertisement = async (req, res) => {
       "ph_description",
       "experience_required",
       "application_fee",
+      "application_fee_concessional",
       "start_date",
       "end_date",
       "probation_period",
@@ -428,6 +449,7 @@ export const searchAdvertisements = async (req, res) => {
         status: 1,
         end_date: 1,
         application_fee: 1,
+        application_fee_concessional: 1,
         createdAt: 1,
       },
     });

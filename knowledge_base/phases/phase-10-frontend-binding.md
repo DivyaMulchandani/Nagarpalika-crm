@@ -322,7 +322,7 @@ Shared Formik context holds all step data. Steps persist to server via `POST /ap
 **Routes:**
 ```
 /fee            → FeeStatus.jsx    (lookup by Aadhaar hash or Reg ID)
-/fee/checkout   → Razorpay redirect (client calls POST /fee-payments/initiate → opens Razorpay)
+/applications   → EasyPay redirect (client calls POST /fee-payments/easypay/initiate → form-POSTs the encrypted `i` to Axis)
 /fee/success    → FeeSuccess.jsx   (display only — no DB calls)
 /fee/failure    → FeeFailure.jsx   (display only — retry button)
 ```

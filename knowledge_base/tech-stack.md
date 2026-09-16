@@ -237,7 +237,7 @@ HMS pages that map to Nagar Palika equivalents:
 |------|--------------|
 | `Web/.env` | `VITE_API_URL`, `VITE_APP_NAME` |
 | `Admin/.env` | `VITE_API_URL`, `VITE_APP_NAME` |
-| `Server/.env` | `DATABASE`, `PORT`, `NODE_ENV`, `SESSION_SECRET`, `ALLOWED_ORIGINS`, `JWT_*`, `WHATSAPP_*`, `SMS_*`, `SMTP_*`, `UIDAI_*`, `PAYMENT_GATEWAY_*` |
+| `Server/.env` | `DATABASE`, `PORT`, `NODE_ENV`, `SESSION_SECRET`, `ALLOWED_ORIGINS`, `JWT_*`, `WHATSAPP_*`, `SMS_*`, `SMTP_*`, `UIDAI_*`, `EASYPAY_*` |
 
 ---
 

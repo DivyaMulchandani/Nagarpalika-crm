@@ -1,7 +1,7 @@
 import { useState } from 'react'
 import { Link } from 'react-router-dom'
 import { toast } from 'react-toastify'
-import { get, post } from '../../api/index'
+import { get } from '../../api/index'
 
 const statusColor = { pending: 'var(--ojas-saffron-deep)', paid: '#2a7a2a', failed: 'var(--ojas-red)' }
 const fmtDate = (d) => d ? new Date(d).toLocaleString('en-IN') : '—'
@@ -11,7 +11,6 @@ const REG_ID_RE = /^[A-Z0-9/-]{4,30}$/
 export default function FeeStatus() {
   const [regId, setRegId]     = useState('')
   const [loading, setLoading] = useState(false)
-  const [paying, setPaying]   = useState(null)
   const [results, setResults] = useState(null)
   const [error, setError]     = useState(null)
 
@@ -38,26 +37,6 @@ export default function FeeStatus() {
       toast.error(err.message || 'Could not fetch fee status.')
     } finally {
       setLoading(false)
-    }
-  }
-
-  const handlePay = async (advtNo) => {
-    setPaying(advtNo)
-    try {
-      const res = await post('/api/v1/fee-payments/initiate', { registration_id: regId.trim(), advt_no: advtNo })
-      const { order_id, amount, key } = res.data
-      const rzp = new window.Razorpay({
-        key, amount, order_id,
-        name: 'Nagar Palika Recruitment',
-        description: `Fee for ${advtNo}`,
-        handler: () => { window.location.href = '/fee/success' },
-        modal: { ondismiss: () => { window.location.href = '/fee/failure' } },
-      })
-      rzp.open()
-    } catch (err) {
-      toast.error(err.message || 'Payment initiation failed.')
-    } finally {
-      setPaying(null)
     }
   }
 
@@ -113,9 +92,11 @@ export default function FeeStatus() {
                     <td style={{ fontSize: 12 }}>{fmtDate(r.paid_at)}</td>
                     <td>
                       {r.status === 'paid'
-                        ? <a href={`${import.meta.env.VITE_API_URL || ''}/api/v1/fee-payments/${r.payment_id}/receipt`} target="_blank" rel="noreferrer" style={{ color: 'var(--ojas-saffron-deep)', fontWeight: 700 }}>Receipt ▶</a>
+                        ? <a href={`${import.meta.env.VITE_API_URL || ''}/api/v1/fee-payments/receipt/${r.payment_id}`} target="_blank" rel="noreferrer" style={{ color: 'var(--ojas-saffron-deep)', fontWeight: 700 }}>Receipt ▶</a>
                         : r.status === 'pending'
-                          ? <button className="btn primary" style={{ fontSize: 12, padding: '4px 10px' }} onClick={() => handlePay(r.advt_no)} disabled={paying === r.advt_no}>{paying === r.advt_no ? 'Opening…' : 'Pay Now'}</button>
+                          // Paying requires a signed-in candidate, so send them
+                          // to My Applications rather than starting it here.
+                          ? <Link to="/applications" className="btn primary" style={{ fontSize: 12, padding: '4px 10px' }}>Log in to Pay ▶</Link>
                           : '—'
                       }
                     </td>

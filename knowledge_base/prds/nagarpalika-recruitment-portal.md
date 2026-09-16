@@ -179,7 +179,7 @@ One Aadhaar = one Registration ID per subdomain. Duplicate Aadhaar rejected syst
 - Accepted modes: UPI · Net Banking · Debit Card · Credit Card
 - On success: fee receipt generated (Paid status updated), PDF receipt downloadable
 - On failure: application retained, user can retry
-- Gateway selection: *(open question #7 — Razorpay / PayGov / Paytm / state portal)*
+- Gateway selection: ✅ **Axis Bank EasyPay 2.0** (URL-redirection, site-to-site)
 - Offline DD/challan support: *(open question #2 — TBD)*
 
 ---
@@ -652,7 +652,7 @@ All 9 items below are unresolved. Items marked **BLOCKS** halt development of th
 | 4 | Admin credentials — shared across both subdomains or fully separate? | M8 admin architecture | Municipality |
 | 5 | Results module — separate module beyond notice board? | Scope | Municipality |
 | 6 | Advertisement PDFs — admin uploads or system-generated? | M8 advertisement mgmt | Municipality |
-| 7 | Payment gateway — Razorpay / PayGov / Paytm / state portal? | M4 integration | Municipality |
+| 7 | ~~Payment gateway?~~ ✅ Resolved: Axis Bank EasyPay 2.0 | M4 integration | Municipality |
 | 8 | Application form fields beyond OTR profile? (exam centre, category declaration, qualifications, experience) | **BLOCKS** M3 apply form | Municipality |
 | 9 | Will municipality register WhatsApp Business API account (Meta-approved BSP)? | M7 OTP + all notifications; determines SMS fallback cost | Municipality |
 
