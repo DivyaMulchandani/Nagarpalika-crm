@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react'
 import { useLocation, useNavigate } from 'react-router-dom'
 import { toast } from 'react-toastify'
 import { post } from '../../api/index'
+import { startEasyPayPayment } from '../../api/easypay'
 import { IconCheckCircle } from '../../components/Icons'
 
 export default function ApplicationForm() {
@@ -13,6 +14,7 @@ export default function ApplicationForm() {
   const [loading, setLoading] = useState(false)
   const [error, setError]     = useState(null)
   const [refNo, setRefNo]     = useState(null)
+  const [paying, setPaying]   = useState(false)
 
   // Hard deadline: the form auto-exits the moment the advertisement's last
   // day ends (midnight). The API enforces the same cut-off server-side.
@@ -52,6 +54,21 @@ export default function ApplicationForm() {
     }
   }
 
+  // Pay straight from the success screen: the candidate is signed in and we
+  // already hold the reference, so there is nothing to look up first.
+  const handlePay = async () => {
+    setPaying(true)
+    try {
+      // Only returns if the redirect to the bank didn't happen.
+      await startEasyPayPayment(refNo)
+    } catch (err) {
+      toast.error(err.message || 'Payment could not be started.')
+      navigate('/applications')
+    } finally {
+      setPaying(false)
+    }
+  }
+
   if (refNo) {
     return (
       <>
@@ -63,7 +80,7 @@ export default function ApplicationForm() {
           <p style={{ fontSize: 12, color: 'var(--ojas-ink-3)' }}>Note this number. You will need it to track your application and print the form.</p>
           <div style={{ marginTop: 16, display: 'flex', gap: 10, justifyContent: 'center' }}>
             <button className="btn primary" onClick={() => navigate('/application/print', { state: { ref: refNo } })}>Print Application ▶</button>
-            <button className="btn" onClick={() => navigate('/fee')}>Pay Fee ▶</button>
+            <button className="btn" onClick={handlePay} disabled={paying}>{paying ? 'Opening…' : 'Pay Fee ▶'}</button>
           </div>
         </div>
       </>

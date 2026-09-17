@@ -21,15 +21,18 @@ const hashAadhaar = (raw) =>
 
 // ── Public ────────────────────────────────────────────────────────────────────
 
-// Lookup fee status by registration_id+advt_no or aadhaar+advt_no
+// Lookup fee status by registration_id or aadhaar. `advt_no` is optional — a
+// candidate checking the public page knows their Registration ID but rarely the
+// advertisement number, so without it we return every fee row they have.
+// Always an array, even for a single match, so the caller renders one way.
 export const getFeeStatus = async (req, res) => {
   try {
     const { registration_id, aadhaar, advt_no } = req.body;
-    if ((!registration_id && !aadhaar) || !advt_no)
+    if (!registration_id && !aadhaar)
       return res.status(422).json({
         isOk: false,
         status: 422,
-        message: "Provide (registration_id or aadhaar) and advt_no",
+        message: "Provide registration_id or aadhaar",
       });
 
     let reg_id = registration_id;
@@ -37,28 +40,32 @@ export const getFeeStatus = async (req, res) => {
       const candidate = await Candidate.findOne({
         aadhaar_hash: hashAadhaar(aadhaar),
       }).select("registration_id");
+      // Unknown Aadhaar looks the same as "no fees yet" — an empty list rather
+      // than a 404, so this endpoint can't be used to probe who is registered.
       if (!candidate)
-        return res
-          .status(200)
-          .json({ isOk: true, status: 200, data: { status: "not_found" } });
+        return res.status(200).json({ isOk: true, status: 200, data: [] });
       reg_id = candidate.registration_id;
     }
 
-    const fee = await FeePayment.findOne({
-      registration_id: reg_id,
-      advt_no,
-    }).select("status payment_id paid_at advt_no application_ref_no");
+    const filter = { registration_id: reg_id };
+    if (advt_no) filter.advt_no = advt_no;
+
+    const fees = await FeePayment.find(filter)
+      .select("status payment_id paid_at advt_no application_ref_no amount")
+      .sort({ createdAt: -1 })
+      .lean();
 
     return res.status(200).json({
       isOk: true,
       status: 200,
-      data: fee
-        ? {
-            status: fee.status,
-            payment_id: fee.payment_id,
-            paid_at: fee.paid_at,
-          }
-        : { status: "not_found" },
+      data: fees.map((fee) => ({
+        status: fee.status,
+        payment_id: fee.payment_id,
+        paid_at: fee.paid_at,
+        advt_no: fee.advt_no,
+        application_ref_no: fee.application_ref_no,
+        amount: fee.amount,
+      })),
     });
   } catch (error) {
     return res
@@ -216,26 +223,47 @@ export const initiateEasyPayPayment = async (req, res) => {
     // Reuse the pending row on a retry instead of piling up new ones, but issue
     // a fresh RID/CRN — the gateway rejects a reference it has already seen.
     const { rid, crn } = await nextEasyPayRefs();
-    const fee =
-      (await FeePayment.findOne({ application_ref_no, status: "pending" })) ||
-      new FeePayment({
-        application_ref_no,
-        registration_id,
-        advt_no: app.advt_no,
-        amount,
-      });
 
-    fee.amount = amount;
-    fee.easypay_rid = rid;
-    fee.easypay_crn = crn;
-    // Keep every pair: a NEFT started on an earlier attempt can still clear
-    // days later, and it will quote that older RID. Bounded so a rapidly
-    // clicked Pay button can't grow the document without limit.
-    fee.easypay_refs = [
-      ...(fee.easypay_refs || []),
-      { rid, crn, issued_at: new Date() },
-    ].slice(-MAX_EASYPAY_REFS);
-    await fee.save();
+    // Every pair is kept: a NEFT started on an earlier attempt can still clear
+    // days later, and it will quote that older RID. The amount goes in with it,
+    // because `amount` below is overwritten by the next retry and the late
+    // settlement must be checked against what IT was started for.
+    const refEntry = { rid, crn, amount, issued_at: new Date() };
+
+    // One atomic update rather than read-modify-write: two tabs hitting Pay
+    // together would otherwise each save their own copy of easypay_refs and the
+    // loser's RID would vanish, leaving that payment unmatchable when it
+    // returns. $push with $slice bounds the array server-side.
+    const claimPendingRow = () =>
+      FeePayment.findOneAndUpdate(
+        { application_ref_no, status: "pending" },
+        {
+          $set: {
+            amount,
+            easypay_rid: rid,
+            easypay_crn: crn,
+            registration_id,
+            advt_no: app.advt_no,
+          },
+          $push: {
+            easypay_refs: { $each: [refEntry], $slice: -MAX_EASYPAY_REFS },
+          },
+          // No $setOnInsert: the filter's equality conditions
+          // (application_ref_no, status) are already written into the inserted
+          // document, and repeating one here risks a path conflict.
+        },
+        { new: true, upsert: true, setDefaultsOnInsert: true },
+      );
+
+    let fee;
+    try {
+      fee = await claimPendingRow();
+    } catch (err) {
+      // The partial unique index rejected a concurrent insert: the other
+      // request created the pending row a moment ago, so the retry updates it.
+      if (err?.code !== 11000) throw err;
+      fee = await claimPendingRow();
+    }
 
     const { url, i } = easypay.buildPaymentRequest({
       rid,
@@ -315,16 +343,26 @@ export const easyPayReturn = async (req, res) => {
       return redirectToPortal(res, "/fee/success", { ref: fee.application_ref_no });
     }
 
-    // The signed amount must equal what we asked for. Compare numerically so
-    // "2.00" and 2 agree, while the checksum above used the verbatim string.
-    if (Number(data.AMT) !== Number(fee.amount)) {
+    // The signed amount must equal what THIS attempt was started for — not
+    // fee.amount, which a later retry may already have overwritten. Compare
+    // numerically so "2.00" and 2 agree; the checksum used the verbatim string.
+    const expectedAmount = amountForRid(fee, rid);
+    if (Number(data.AMT) !== Number(expectedAmount)) {
       console.error(
-        `[easypay] amount mismatch on ${fee.payment_id}: expected ${fee.amount}, got ${data.AMT}`,
+        `[easypay] amount mismatch on ${fee.payment_id} (RID ${rid}): expected ${expectedAmount}, got ${data.AMT} — flagged for manual review`,
       );
-      fee.status = "failed";
+      // Deliberately NOT marked failed. The gateway may well have taken the
+      // money, so writing it off automatically would lose a real payment and
+      // drop the row out of the reconciliation sweep. Leave it pending, flag
+      // it, and let a human decide.
+      fee.needs_manual_review = true;
+      fee.manual_review_reason = `Gateway reported ${data.AMT} for RID ${rid}, expected ${expectedAmount}`;
       fee.gateway_response = data;
       await fee.save();
-      return redirectToPortal(res, "/fee/failure", { reason: "amount_mismatch" });
+      return redirectToPortal(res, "/fee/failure", {
+        reason: "amount_mismatch",
+        ref: fee.application_ref_no,
+      });
     }
 
     fee.status = parsed.status; // paid | pending | failed
@@ -440,7 +478,7 @@ export const listFeePayments = async (req, res) => {
       FeePayment.countDocuments(filter),
       FeePayment.find(filter)
         .select(
-          "payment_id registration_id advt_no amount status paid_at gateway_txn_id createdAt",
+          "payment_id registration_id advt_no amount status paid_at gateway_txn_id createdAt needs_manual_review manual_review_reason",
         )
         .sort({ [sorton || "createdAt"]: sortdir === "asc" ? 1 : -1 })
         .skip(Number(skip))
@@ -513,8 +551,14 @@ export const manualVerification = async (req, res) => {
     fee.status = "paid";
     fee.paid_at = fee.paid_at || new Date();
     if (gateway_txn_id) fee.gateway_txn_id = gateway_txn_id;
+    // Resolving by hand is exactly what the review flag was raised for.
+    fee.needs_manual_review = false;
+    // Nested, not replaced: the gateway's own payload is the evidence of what
+    // the bank actually reported and must survive the override.
     fee.gateway_response = {
+      ...(fee.gateway_response || {}),
       manual_override: true,
+      manual_review_reason: fee.manual_review_reason,
       notes,
       overridden_by: req.user.id,
       overridden_at: new Date(),

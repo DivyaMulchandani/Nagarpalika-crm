@@ -22,11 +22,22 @@ export default function ApplicationsList() {
   }, [])
 
   // Fee rows are keyed by application ref so each row can show its own state.
+  // An application can own several rows — a failed attempt leaves its row
+  // behind and the retry starts a new one — so pick the one that decides the
+  // row: a paid attempt if there is one, otherwise the most recent. Keeping
+  // whichever happened to come last meant a candidate who paid on their second
+  // attempt still saw "Pay Fee", and clicking it was rejected as already paid.
   useEffect(() => {
     get('/api/v1/fee-payments/me', undefined, { silent401: true })
       .then((res) => {
         const byRef = {}
-        for (const f of res?.data ?? []) byRef[f.application_ref_no] = f
+        // The API returns newest first.
+        for (const f of res?.data ?? []) {
+          const kept = byRef[f.application_ref_no]
+          if (!kept || (kept.status !== 'paid' && f.status === 'paid')) {
+            byRef[f.application_ref_no] = f
+          }
+        }
         setFees(byRef)
       })
       .catch(() => setFees({}))

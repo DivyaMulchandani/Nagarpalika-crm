@@ -1,5 +1,6 @@
 import express from "express";
 import { authMiddleware } from "../../middlewares/authMiddleware.js";
+import { feeStatusLimiter } from "../../middlewares/securityHeaders.js";
 import {
   getFeeStatus,
   getFeeReceipt,
@@ -16,7 +17,9 @@ import {
 const router = express.Router();
 
 // ── Public ────────────────────────────────────────────────────────────────────
-router.post("/fee-payments/status", getFeeStatus);
+// Throttled: the only input is a sequentially-issued Registration ID, so an
+// open endpoint here is an enumeration surface over every candidate's fees.
+router.post("/fee-payments/status", feeStatusLimiter, getFeeStatus);
 
 // ── Candidate ─────────────────────────────────────────────────────────────────
 router.get("/fee-payments/me", authMiddleware(["CANDIDATE"]), getMyFeePayments);

@@ -70,8 +70,20 @@ const FeePaymentList = () => {
     { name: "Amount (₹)", selector: (r) => r.amount ?? "—", width: "110px", right: true },
     {
       name: "Status",
-      cell: (r) => <Badge color={statusColor[r.status] || "secondary"}>{r.status}</Badge>,
-      width: "100px",
+      // A flagged row is still "pending" on purpose — the bank may have taken
+      // money at the wrong figure — so the flag has to be visible here or
+      // nobody ever looks at it.
+      cell: (r) => (
+        <div className="d-flex flex-column align-items-center gap-1">
+          <Badge color={statusColor[r.status] || "secondary"}>{r.status}</Badge>
+          {r.needs_manual_review && (
+            <Badge color="danger" title={r.manual_review_reason || "Needs manual review"}>
+              REVIEW
+            </Badge>
+          )}
+        </div>
+      ),
+      width: "110px",
       center: true,
     },
     { name: "Gateway Txn", selector: (r) => r.gateway_txn_id || "—", width: "160px", style: { fontFamily: "monospace", fontSize: 11 } },

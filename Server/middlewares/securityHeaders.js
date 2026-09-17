@@ -27,6 +27,20 @@ export const publicApiLimiter = rateLimit({
   message: rateLimitResponse,
 });
 
+/**
+ * Public fee-status lookup. Tighter than the general public limit because the
+ * only input is a Registration ID and those are issued sequentially — an
+ * unthrottled endpoint lets anyone walk the range and read every candidate's
+ * fee record. A genuine candidate checks their own status a handful of times.
+ */
+export const feeStatusLimiter = rateLimit({
+  windowMs: 60 * 1000,
+  max: 15,
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: rateLimitResponse,
+});
+
 export const helpQueryLimiter = rateLimit({
   windowMs: 60 * 1000,
   max: 10,

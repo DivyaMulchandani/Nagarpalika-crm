@@ -205,26 +205,7 @@ export const parseGatewayResponse = (i, variant = "payment") => {
   // A payload this size almost always contains one, so try that reading too.
   if (decoded.includes(" ")) candidates.push(decoded.replace(/ /g, "+"));
 
-  let plain = null;
-  let lastError;
-  for (const candidate of candidates) {
-    try {
-      plain = decrypt(candidate);
-      break;
-    } catch (err) {
-      lastError = err;
-    }
-  }
-  if (plain === null)
-    return {
-      ok: false,
-      error: `Could not decrypt gateway response: ${lastError?.message}`,
-    };
-
-  const data = parsePayload(plain);
-  if (!data.CKS) return { ok: false, error: "Gateway response carried no checksum", data };
-
-  const expected =
+  const expectedFor = (data) =>
     variant === "enquiry"
       ? enquiryChecksum({ cid: data.CID, rid: data.RID, crn: data.CRN, key: c.cksKey })
       : paymentChecksum({
@@ -236,14 +217,49 @@ export const parseGatewayResponse = (i, variant = "payment") => {
           key: c.cksKey,
         });
 
-  if (!checksumMatches(expected, data.CKS))
-    return { ok: false, error: "Gateway response failed checksum verification", data };
+  // Take the first candidate whose CHECKSUM verifies, not merely the first that
+  // decrypts. Base64 ignores stray characters, so a wrong reading can decrypt
+  // to garbage instead of throwing — stopping there would reject a real
+  // payment. Only a verified checksum proves we read the payload correctly.
+  let lastError;
+  let lastData;
+  for (const candidate of candidates) {
+    let plain;
+    try {
+      plain = decrypt(candidate);
+    } catch (err) {
+      lastError = `Could not decrypt gateway response: ${err.message}`;
+      continue;
+    }
 
-  // A valid checksum for someone else's corporate id is still not ours.
-  if (String(data.CID) !== String(c.cid))
-    return { ok: false, error: "Gateway response is for a different corporate id", data };
+    const data = parsePayload(plain);
+    if (!data.CKS) {
+      lastError = "Gateway response carried no checksum";
+      lastData = data;
+      continue;
+    }
+    if (!checksumMatches(expectedFor(data), data.CKS)) {
+      lastError = "Gateway response failed checksum verification";
+      lastData = data;
+      continue;
+    }
 
-  return { ok: true, data, status: STATUS[String(data.STC)] || "failed", plain };
+    // A valid checksum for someone else's corporate id is still not ours.
+    if (String(data.CID) !== String(c.cid))
+      return {
+        ok: false,
+        error: "Gateway response is for a different corporate id",
+        data,
+      };
+
+    return { ok: true, data, status: STATUS[String(data.STC)] || "failed", plain };
+  }
+
+  return {
+    ok: false,
+    error: lastError || "Gateway response could not be authenticated",
+    data: lastData,
+  };
 };
 
 // ── Enquiry ──────────────────────────────────────────────────────────────────

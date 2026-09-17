@@ -12,6 +12,25 @@ import { MenuContext } from "../../context/MenuContext";
 
 const appColor = { submitted: "primary", under_review: "info", selected: "success", rejected: "danger" };
 
+// Fee is advisory here — an unpaid application is still reviewable, it just
+// carries a visible remark so nobody processes one unknowingly.
+const feeBadge = {
+  paid:           { color: "success",   label: "PAID" },
+  pending:        { color: "warning",   label: "PENDING" },
+  failed:         { color: "danger",    label: "FAILED" },
+  unpaid:         { color: "danger",    label: "UNPAID" },
+  not_applicable: { color: "secondary", label: "NO FEE" },
+};
+
+const FEE_OPTIONS = [
+  { value: "outstanding",    label: "Fee outstanding (unpaid / pending / failed)" },
+  { value: "unpaid",         label: "Unpaid — never attempted" },
+  { value: "pending",        label: "Pending" },
+  { value: "failed",         label: "Failed" },
+  { value: "paid",           label: "Paid" },
+  { value: "not_applicable", label: "No fee for this post" },
+];
+
 const ApplicationList = () => {
   const { adminData } = useContext(AuthContext);
   const { currentPagePermissions } = useContext(MenuContext);
@@ -27,6 +46,7 @@ const ApplicationList = () => {
   const [query, setQuery] = useState("");
   const [advtFilter, setAdvtFilter] = useState(null);
   const [advtOptions, setAdvtOptions] = useState([]);
+  const [feeFilter, setFeeFilter] = useState(null);
   const [exporting, setExporting] = useState(false);
 
   React.useEffect(() => {
@@ -45,6 +65,7 @@ const ApplicationList = () => {
         sortdir: sortDir,
         match: query || undefined,
         advt_no: advtFilter?.value || undefined,
+        fee_status: feeFilter?.value || undefined,
       });
       const rows = res.data.data?.[0];
       setData(rows?.data || []);
@@ -53,7 +74,7 @@ const ApplicationList = () => {
       setData([]);
     }
     setLoading(false);
-  }, [pageNo, perPage, column, sortDir, query, advtFilter]);
+  }, [pageNo, perPage, column, sortDir, query, advtFilter, feeFilter]);
 
   React.useEffect(() => { fetchData(); }, [fetchData]);
 
@@ -76,6 +97,19 @@ const ApplicationList = () => {
       grow: 1,
       center: true,
     },
+    {
+      name: "Fee",
+      cell: (r) => {
+        const f = feeBadge[r.fee_status] || feeBadge.unpaid;
+        return (
+          <Badge color={f.color} title={r.fee_amount ? `₹${Number(r.fee_amount).toLocaleString("en-IN")}` : undefined}>
+            {f.label}
+          </Badge>
+        );
+      },
+      grow: 1,
+      center: true,
+    },
     { name: "Submitted At", selector: (r) => new Date(r.submitted_at || r.createdAt).toLocaleDateString("en-IN"), grow: 1 },
     {
       name: "Actions",
@@ -90,7 +124,11 @@ const ApplicationList = () => {
   const handleExport = async () => {
     setExporting(true);
     try {
-      const res = await exportApplications({ advt_no: advtFilter?.value });
+      // Export what the table is currently showing, fee filter included.
+      const res = await exportApplications({
+        advt_no: advtFilter?.value,
+        fee_status: feeFilter?.value || undefined,
+      });
       const blob = res.data;
       if (blob?.type?.includes("application/json")) {
         const json = JSON.parse(await blob.text());
@@ -139,6 +177,9 @@ const ApplicationList = () => {
                   <input className="form-control form-control-sm" style={{ width: 220 }} placeholder="Search ref no / reg ID / name..." value={query} onChange={(e) => { setQuery(e.target.value); setPageNo(1); }} />
                   <div style={{ width: 260 }}>
                     <Select options={advtOptions} value={advtFilter} onChange={(v) => { setAdvtFilter(v); setPageNo(1); }} placeholder="Advertisement" isClearable isSearchable />
+                  </div>
+                  <div style={{ width: 240 }}>
+                    <Select options={FEE_OPTIONS} value={feeFilter} onChange={(v) => { setFeeFilter(v); setPageNo(1); }} placeholder="Fee status" isClearable />
                   </div>
                 </div>
                 {currentPagePermissions.write && (

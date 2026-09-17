@@ -74,21 +74,43 @@ export const sendFeeReceiptEmail = async (fee) => {
 };
 
 /**
+ * What a specific attempt was started for.
+ *
+ * `fee.amount` tracks the CURRENT attempt and every retry overwrites it, so a
+ * result arriving for an older RID must be checked against that RID's own
+ * recorded amount — otherwise a NEFT begun before a fee change comes back
+ * looking like a mismatch. Rows written before easypay_refs carried an amount
+ * fall back to fee.amount, the best answer available for them.
+ */
+export const amountForRid = (fee, rid) => {
+  const ref = (fee.easypay_refs || []).find(
+    (r) => String(r.rid) === String(rid),
+  );
+  return ref?.amount ?? fee.amount;
+};
+
+/**
  * Every RID/CRN pair ever issued for this payment, newest first and de-duped.
  * A NEFT begun on an earlier attempt clears against that attempt's RID, so
- * checking only the current one would miss it entirely.
+ * checking only the current one would miss it entirely. Each carries the
+ * amount it was started for, so the answer is checked against the right figure.
  */
 const collectRefs = (fee) => {
   const out = [];
   const seen = new Set();
-  const push = (rid, crn) => {
+  const push = (rid, crn, amount) => {
     if (!rid || seen.has(String(rid))) return;
     seen.add(String(rid));
-    out.push({ rid: String(rid), crn: String(crn ?? rid) });
+    out.push({
+      rid: String(rid),
+      crn: String(crn ?? rid),
+      amount: amount ?? fee.amount,
+    });
   };
 
-  push(fee.easypay_rid, fee.easypay_crn);
-  for (const r of [...(fee.easypay_refs || [])].reverse()) push(r.rid, r.crn);
+  push(fee.easypay_rid, fee.easypay_crn, amountForRid(fee, fee.easypay_rid));
+  for (const r of [...(fee.easypay_refs || [])].reverse())
+    push(r.rid, r.crn, r.amount);
   return out;
 };
 
@@ -134,10 +156,14 @@ export const settleFromEnquiry = async (fee) => {
 
     if (gatewayStatus !== "paid") continue;
 
-    if (Number(data.AMT) !== Number(fee.amount)) {
+    // Checked against what THIS attempt was started for, not the row's current
+    // amount — a retry may have moved that on since.
+    if (Number(data.AMT) !== Number(ref.amount)) {
       console.error(
-        `[RECONCILE] amount mismatch on ${fee.payment_id} (RID ${ref.rid}): expected ${fee.amount}, gateway says ${data.AMT} — left untouched for manual review`,
+        `[RECONCILE] amount mismatch on ${fee.payment_id} (RID ${ref.rid}): expected ${ref.amount}, gateway says ${data.AMT} — flagged for manual review`,
       );
+      fee.needs_manual_review = true;
+      fee.manual_review_reason = `Gateway reported ${data.AMT} for RID ${ref.rid}, expected ${ref.amount}`;
       continue;
     }
 
@@ -182,15 +208,23 @@ export const settleFromEnquiry = async (fee) => {
 };
 
 /**
- * Sweep pending EasyPay payments and settle any the gateway now reports paid.
+ * Sweep unsettled EasyPay payments and settle any the gateway now reports paid.
  * Safe to call on a timer; does nothing when EasyPay isn't configured.
+ *
+ * `failed` rows are swept alongside `pending` ones, and deliberately so: a
+ * declined card attempt tells us nothing about the NEFT the same candidate
+ * started earlier, and an unrecognised status code lands a row in `failed` too.
+ * Sweeping only `pending` meant any row that once looked failed was abandoned
+ * for good, even if the bank later took the money. Settlement is forward-only
+ * to `paid`, so re-checking a genuinely failed row costs one enquiry and can
+ * never downgrade anything.
  */
 export const reconcilePendingEasyPayPayments = async () => {
   if (!easypay.isConfigured()) return { checked: 0, settled: 0, skipped: "not configured" };
 
   const now = Date.now();
   const candidates = await FeePayment.find({
-    status: "pending",
+    status: { $in: ["pending", "failed"] },
     easypay_rid: { $exists: true, $ne: null },
     createdAt: {
       $lte: new Date(now - MIN_AGE_MS),
@@ -222,7 +256,7 @@ export const reconcilePendingEasyPayPayments = async () => {
 
   if (candidates.length)
     console.log(
-      `[RECONCILE] checked ${candidates.length} pending payment(s), settled ${settled}`,
+      `[RECONCILE] checked ${candidates.length} unsettled payment(s), settled ${settled}`,
     );
 
   return { checked: candidates.length, settled };
