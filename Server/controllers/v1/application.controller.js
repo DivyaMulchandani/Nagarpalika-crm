@@ -9,6 +9,7 @@ import {
 import Advertisement from "../../models/Advertisement.js";
 import Candidate from "../../models/Candidate.js";
 import Employee from "../../models/Employee.js";
+import FeePayment from "../../models/FeePayment.js";
 import { generateApplicationPdf } from "../../services/applicationPdf.service.js";
 import { sendTemplatedEmail } from "../../services/email.service.js";
 import {
@@ -101,6 +102,114 @@ const ADMIN_APP_PROJECTION = {
   createdAt: 1,
   candidate_name: 1,
   post_title: 1,
+};
+
+// The admin search pipeline derives fee state per row, so it projects a little
+// more than the plain list endpoint does.
+const ADMIN_SEARCH_PROJECTION = {
+  ...ADMIN_APP_PROJECTION,
+  fee_status: 1,
+  fee_amount: 1,
+  fee_paid_at: 1,
+};
+
+/**
+ * Aggregation stages that attach fee state to each application.
+ *
+ * An application can own several FeePayment rows — a failed attempt leaves its
+ * row behind and the next attempt starts a new one — so the verdict is taken
+ * across all of them: any paid row wins, then any pending one, and only a row
+ * set that is entirely failed reads as "failed".
+ *
+ * `not_applicable` matters as much as the rest: an advertisement with no fee
+ * configured must not mark every applicant unpaid.
+ */
+const feeStatusStages = () => [
+  {
+    $lookup: {
+      from: "feepayments",
+      localField: "application_ref_no",
+      foreignField: "application_ref_no",
+      as: "_fees",
+    },
+  },
+  {
+    $addFields: {
+      _advt_fee_max: {
+        $max: [
+          { $ifNull: [{ $arrayElemAt: ["$_advt.application_fee", 0] }, 0] },
+          {
+            $ifNull: [
+              { $arrayElemAt: ["$_advt.application_fee_concessional", 0] },
+              0,
+            ],
+          },
+        ],
+      },
+      _paid_fees: {
+        $filter: {
+          input: "$_fees",
+          as: "f",
+          cond: { $eq: ["$$f.status", "paid"] },
+        },
+      },
+    },
+  },
+  {
+    $addFields: {
+      fee_status: {
+        $switch: {
+          branches: [
+            { case: { $lte: ["$_advt_fee_max", 0] }, then: "not_applicable" },
+            { case: { $gt: [{ $size: "$_paid_fees" }, 0] }, then: "paid" },
+            { case: { $in: ["pending", "$_fees.status"] }, then: "pending" },
+            { case: { $gt: [{ $size: "$_fees" }, 0] }, then: "failed" },
+          ],
+          default: "unpaid",
+        },
+      },
+      fee_amount: {
+        $ifNull: [
+          { $arrayElemAt: ["$_paid_fees.amount", 0] },
+          { $max: "$_fees.amount" },
+        ],
+      },
+      fee_paid_at: { $max: "$_paid_fees.paid_at" },
+    },
+  },
+];
+
+/**
+ * The same verdict `feeStatusStages` reaches, for the code paths that already
+ * hold the rows in memory (detail view, export). Kept beside the pipeline so
+ * the list badge, the detail banner and the export column cannot disagree.
+ *
+ * @param {object[]} fees FeePayment rows for one application
+ * @param {object}   advt That application's advertisement
+ */
+const resolveFeeVerdict = (fees = [], advt) => {
+  const paidFee = fees.find((f) => f.status === "paid");
+  const feeApplies =
+    Number(advt?.application_fee) > 0 ||
+    Number(advt?.application_fee_concessional) > 0;
+  const status = !feeApplies
+    ? "not_applicable"
+    : paidFee
+      ? "paid"
+      : fees.some((f) => f.status === "pending")
+        ? "pending"
+        : fees.length
+          ? "failed"
+          : "unpaid";
+  return {
+    status,
+    // Fall back to the latest attempt for both, so an officer chasing a
+    // pending or failed payment still has a reference to quote.
+    amount: paidFee?.amount ?? fees[0]?.amount ?? null,
+    payment_id: paidFee?.payment_id ?? fees[0]?.payment_id ?? null,
+    paid_at: paidFee?.paid_at ?? null,
+    attempts: fees.length,
+  };
 };
 
 // Fields a candidate is allowed to see about their own application
@@ -573,13 +682,17 @@ export const getApplicationForAdmin = async (req, res) => {
         .status(404)
         .json({ isOk: false, status: 404, message: "Application not found" });
 
-    const [candidate, advt] = await Promise.all([
+    const [candidate, advt, fees] = await Promise.all([
       Candidate.findOne({ registration_id: app.registration_id })
         .select("-password -aadhaar_hash -login_attempts -lockout_until")
         .lean(),
       Advertisement.findOne({ advt_no: app.advt_no })
         .populate("department", "departmentName departmentCode")
         .populate("required_qualifications.qualification", "name")
+        .lean(),
+      FeePayment.find({ application_ref_no: app.application_ref_no })
+        .select("status amount payment_id paid_at createdAt")
+        .sort({ createdAt: -1 })
         .lean(),
     ]);
 
@@ -595,6 +708,7 @@ export const getApplicationForAdmin = async (req, res) => {
         application: { ...app, documents: documentsWithUrls },
         candidate: candidateWithUrls,
         advertisement: advt,
+        fee: resolveFeeVerdict(fees, advt),
       },
     });
   } catch (error) {
@@ -606,7 +720,13 @@ export const getApplicationForAdmin = async (req, res) => {
 
 export const exportApplications = async (req, res) => {
   try {
-    const { status, advt_no, registration_id, application_ref_nos } = req.body || {};
+    const {
+      status,
+      advt_no,
+      registration_id,
+      application_ref_nos,
+      fee_status,
+    } = req.body || {};
     const filter = {};
     if (status) filter.status = status;
     if (advt_no) filter.advt_no = advt_no;
@@ -624,7 +744,23 @@ export const exportApplications = async (req, res) => {
       });
     }
 
-    const items = await Promise.all(
+    // One query for every fee row in the batch, grouped by application — an
+    // export can cover thousands of applications, so this must not become a
+    // per-application round trip.
+    const feeRows = await FeePayment.find({
+      application_ref_no: { $in: apps.map((a) => a.application_ref_no) },
+    })
+      .select("application_ref_no status amount payment_id paid_at createdAt")
+      .sort({ createdAt: -1 })
+      .lean();
+    const feesByRef = new Map();
+    for (const row of feeRows) {
+      const list = feesByRef.get(row.application_ref_no);
+      if (list) list.push(row);
+      else feesByRef.set(row.application_ref_no, [row]);
+    }
+
+    let items = await Promise.all(
       apps.map(async (app) => {
         const [candidate, advt] = await Promise.all([
           Candidate.findOne({ registration_id: app.registration_id })
@@ -635,11 +771,34 @@ export const exportApplications = async (req, res) => {
             .populate("required_qualifications.qualification", "name")
             .lean(),
         ]);
-        return { application: app, candidate, advertisement: advt };
+        return {
+          application: app,
+          candidate,
+          advertisement: advt,
+          fee: resolveFeeVerdict(feesByRef.get(app.application_ref_no), advt),
+        };
       }),
     );
 
-    const filename = buildExportZipFilename({ advt_no, count: apps.length });
+    // Fee filtering happens here rather than in the query: the verdict spans
+    // the advertisement's fee config and every attempt, so it isn't a field
+    // the applications collection can be matched on.
+    if (fee_status) {
+      const wanted =
+        fee_status === "outstanding"
+          ? ["unpaid", "pending", "failed"]
+          : [fee_status];
+      items = items.filter((i) => wanted.includes(i.fee.status));
+      if (!items.length) {
+        return res.status(404).json({
+          isOk: false,
+          status: 404,
+          message: "No applications found for export",
+        });
+      }
+    }
+
+    const filename = buildExportZipFilename({ advt_no, count: items.length });
     res.setHeader("Content-Type", "application/zip");
     res.setHeader("Content-Disposition", `attachment; filename="${filename}"`);
 
@@ -738,6 +897,7 @@ export const searchApplications = async (req, res) => {
       match,
       status,
       advt_no,
+      fee_status,
       sorton,
       sortdir,
     } = req.body;
@@ -769,6 +929,7 @@ export const searchApplications = async (req, res) => {
         post_title: { $arrayElemAt: ["$_advt.post_title.en", 0] },
       },
     });
+    pipeline.push(...feeStatusStages());
 
     if (match) {
       pipeline.push({
@@ -782,7 +943,18 @@ export const searchApplications = async (req, res) => {
       });
     }
     pipeline.push({ $match: matchCond });
-    pipeline.push({ $project: ADMIN_APP_PROJECTION });
+    // Optional fee filter. "outstanding" is the useful one for review: every
+    // application whose fee is genuinely owed, whether the candidate never
+    // started a payment or started one that did not clear.
+    if (fee_status) {
+      pipeline.push({
+        $match:
+          fee_status === "outstanding"
+            ? { fee_status: { $in: ["unpaid", "pending", "failed"] } }
+            : { fee_status },
+      });
+    }
+    pipeline.push({ $project: ADMIN_SEARCH_PROJECTION });
     pipeline.push({
       $sort: { [sorton || "createdAt"]: sortdir === "asc" ? 1 : -1 },
     });

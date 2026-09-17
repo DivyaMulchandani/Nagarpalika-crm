@@ -14,7 +14,7 @@ export default function FeeSuccess() {
         <p style={{ marginTop: 8 }}>Your fee payment has been recorded successfully. A confirmation will be sent to your registered email and mobile number.</p>
         <p style={{ fontSize: 12, color: 'var(--ojas-ink-3)', marginTop: 8 }}>Please allow up to 30 minutes for the status to update.</p>
         <div style={{ marginTop: 16, display: 'flex', gap: 10, justifyContent: 'center' }}>
-          <button className="btn primary" onClick={() => navigate('/fee')}>View Fee Status</button>
+          <button className="btn primary" onClick={() => navigate('/applications')}>View Fee Status</button>
           <button className="btn" onClick={() => navigate('/careers')}>Back to Careers</button>
         </div>
       </div>

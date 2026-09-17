@@ -2,6 +2,7 @@ import { useState, useEffect, useCallback } from 'react'
 import { useParams, useNavigate, Link } from 'react-router-dom'
 import { toast } from 'react-toastify'
 import { get, post, BASE } from '../../api/index'
+import { startEasyPayPayment } from '../../api/easypay'
 import { useAuth } from '../../context/AuthContext'
 import { IconGear, IconWarn, IconCheck, IconCheckCircle } from '../../components/Icons'
 
@@ -560,6 +561,23 @@ function ApplicationFormPanel({ advt, onSuccess, onNext, onDeadline }) {
 // Success Screen
 // ─────────────────────────────────────────────────────────────
 function SuccessPanel({ refNo, advt, navigate }) {
+  const [paying, setPaying] = useState(false)
+
+  // Pay straight from the success screen: the candidate is signed in and we
+  // already hold the reference, so there is nothing to look up first.
+  const handlePay = async () => {
+    setPaying(true)
+    try {
+      // Only returns if the redirect to the bank didn't happen.
+      await startEasyPayPayment(refNo)
+    } catch (err) {
+      toast.error(err.message || 'Payment could not be started.')
+      navigate('/applications')
+    } finally {
+      setPaying(false)
+    }
+  }
+
   return (
     <div style={{ maxWidth: 560, margin: '0 auto' }}>
       <div className="notice info" style={{ textAlign: 'center', padding: '32px 24px' }}>
@@ -579,8 +597,8 @@ function SuccessPanel({ refNo, advt, navigate }) {
           <button className="btn primary" onClick={() => navigate('/application/print', { state: { ref: refNo } })}>
             Print Application ▶
           </button>
-          <button className="btn" onClick={() => navigate('/fee')}>
-            Pay Fee ▶
+          <button className="btn" onClick={handlePay} disabled={paying}>
+            {paying ? 'Opening…' : 'Pay Fee ▶'}
           </button>
           <Link to="/careers" className="btn">Browse More Openings</Link>
         </div>
@@ -593,6 +611,47 @@ function SuccessPanel({ refNo, advt, navigate }) {
 // Already Applied Panel
 // ─────────────────────────────────────────────────────────────
 function AlreadyAppliedPanel({ advt, myApp, navigate }) {
+  const refNo = myApp?.application_ref_no
+  // null = still loading, undefined = no payment row yet (never initiated)
+  const [fee, setFee] = useState(null)
+  const [paying, setPaying] = useState(false)
+
+  // An advertisement with neither fee configured is free — never tell those
+  // candidates a payment is outstanding. The exact amount stays a server
+  // decision (it depends on category and gender), so we only ask "is there a
+  // fee at all" here.
+  const feeApplies = Number(advt?.application_fee) > 0 ||
+                     Number(advt?.application_fee_concessional) > 0
+
+  useEffect(() => {
+    if (!refNo || !feeApplies) return
+    let cancelled = false
+    get('/api/v1/fee-payments/me', undefined, { silent401: true })
+      .then((res) => {
+        if (cancelled) return
+        setFee((res?.data ?? []).find((f) => f.application_ref_no === refNo))
+      })
+      .catch(() => { if (!cancelled) setFee(undefined) })
+    return () => { cancelled = true }
+  }, [refNo, feeApplies])
+
+  const handlePay = async () => {
+    setPaying(true)
+    try {
+      // Only returns if the redirect to the bank didn't happen.
+      await startEasyPayPayment(refNo)
+    } catch (err) {
+      toast.error(err.message || 'Payment could not be started.')
+      navigate('/applications')
+    } finally {
+      setPaying(false)
+    }
+  }
+
+  const paid = fee?.status === 'paid'
+  // Loading is only distinguishable while `fee` is still the initial null.
+  const feeLoading = feeApplies && refNo && fee === null
+
   return (
     <div style={{ maxWidth: 520, margin: '0 auto' }}>
       <div className="notice info">
@@ -600,15 +659,59 @@ function AlreadyAppliedPanel({ advt, myApp, navigate }) {
         <p style={{ marginTop: 8, fontSize: 13.5 }}>
           You have already submitted an application for <strong>{advt.post_title?.en}</strong> ({advt.advt_no}).
         </p>
-        {myApp?.application_ref_no && (
+        {refNo && (
           <div style={{ margin: '12px 0', padding: '10px 14px', background: '#fff', border: '1px solid var(--ojas-line)', borderRadius: 3 }}>
             <span style={{ fontSize: 12, color: 'var(--ojas-ink-3)' }}>Reference No: </span>
-            <span style={{ fontFamily: 'var(--font-mono)', fontWeight: 700, fontSize: 16, color: 'var(--ojas-navy)' }}>{myApp.application_ref_no}</span>
+            <span style={{ fontFamily: 'var(--font-mono)', fontWeight: 700, fontSize: 16, color: 'var(--ojas-navy)' }}>{refNo}</span>
           </div>
         )}
+
+        {feeApplies && refNo && !feeLoading && (
+          paid ? (
+            <div style={{ margin: '12px 0', padding: '10px 14px', background: '#fff', border: '1px solid var(--ojas-line)', borderLeft: '4px solid #2a7a2a', borderRadius: 3 }}>
+              <div style={{ fontWeight: 700, fontSize: 13.5, color: '#2a7a2a' }}>
+                Fee Paid <IconCheck />
+              </div>
+              <div style={{ fontSize: 12.5, color: 'var(--ojas-ink-2)', marginTop: 4 }}>
+                ₹{Number(fee.amount).toLocaleString('en-IN')} received
+                {fee.paid_at ? ` on ${fmtDate(fee.paid_at)}` : ''}.{' '}
+                <a
+                  href={`${BASE}/api/v1/fee-payments/receipt/${fee.payment_id}`}
+                  target="_blank"
+                  rel="noreferrer"
+                  style={{ color: 'var(--ojas-saffron-deep)', fontWeight: 700 }}
+                >
+                  Download Receipt ▶
+                </a>
+              </div>
+              <div style={{ fontSize: 12, color: 'var(--ojas-ink-3)', marginTop: 4, fontFamily: 'var(--font-guj)' }}>
+                ફી ચૂકવાઈ ગઈ છે.
+              </div>
+            </div>
+          ) : (
+            <div style={{ margin: '12px 0', padding: '10px 14px', background: '#fff8ec', border: '1px solid var(--ojas-saffron-deep)', borderLeft: '4px solid var(--ojas-saffron-deep)', borderRadius: 3 }}>
+              <div style={{ fontWeight: 700, fontSize: 13.5, color: '#8a2a2a' }}>
+                <IconWarn /> Fee Pending
+              </div>
+              <div style={{ fontSize: 12.5, color: 'var(--ojas-ink-2)', marginTop: 4, lineHeight: 1.6 }}>
+                Your application is submitted, but the application fee has not been paid yet.
+                Your application is not complete until the fee is received.
+              </div>
+              <div style={{ fontSize: 12, color: 'var(--ojas-ink-3)', marginTop: 4, fontFamily: 'var(--font-guj)', lineHeight: 1.7 }}>
+                તમારી અરજી સબમિટ થઈ છે, પરંતુ અરજી ફી હજુ ચૂકવાઈ નથી. ફી મળ્યા વિના અરજી પૂર્ણ ગણાશે નહીં.
+              </div>
+            </div>
+          )
+        )}
+
         <div style={{ display: 'flex', gap: 10, marginTop: 16, flexWrap: 'wrap' }}>
-          {myApp?.application_ref_no && (
-            <button className="btn primary" onClick={() => navigate('/application/print', { state: { ref: myApp.application_ref_no } })}>
+          {feeApplies && refNo && !feeLoading && !paid && (
+            <button className="btn primary" onClick={handlePay} disabled={paying}>
+              {paying ? 'Opening…' : 'Pay Fee Now ▶'}
+            </button>
+          )}
+          {refNo && (
+            <button className={feeApplies && !paid ? 'btn' : 'btn primary'} onClick={() => navigate('/application/print', { state: { ref: refNo } })}>
               Print Application ▶
             </button>
           )}

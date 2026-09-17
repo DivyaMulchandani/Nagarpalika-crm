@@ -29,6 +29,41 @@ const fmtDate = (d) => d ? new Date(d).toLocaleDateString("en-IN") : "—";
 const fmtDateTime = (d) =>
   d ? new Date(d).toLocaleString("en-IN", { day: "2-digit", month: "2-digit", year: "numeric", hour: "2-digit", minute: "2-digit" }) : "—";
 
+// Fee state is a remark, not a gate — an unpaid application can still be
+// processed, but the officer doing it sees this first.
+const FEE_REMARK = {
+  paid: {
+    alert: "success",
+    badge: "success",
+    label: "FEE PAID",
+    text: "Application fee received. This application is complete.",
+  },
+  pending: {
+    alert: "warning",
+    badge: "warning",
+    label: "FEE PENDING",
+    text: "A payment was started but has not cleared yet. Net-banking and NEFT can take up to a few working days to settle — re-check before treating it as unpaid.",
+  },
+  failed: {
+    alert: "danger",
+    badge: "danger",
+    label: "FEE FAILED",
+    text: "Every payment attempt on this application failed. No fee has been received.",
+  },
+  unpaid: {
+    alert: "danger",
+    badge: "danger",
+    label: "FEE UNPAID",
+    text: "No payment has ever been attempted for this application. No fee has been received.",
+  },
+  not_applicable: {
+    alert: "secondary",
+    badge: "secondary",
+    label: "NO FEE",
+    text: "This advertisement has no application fee configured, so nothing is payable.",
+  },
+};
+
 const statusColor = {
   submitted: "primary",
   under_review: "info",
@@ -147,7 +182,8 @@ const ApplicationView = () => {
     );
   }
 
-  const { application: app, candidate: c, advertisement: advt } = rec;
+  const { application: app, candidate: c, advertisement: advt, fee } = rec;
+  const feeRemark = FEE_REMARK[fee?.status];
 
   const addrLine = (addr) => {
     if (!addr) return null;
@@ -264,6 +300,11 @@ const ApplicationView = () => {
               <Badge color={statusColor[app?.status] || "secondary"} className="text-uppercase">
                 {app?.status?.replace(/_/g, " ")}
               </Badge>
+              {feeRemark && (
+                <Badge color={feeRemark.badge} className="text-uppercase">
+                  {feeRemark.label}
+                </Badge>
+              )}
               {currentPagePermissions.edit && ALLOWED_TRANSITIONS[app?.status]?.length > 0 && (
                 <div className="d-flex gap-1">
                   {ALLOWED_TRANSITIONS[app.status].map((next) => (
@@ -283,6 +324,19 @@ const ApplicationView = () => {
             </div>
           }
         >
+          {feeRemark && (
+            <div className={`alert alert-${feeRemark.alert} py-2`} role="note">
+              <strong>{feeRemark.label}</strong> — {feeRemark.text}
+              {fee?.amount != null && fee.status !== "not_applicable" && (
+                <> Amount: <strong>₹{Number(fee.amount).toLocaleString("en-IN")}</strong>.</>
+              )}
+              {fee?.paid_at && <> Received on <strong>{fmtDateTime(fee.paid_at)}</strong>.</>}
+              {fee?.status !== "paid" && fee?.attempts > 0 && (
+                <> {fee.attempts} payment attempt{fee.attempts === 1 ? "" : "s"} on record.</>
+              )}
+            </div>
+          )}
+
           <Row>
             <Field label="Application Ref No" value={app?.application_ref_no} mono span={6} />
             <Field label="Advertisement No" value={app?.advt_no} mono span={6} />
@@ -456,6 +510,16 @@ const ApplicationView = () => {
                 </Col>
               </Row>
             </div>
+
+            {/* Advisory only — the officer can still proceed, but not unknowingly. */}
+            {pendingStatus !== "rejected" &&
+              ["unpaid", "pending", "failed"].includes(fee?.status) && (
+              <div className="alert alert-warning py-2" role="note">
+                <strong>{feeRemark?.label}</strong> — the application fee has not been
+                received for this application. You can still proceed, but please confirm
+                the payment position first.
+              </div>
+            )}
 
             <div className="mb-3">
               <div className="d-flex justify-content-between align-items-center mb-1">

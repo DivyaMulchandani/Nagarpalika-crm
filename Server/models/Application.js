@@ -57,22 +57,52 @@ const ApplicationSchema = new mongoose.Schema(
 
 ApplicationSchema.index({ registration_id: 1, advt_no: 1 }, { unique: true });
 
-// Generated in the same style as Advertisement.advt_no (ADV/<year>/<seq>).
-// Counter key is year-scoped and distinct from the advt_no counter, so the
-// two sequences can never collide. Counter.findOneAndUpdate with $inc is a
-// single atomic MongoDB operation, so concurrent saves each receive a unique
-// seq. The unique indexes on application_ref_no and on
-// (registration_id, advt_no) are the final safety net against duplicates.
+// Splits "ADV/2026/0014" into its year and sequence. The width is deliberately
+// not fixed at 4 — ADVT_NO_RE allows 1 to 8 digits — so the sequence is padded
+// afterwards rather than matched rigidly.
+const ADVT_NO_PARTS = /^[A-Z]{2,6}\/(\d{4})\/(\d{1,8})$/;
+
+/**
+ * Application reference: APP-<year>-<advtSeq>-<serial>, e.g. APP-2026-0014-000001.
+ *
+ * The serial counts within ONE advertisement, so each post gets its own
+ * contiguous run starting at 1. A single global sequence interleaved the posts,
+ * which meant the number told you nothing about which recruitment it belonged
+ * to, gave the exam controller no contiguous range per post, and leaked total
+ * cross-post volume to every applicant.
+ *
+ * Year comes from the advertisement, NOT the clock: a post open across New Year
+ * must not issue APP-2026-… and APP-2027-… within the same recruitment.
+ *
+ * Hyphens only. The reference goes straight into PDF download filenames
+ * ("application-<ref>.pdf"), which a "/" would break.
+ *
+ * Counter.findOneAndUpdate with $inc is a single atomic MongoDB operation, so
+ * concurrent saves each receive a unique seq. The unique indexes on
+ * application_ref_no and on (registration_id, advt_no) are the final safety net.
+ */
 ApplicationSchema.pre("save", async function (next) {
   if (!this.application_ref_no) {
     try {
-      const year = new Date().getFullYear();
+      const parts = ADVT_NO_PARTS.exec(this.advt_no || "");
+
+      // Per-advertisement when advt_no parses, year-scoped global when it does
+      // not. A malformed advertisement number must never block a submission —
+      // the candidate would lose their application over our formatting.
+      const key = parts
+        ? `application_ref_no:${this.advt_no}`
+        : `application_ref_no:${new Date().getFullYear()}`;
+
       const counter = await Counter.findOneAndUpdate(
-        { key: `application_ref_no:${year}` },
+        { key },
         { $inc: { seq: 1 } },
         { upsert: true, new: true },
       );
-      this.application_ref_no = `APP-${year}-${String(counter.seq).padStart(6, "0")}`;
+      const serial = String(counter.seq).padStart(6, "0");
+
+      this.application_ref_no = parts
+        ? `APP-${parts[1]}-${parts[2].padStart(4, "0")}-${serial}`
+        : `APP-${new Date().getFullYear()}-${serial}`;
     } catch (err) {
       return next(err);
     }

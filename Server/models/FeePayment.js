@@ -44,6 +44,11 @@ const FeePaymentSchema = new mongoose.Schema(
         _id: false,
         rid: { type: String, required: true },
         crn: { type: String, required: true },
+        // The amount THIS attempt was started for. `amount` above tracks the
+        // current attempt and is overwritten on every retry, so without this a
+        // NEFT begun before a fee change settles against the new figure and
+        // gets rejected as a mismatch — money received, recorded as failed.
+        amount: { type: Number },
         issued_at: { type: Date, default: Date.now },
       },
     ],
@@ -67,11 +72,34 @@ const FeePaymentSchema = new mongoose.Schema(
       enum: ["pending", "paid", "failed", "refunded"],
       default: "pending",
     },
+    // Set when the gateway reported an amount we did not ask for. The row stays
+    // pending rather than failed: the bank may well have taken money, so this
+    // needs a human to look, not an automatic write-off.
+    needs_manual_review: { type: Boolean, default: false },
+    manual_review_reason: { type: String },
     receipt_path: { type: String },
     paid_at: { type: Date },
   },
   { timestamps: true },
 );
+
+// Not unique: a failed attempt leaves its row behind and the retry starts a new
+// one, so an application can own several. Indexed because the admin application
+// search joins on this field and both the candidate and the initiate handler
+// look payments up by it.
+FeePaymentSchema.index({ application_ref_no: 1 });
+
+// At most one PENDING row per application. Retrying Pay is meant to reuse that
+// row, and the initiate handler upserts onto it — without this, two concurrent
+// clicks would each insert their own and the application would carry two live
+// references. Partial, so any number of failed/paid rows may accumulate.
+FeePaymentSchema.index(
+  { application_ref_no: 1, status: 1 },
+  { unique: true, partialFilterExpression: { status: "pending" } },
+);
+
+// Backs the public fee-status lookup and "my payments" for a candidate.
+FeePaymentSchema.index({ registration_id: 1 });
 
 // Sparse so pending payments (no gateway_txn_id) don't conflict
 FeePaymentSchema.index({ gateway_txn_id: 1 }, { unique: true, sparse: true });
