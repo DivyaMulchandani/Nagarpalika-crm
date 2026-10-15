@@ -3,6 +3,12 @@ import PDFDocument from "pdfkit";
 
 const esc = (v) => String(v ?? "—").slice(0, 500);
 
+// Set MUNICIPALITY_NAME per deployment. Helvetica cannot render Gujarati, so
+// this stays English — a Gujarati heading would come out as empty boxes until
+// a Unicode font is embedded in the PDF pipeline.
+const MUNICIPALITY =
+  process.env.MUNICIPALITY_NAME || "Patan Nagarpalika Recruitment Portal";
+
 // EasyPay reports the mode the payer actually used as a PMD code.
 const PAYMENT_MODES = {
   AIB: "Online — Axis Bank Net Banking",
@@ -59,7 +65,10 @@ export const generateReceiptPdf = (data, dest) =>
       .fontSize(10)
       .font("Helvetica")
       .fillColor("#4b5563")
-      .text("Nagar Palika Recruitment Portal", { align: "center" });
+      // Named per deployment: the same codebase serves more than one
+      // municipality, and a generic header on a fee receipt is the kind of
+      // detail a counter clerk is right to query.
+      .text(MUNICIPALITY, { align: "center" });
     doc.moveDown(0.5);
     divider(doc);
 
@@ -86,7 +95,9 @@ export const generateReceiptPdf = (data, dest) =>
     row(doc, "Advertisement No", fee.advt_no);
     if (advt) {
       row(doc, "Post Title", advt.post_title?.en);
-      row(doc, "Department", advt.department?.name);
+      // departmentName, not name — reading the wrong field is what made every
+      // receipt print "Department: —" even when one was populated.
+      row(doc, "Department", advt.department?.departmentName);
     }
 
     // ── Candidate details ─────────────────────────────────────────────────────

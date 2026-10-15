@@ -5,7 +5,7 @@ import { get } from '../../api/index'
 import { startEasyPayPayment } from '../../api/easypay'
 
 const fmtDate = (d) => d ? new Date(d).toLocaleDateString('en-IN') : '—'
-const statusColor = { submitted: '#2a7a2a', under_review: 'var(--ojas-saffron-deep)', shortlisted: 'var(--ojas-navy)', rejected: 'var(--ojas-red)', selected: '#2a7a2a' }
+const statusColor = { pending_payment: 'var(--ojas-red)', submitted: '#2a7a2a', under_review: 'var(--ojas-saffron-deep)', shortlisted: 'var(--ojas-navy)', rejected: 'var(--ojas-red)', selected: '#2a7a2a' }
 
 export default function ApplicationsList() {
   const navigate = useNavigate()

@@ -1,9 +1,11 @@
 import { useState, useEffect } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
+import { toast } from 'react-toastify'
 import { get, BASE } from '../../api/index'
+import { startEasyPayPayment } from '../../api/easypay'
 
 const fmtDate = (d) => d ? new Date(d).toLocaleDateString('en-IN') : '—'
-const statusColor = { submitted: '#2a7a2a', under_review: 'var(--ojas-saffron-deep)', shortlisted: 'var(--ojas-navy)', rejected: 'var(--ojas-red)', selected: '#2a7a2a' }
+const statusColor = { pending_payment: 'var(--ojas-red)', submitted: '#2a7a2a', under_review: 'var(--ojas-saffron-deep)', shortlisted: 'var(--ojas-navy)', rejected: 'var(--ojas-red)', selected: '#2a7a2a' }
 
 function Field({ label, value }) {
   return (
@@ -20,6 +22,23 @@ export default function ApplicationDetail() {
   const [app, setApp] = useState(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState(null)
+  const [paying, setPaying] = useState(false)
+
+  // Until the fee is paid the application is not in the running, so the pay
+  // action belongs on the page the candidate lands on to check it.
+  const unpaid = app?.status === 'pending_payment'
+
+  const handlePay = async () => {
+    setPaying(true)
+    try {
+      // Only returns if the redirect to the bank didn't happen.
+      await startEasyPayPayment(ref)
+    } catch (err) {
+      toast.error(err.message || 'Payment could not be started.')
+    } finally {
+      setPaying(false)
+    }
+  }
 
   useEffect(() => {
     get(`/api/v1/applications/${encodeURIComponent(ref)}`)
@@ -63,6 +82,23 @@ export default function ApplicationDetail() {
         <h1>Application Detail</h1>
         <span className="guj">અરજીની વિગત</span>
       </div>
+
+      {unpaid && (
+        <div style={{ margin: '0 0 12px', padding: '10px 14px', border: '1px solid var(--ojas-saffron-deep)', borderLeft: '4px solid var(--ojas-saffron-deep)', background: '#fff8ec', borderRadius: 3 }}>
+          <p style={{ margin: 0, fontSize: 13.5, fontWeight: 700, color: '#8a2a2a' }}>
+            Fee Pending — this application is not yet complete.
+          </p>
+          <p style={{ margin: '4px 0 0', fontSize: 13, lineHeight: 1.7, color: 'var(--ojas-ink-2, #3a3a3a)' }}>
+            Your application will only be considered once the application fee is received.
+          </p>
+          <p style={{ margin: '4px 0 0', fontSize: 12.5, lineHeight: 1.7, color: 'var(--ojas-ink-3)', fontFamily: 'var(--font-guj)' }}>
+            ફી મળ્યા વિના તમારી અરજી ધ્યાનમાં લેવામાં આવશે નહીં.
+          </p>
+          <button className="btn primary" style={{ marginTop: 10 }} onClick={handlePay} disabled={paying}>
+            {paying ? 'Opening…' : 'Pay Fee Now ▶'}
+          </button>
+        </div>
+      )}
 
       <div className="box" style={{ marginBottom: 16 }}>
         <div className="box-title"><span>Application</span></div>

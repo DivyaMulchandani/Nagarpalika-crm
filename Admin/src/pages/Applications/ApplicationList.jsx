@@ -10,7 +10,7 @@ import { toast } from "react-toastify";
 import { AuthContext } from "../../context/AuthContext";
 import { MenuContext } from "../../context/MenuContext";
 
-const appColor = { submitted: "primary", under_review: "info", selected: "success", rejected: "danger" };
+const appColor = { pending_payment: "warning", submitted: "primary", under_review: "info", selected: "success", rejected: "danger" };
 
 // Fee is advisory here — an unpaid application is still reviewable, it just
 // carries a visible remark so nobody processes one unknowingly.

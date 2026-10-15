@@ -3,6 +3,7 @@ import { Link } from 'react-router-dom'
 import { useLang } from '../context/LangContext'
 import { get } from '../api/index'
 import { IconPdf, IconSearch } from '../components/Icons'
+import { describeFee } from '../utils/fee'
 
 const fmtDate = (d) => d ? new Date(d).toLocaleDateString('en-IN', { day: '2-digit', month: '2-digit', year: 'numeric' }) : '—'
 const vacCount = (v) => (typeof v === 'object' ? v?.total : v)
@@ -101,7 +102,7 @@ export default function Careers() {
                       </td>
                       <td style={{ fontWeight: 700 }}>{j.class}</td>
                       <td style={{ textAlign: 'center', fontWeight: 700, color: 'var(--ojas-navy)' }}>{vacCount(j.vacancies) ?? '—'}</td>
-                      <td>{j.application_fee ? `₹${j.application_fee}` : 'Free'}</td>
+                      <td>{describeFee(j)}</td>
                       <td style={{ color: closing ? 'var(--ojas-red)' : 'inherit', fontWeight: closing ? 700 : 400 }}>{fmtDate(j.end_date)}</td>
                       <td><span className={`badge ${j.status === 'Closed' ? 'closed' : closing ? 'urgent' : 'active'}`}>{j.status === 'Closed' ? 'Closed' : closing ? 'Closing Soon' : 'Active'}</span></td>
                       <td style={{ textAlign: 'center' }}>

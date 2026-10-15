@@ -4,6 +4,7 @@ import { toast } from 'react-toastify'
 import { post } from '../../api/index'
 import { startEasyPayPayment } from '../../api/easypay'
 import { IconCheckCircle } from '../../components/Icons'
+import { describeFee } from '../../utils/fee'
 
 export default function ApplicationForm() {
   const { state } = useLocation()
@@ -103,7 +104,7 @@ export default function ApplicationForm() {
               {advt.post_title?.gu && <tr><td style={{ color: 'var(--ojas-ink-3)' }}>Post (Gujarati)</td><td style={{ fontFamily: 'var(--font-guj)' }}>{advt.post_title.gu}</td></tr>}
               <tr><td style={{ color: 'var(--ojas-ink-3)' }}>Class</td><td>{advt.class}</td></tr>
               <tr><td style={{ color: 'var(--ojas-ink-3)' }}>Total Posts</td><td>{(typeof advt.vacancies === 'object' ? advt.vacancies?.total : advt.vacancies) ?? '—'}</td></tr>
-              <tr><td style={{ color: 'var(--ojas-ink-3)' }}>Application Fee</td><td>{advt.application_fee ? `₹${advt.application_fee}` : 'No fee'}</td></tr>
+              <tr><td style={{ color: 'var(--ojas-ink-3)' }}>Application Fee</td><td>{describeFee(advt, 'No fee')}</td></tr>
               {advt.pay_scale && <tr><td style={{ color: 'var(--ojas-ink-3)' }}>Pay Scale</td><td>{advt.pay_scale}</td></tr>}
               <tr><td style={{ color: 'var(--ojas-ink-3)' }}>Last Date</td><td>{advt.end_date ? new Date(advt.end_date).toLocaleDateString('en-IN') : '—'}</td></tr>
             </tbody>

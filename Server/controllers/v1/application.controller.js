@@ -24,6 +24,8 @@ import {
   buildExportZipFilename,
 } from "../../services/applicationExport.service.js";
 import { escapeRegex } from "../../utils/escapeRegex.js";
+import { deadlinePassed } from "../../utils/deadline.js";
+import { resolveApplicationFee } from "../../services/feeCalculator.service.js";
 
 const EDITABLE_FIELDS = [
   "exam_centre",
@@ -85,13 +87,6 @@ const sanitizeText = (v) =>
 
 // The deadline is midnight at the END of end_date's day: an ad ending
 // 2026-06-06 accepts applications until 2026-06-06 23:59:59.999.
-const deadlinePassed = (end_date) => {
-  if (!end_date) return false;
-  const deadline = new Date(end_date);
-  deadline.setHours(23, 59, 59, 999);
-  return new Date() > deadline;
-};
-
 // Fields the admin list/search tables actually render
 const ADMIN_APP_PROJECTION = {
   application_ref_no: 1,
@@ -406,6 +401,14 @@ export const submitApplication = async (req, res) => {
         },
       });
 
+    // An application is only in the running once its fee is paid, so it starts
+    // as pending_payment and the payment promotes it. A fee-free advertisement
+    // has nothing to pay, and must not be left waiting for a settlement that
+    // can never arrive — it goes straight to submitted.
+    const requiresPayment =
+      Number(advt?.application_fee) > 0 ||
+      Number(advt?.application_fee_concessional) > 0;
+
     const app = new Application({
       registration_id,
       advt_no,
@@ -413,6 +416,7 @@ export const submitApplication = async (req, res) => {
       declaration_accepted,
       experience_years,
       additional_fields,
+      status: requiresPayment ? "pending_payment" : "submitted",
     });
     try {
       await app.save();
@@ -574,13 +578,67 @@ export const editApplication = async (req, res) => {
 
 export const getMyApplications = async (req, res) => {
   try {
-    const list = await Application.find({
-      registration_id: req.user.registration_id,
-    })
+    const registration_id = req.user.registration_id;
+    const list = await Application.find({ registration_id })
       .select(CANDIDATE_APP_PROJECTION)
       .sort({ createdAt: -1 })
       .lean();
-    return res.status(200).json({ isOk: true, status: 200, data: list });
+
+    if (!list.length)
+      return res.status(200).json({ isOk: true, status: 200, data: [] });
+
+    // Carry the resolved fee on each row.
+    //
+    // A FeePayment document only exists once a payment has been started, so a
+    // candidate who has just submitted has no payment row and the pages had
+    // nothing to show — the amount rendered as "—" until checkout had been
+    // opened at least once. The tier is resolved here from the stored candidate
+    // record, exactly as the payment path does, so the figure the candidate
+    // sees is the figure they will be charged.
+    const [candidate, advts, fees] = await Promise.all([
+      Candidate.findOne({ registration_id }).select("category gender").lean(),
+      Advertisement.find({ advt_no: { $in: list.map((a) => a.advt_no) } })
+        .select("advt_no post_title application_fee application_fee_concessional end_date")
+        .lean(),
+      FeePayment.find({
+        application_ref_no: { $in: list.map((a) => a.application_ref_no) },
+      })
+        .select("application_ref_no status amount paid_at payment_id createdAt")
+        .sort({ createdAt: -1 })
+        .lean(),
+    ]);
+
+    const advtByNo = new Map(advts.map((a) => [a.advt_no, a]));
+    const feesByRef = new Map();
+    for (const row of fees) {
+      const existing = feesByRef.get(row.application_ref_no);
+      // Prefer a paid row over a newer unpaid one: a candidate who paid on
+      // their second attempt must not still read as owing the fee.
+      if (!existing || (existing.status !== "paid" && row.status === "paid"))
+        feesByRef.set(row.application_ref_no, row);
+    }
+
+    const data = list.map((app) => {
+      const advt = advtByNo.get(app.advt_no);
+      const paidRow = feesByRef.get(app.application_ref_no);
+      const tier = advt ? resolveApplicationFee(advt, candidate) : null;
+      return {
+        ...app,
+        post_title: advt?.post_title?.en ?? null,
+        fee: {
+          amount: tier?.amount ?? null,
+          applies: (tier?.amount ?? 0) > 0,
+          status: paidRow?.status ?? (app.status === "pending_payment" ? "unpaid" : "not_applicable"),
+          paid_at: paidRow?.status === "paid" ? paidRow.paid_at : null,
+          payment_id: paidRow?.status === "paid" ? paidRow.payment_id : null,
+          // Payment closes with the advertisement, so the pages know whether to
+          // offer a Pay button or explain that it is too late.
+          closed: deadlinePassed(advt?.end_date),
+        },
+      };
+    });
+
+    return res.status(200).json({ isOk: true, status: 200, data });
   } catch (error) {
     return res
       .status(500)

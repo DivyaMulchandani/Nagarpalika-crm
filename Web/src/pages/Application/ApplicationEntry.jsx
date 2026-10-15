@@ -4,7 +4,7 @@ import { get } from '../../api/index'
 import { IconCheck } from '../../components/Icons'
 
 const fmtDate = (d) => d ? new Date(d).toLocaleDateString('en-IN') : '—'
-const statusColor = { submitted: '#2a7a2a', under_review: 'var(--ojas-saffron-deep)', shortlisted: 'var(--ojas-navy)', rejected: 'var(--ojas-red)', selected: '#2a7a2a' }
+const statusColor = { pending_payment: 'var(--ojas-red)', submitted: '#2a7a2a', under_review: 'var(--ojas-saffron-deep)', shortlisted: 'var(--ojas-navy)', rejected: 'var(--ojas-red)', selected: '#2a7a2a' }
 
 export default function ApplicationEntry() {
   const navigate = useNavigate()
@@ -63,7 +63,14 @@ export default function ApplicationEntry() {
                   <td>{i + 1}</td>
                   <td style={{ fontFamily: 'var(--font-mono)', fontSize: 11.5 }}>{a.application_ref_no}</td>
                   <td style={{ fontFamily: 'var(--font-mono)', fontSize: 11.5 }}>{a.advt_no}</td>
-                  <td><span style={{ fontWeight: 700, color: statusColor[a.status] || 'inherit', fontSize: 12 }}>{a.status?.replace(/_/g, ' ').toUpperCase()}</span></td>
+                  <td>
+                    <span style={{ fontWeight: 700, color: statusColor[a.status] || 'inherit', fontSize: 12 }}>{a.status?.replace(/_/g, ' ').toUpperCase()}</span>
+                    {/* An unpaid application is not in the running, so the way
+                        to fix that sits right next to the status saying so. */}
+                    {a.status === 'pending_payment' && (
+                      <Link to="/applications" style={{ display: 'block', fontSize: 11, fontWeight: 700, color: 'var(--ojas-saffron-deep)' }}>Pay Fee ▶</Link>
+                    )}
+                  </td>
                   <td style={{ fontSize: 12 }}>{fmtDate(a.submitted_at)}</td>
                   <td><button className="btn" style={{ fontSize: 11, padding: '3px 8px' }} onClick={() => navigate('/application/print', { state: { ref: a.application_ref_no } })}>Print ▶</button></td>
                 </tr>

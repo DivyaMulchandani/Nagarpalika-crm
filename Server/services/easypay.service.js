@@ -98,8 +98,19 @@ const checksumMatches = (a, b) => {
 // ── Payload encoding ─────────────────────────────────────────────────────────
 
 // Values sit in an unescaped "K=V&K=V" string, so a stray & or = in free text
-// would silently split into bogus fields.
-const clean = (v) => String(v ?? "").replace(/[&=]/g, " ").trim();
+// would silently split into bogus fields. "|" is stripped too: it delimits the
+// PPI fields, so a candidate named with one would inject a phantom field and
+// shift every value after it onto the wrong label.
+const clean = (v) =>
+  String(v ?? "")
+    .replace(/[&=|]/g, " ")
+    .replace(/\s+/g, " ")
+    .trim();
+
+// Axis documents no per-field PPI limit, but RE2–RE5 are capped at 100, so the
+// same ceiling is applied here rather than risking an undocumented one.
+const MAX_PPI_FIELD = 100;
+const cleanPpiValue = (v) => clean(v).slice(0, MAX_PPI_FIELD);
 
 const toQuery = (obj) =>
   Object.entries(obj)
@@ -122,14 +133,36 @@ export const parsePayload = (plain) =>
 export const formatAmount = (rupees) => Number(rupees).toFixed(2);
 
 /**
- * Build the PPI (pre-populated payment info) string.
- * Axis defines the field layout per corporate; EASYPAY_PPI is that template and
- * every {amount} placeholder is replaced with the transaction amount. Error 427
- * ("Amount Mismatch") means this string disagrees with AMT.
+ * Build the PPI (pre-populated payment info) string — the fields the candidate
+ * sees on the bank's payment page.
+ *
+ * Axis configures the field LABELS per corporate and we send the values in that
+ * same order, pipe-separated. EASYPAY_PPI holds that order as a template of
+ * {named} placeholders, so if the bank reorders the layout it is an env change
+ * rather than a redeploy.
+ *
+ * Confirmed layout for CID T342:
+ *   Application Reference Number | Candidate Name | Advertisement Number |
+ *   Post Applied For | Registration ID (OTR) | Application Fee (INR) | Amount
+ *
+ * Values are genuinely free text — Axis's own reference implementation passes
+ * a date, a phone number and an email address ("29/04/2015", "8097520469",
+ * "rajas.vyas@tejora.com") — so slashes, dots and @ are all fine. Only the
+ * separators themselves have to be stripped.
+ *
+ * The final field is validated against AMT; a mismatch is gateway error 427.
  */
-export const buildPpi = (amt) => {
+export const buildPpi = (values = {}) => {
   const { ppi } = requireConfig("ppi");
-  return ppi.includes("{amount}") ? ppi.replaceAll("{amount}", amt) : ppi;
+  return ppi.replace(/\{(\w+)\}/g, (match, key) => {
+    if (!(key in values)) {
+      // Blank rather than a literal "{key}" on the bank's page, but loud in the
+      // log — a template referencing a field we don't supply is a config error.
+      console.error(`[easypay] PPI template references unknown field {${key}}`);
+      return "";
+    }
+    return cleanPpiValue(values[key]);
+  });
 };
 
 // ── Payment ──────────────────────────────────────────────────────────────────
@@ -138,7 +171,14 @@ export const buildPpi = (amt) => {
  * Build an encrypted payment request.
  * @returns {{url: string, i: string, fields: object}} POST `i` to `url` as a form.
  */
-export const buildPaymentRequest = ({ rid, crn, amount, returnUrl, extra = {} }) => {
+export const buildPaymentRequest = ({
+  rid,
+  crn,
+  amount,
+  returnUrl,
+  ppi = {},
+  extra = {},
+}) => {
   const c = requireConfig("cid", "ppi", "cksKey", "encKey", "paymentUrl", "returnUrl");
   const amt = formatAmount(amount);
 
@@ -151,7 +191,9 @@ export const buildPaymentRequest = ({ rid, crn, amount, returnUrl, extra = {} })
     TYP: c.typ,
     CNY: c.cny,
     RTU: returnUrl || c.returnUrl,
-    PPI: buildPpi(amt),
+    // amount/fee are applied last so a caller cannot accidentally override the
+    // figure the gateway validates against AMT.
+    PPI: buildPpi({ ...ppi, fee: amt, amount: amt }),
     RE1: "MN",
     RE2: clean(extra.RE2),
     RE3: clean(extra.RE3),

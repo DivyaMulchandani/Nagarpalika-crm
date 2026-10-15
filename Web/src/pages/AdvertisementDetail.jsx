@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react'
 import { useParams, useNavigate, Link } from 'react-router-dom'
 import { get } from '../api/index'
 import { IconPdf, IconWarn } from '../components/Icons'
+import { describeFee } from '../utils/fee'
 
 const fmtDate = (d) =>
   d ? new Date(d).toLocaleDateString('en-IN', { day: '2-digit', month: '2-digit', year: 'numeric' }) : '—'
@@ -146,7 +147,7 @@ export default function AdvertisementDetail() {
                   : null
               } />
               <InfoRow label="Application Fee" value={
-                advt.application_fee ? `₹ ${advt.application_fee}` : 'Free'
+                describeFee(advt)
               } />
               <InfoRow label="Application Start Date" value={fmtDate(advt.start_date)} />
               <InfoRow label="Last Date to Apply" value={fmtDate(advt.end_date)} highlight={closing} />

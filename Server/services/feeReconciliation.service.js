@@ -13,6 +13,7 @@
  * that a payment did not happen.
  */
 import FeePayment from "../models/FeePayment.js";
+import Application from "../models/Application.js";
 import Candidate from "../models/Candidate.js";
 import Advertisement from "../models/Advertisement.js";
 import { generateReceiptPdf } from "./receiptPdf.service.js";
@@ -27,6 +28,31 @@ const RETRY_INTERVAL_MS = 10 * 60 * 1000;
 const GIVE_UP_AFTER_DAYS = Number(process.env.EASYPAY_RECONCILE_DAYS || 7);
 // Cap per run so a backlog can't stall the scheduler or hammer the gateway.
 const BATCH_SIZE = Number(process.env.EASYPAY_RECONCILE_BATCH || 25);
+
+/**
+ * A paid fee is what makes an application finally submitted.
+ *
+ * Lives here rather than in the controller because all three settlement paths
+ * need it — the gateway return, this sweep, and a manual verification — and the
+ * controller already imports from this module.
+ *
+ * Only promotes FROM pending_payment, so a redelivered gateway response or a
+ * late reconciliation can never drag an application backwards out of
+ * under_review/shortlisted.
+ *
+ * submitted_at is deliberately left alone: it records when the candidate
+ * actually submitted, and rewriting it at payment time would move them
+ * relative to the advertisement's deadline.
+ */
+export const markApplicationSubmitted = async (application_ref_no) => {
+  if (!application_ref_no) return;
+  const res = await Application.updateOne(
+    { application_ref_no, status: "pending_payment" },
+    { $set: { status: "submitted" } },
+  );
+  if (res.modifiedCount)
+    console.log(`[PAYMENT] application ${application_ref_no} marked submitted`);
+};
 
 /**
  * Email the payer their receipt. Fire-and-forget: a mail failure must never
@@ -188,6 +214,9 @@ export const settleFromEnquiry = async (fee) => {
     if (data.TRN) fee.gateway_txn_id = data.TRN;
 
     await fee.save();
+    // The whole point of the sweep: a NEFT that cleared days later, or a payer
+    // who closed the tab, still gets their application into the running.
+    await markApplicationSubmitted(fee.application_ref_no);
     sendFeeReceiptEmail(fee).catch(() => {});
     return { ok: true, changed: true, gatewayStatus: "paid", data, rid: ref.rid };
   }

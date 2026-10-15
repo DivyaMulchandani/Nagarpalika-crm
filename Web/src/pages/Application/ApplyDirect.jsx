@@ -4,164 +4,16 @@ import { toast } from 'react-toastify'
 import { get, post, BASE } from '../../api/index'
 import { startEasyPayPayment } from '../../api/easypay'
 import { useAuth } from '../../context/AuthContext'
-import { IconGear, IconWarn, IconCheck, IconCheckCircle } from '../../components/Icons'
+import CandidateLogin from '../../components/CandidateLogin'
+import { IconWarn, IconCheck, IconCheckCircle } from '../../components/Icons'
+import { describeFee } from '../../utils/fee'
 
-const DEV = import.meta.env.DEV
 
 const DEFAULT_DOC_LIMIT = { maxBytes: 10 * 1024 * 1024, maxLabel: '10 MB' }
 
 
 const fmtDate = (d) =>
   d ? new Date(d).toLocaleDateString('en-IN', { day: '2-digit', month: '2-digit', year: 'numeric' }) : '—'
-
-// ─────────────────────────────────────────────────────────────
-// Inline OTP Login
-// ─────────────────────────────────────────────────────────────
-function OtpLogin({ onSuccess }) {
-  const [step, setStep]       = useState('phone')   // 'phone' | 'otp'
-  const [identifier, setIdentifier] = useState('')
-  const [otp, setOtp]         = useState('')
-  const [devOtp, setDevOtp]   = useState(null)
-  const [deliveryChannel, setDeliveryChannel] = useState(null)
-  const [loading, setLoading] = useState(false)
-  const [error, setError]     = useState(null)
-
-  const sendOtp = async (e) => {
-    e.preventDefault()
-    const val = identifier.trim()
-    if (!val) {
-      setError('Enter Mobile, Email, or OTR Number.')
-      return
-    }
-
-    const isMobile = /^[6-9]\d{9}$/.test(val)
-    const isEmail = /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(val)
-    const isRegId = /^[A-Za-z0-9\-_]{5,30}$/.test(val)
-
-    if (!isMobile && !isEmail && !isRegId) {
-      setError('Please enter a valid 10-digit mobile number, email address, or OTR Registration ID.')
-      return
-    }
-
-    setError(null); setLoading(true)
-    try {
-      const res = await post('/api/v1/otp/candidates/login/send', { identifier: val })
-      if (res?.data?.channel) setDeliveryChannel(res.data.channel)
-      setStep('otp')
-      toast.info(res?.message || 'OTP sent to your registered contact.')
-    } catch (err) {
-      setError(err.message || 'Failed to send OTP. Try again.')
-    } finally { setLoading(false) }
-  }
-
-  const verifyOtp = async (e) => {
-    e.preventDefault()
-    if (!otp.trim()) { setError('Enter the OTP.'); return }
-    setError(null); setLoading(true)
-    try {
-      await post('/api/v1/otp/candidates/login/verify', { identifier: identifier.trim(), otp: otp.trim() })
-      toast.success('Login successful.')
-      onSuccess()
-    } catch (err) {
-      setError(err.message || 'Invalid OTP. Please try again.')
-      toast.error(err.message || 'Invalid OTP. Please try again.')
-    } finally { setLoading(false) }
-  }
-
-  const reset = () => { setStep('phone'); setOtp(''); setDevOtp(null); setError(null); setDeliveryChannel(null) }
-
-  return (
-    <div className="box" style={{ maxWidth: 440, margin: '0 auto' }}>
-      <div className="box-title">
-        <span>{step === 'phone' ? 'Candidate Login' : 'Enter OTP'}</span>
-        <span className="guj">{step === 'phone' ? 'ઉમેદવાર લૉગિન' : 'OTP દાખલ કરો'}</span>
-      </div>
-      <div className="box-body">
-        {DEV && (
-          <div className="notice warn" style={{ marginBottom: 12, fontSize: 12 }}>
-            <strong><IconGear /> DEV MODE</strong> — OTP auto-filled from server.
-          </div>
-        )}
-
-        {step === 'phone' && (
-          <form onSubmit={sendOtp}>
-            <div className="form-row">
-              <div className="form-field">
-                <label>Login Identifier *</label>
-                <input
-                  type="text"
-                  placeholder="Mobile / Email / OTR Number"
-                  value={identifier}
-                  onChange={(e) => setIdentifier(e.target.value.replace(/[^A-Za-z0-9@._\-]/g, '').slice(0, 100))}
-                  autoComplete="username"
-                  autoFocus
-                />
-                <span style={{ fontSize: 11, color: 'var(--ojas-ink-3)' }}>
-                  Enter Mobile Number, Email Address, or OTR Registration ID
-                </span>
-              </div>
-              {error && <p style={{ color: 'var(--ojas-red)', fontSize: 13, margin: '4px 0 0' }}>{error}</p>}
-              <div className="form-actions">
-                <button type="submit" className="btn primary" disabled={loading || !identifier.trim()}>
-                  {loading ? 'Sending…' : 'Send OTP ▶'}
-                </button>
-              </div>
-            </div>
-          </form>
-        )}
-
-        {step === 'otp' && (
-          <form onSubmit={verifyOtp}>
-            <div className="form-row">
-              <div style={{ fontSize: 13, color: 'var(--ojas-ink-2)', marginBottom: 12 }}>
-                OTP sent for <strong>{identifier}</strong>
-                {deliveryChannel ? ` via ${deliveryChannel.toUpperCase()}` : ''}.{' '}
-                <button type="button" className="btn-link" onClick={reset}>Change</button>
-              </div>
-
-              <div className="form-field">
-                <label>6-digit OTP *</label>
-                <input
-                  type="text"
-                  inputMode="numeric"
-                  placeholder="● ● ● ● ● ●"
-                  value={otp}
-                  onChange={(e) => setOtp(e.target.value.replace(/\D/g, '').slice(0, 6))}
-                  maxLength={6}
-                  style={{ letterSpacing: 8, fontSize: 20, textAlign: 'center' }}
-                  autoFocus
-                />
-                {DEV && devOtp && (
-                  <span style={{ fontSize: 11, color: '#b36b00' }}>
-                    Dev OTP: <code>{devOtp}</code>
-                  </span>
-                )}
-              </div>
-
-              {error && <p style={{ color: 'var(--ojas-red)', fontSize: 13, margin: '4px 0 0' }}>{error}</p>}
-
-              <div className="form-actions">
-                <button type="submit" className="btn primary" disabled={loading || otp.length !== 6}>
-                  {loading ? 'Verifying…' : 'Login & Continue ▶'}
-                </button>
-              </div>
-
-              <div style={{ marginTop: 10, fontSize: 12, color: 'var(--ojas-ink-3)' }}>
-                Didn't receive OTP?{' '}
-                <button type="button" className="btn-link" onClick={reset}>Resend</button>
-              </div>
-            </div>
-          </form>
-        )}
-
-        <div style={{ marginTop: 16, fontSize: 13, borderTop: '1px solid var(--ojas-line)', paddingTop: 12 }}>
-          Not registered?{' '}
-          <Link to="/registration" style={{ color: 'var(--ojas-saffron-deep)', fontWeight: 700 }}>Register Now (OTR) ▶</Link>
-        </div>
-      </div>
-    </div>
-  )
-}
 
 // ─────────────────────────────────────────────────────────────
 // Document Upload Panel — files selected here, submitted together with the application
@@ -468,7 +320,7 @@ function ApplicationFormPanel({ advt, onSuccess, onNext, onDeadline }) {
               ['Department', advt.department?.departmentName],
               ['Total Posts', typeof advt.vacancies === 'object' ? advt.vacancies?.total : advt.vacancies],
               ['Pay Scale', advt.pay_scale],
-              ['Application Fee', advt.application_fee ? `₹ ${advt.application_fee}` : 'Free'],
+              ['Application Fee', describeFee(advt)],
               ['Last Date to Apply', fmtDate(advt.end_date)],
             ].filter(Boolean).map(([label, value]) => value != null ? (
               <tr key={label}>
@@ -901,7 +753,7 @@ export default function ApplyDirect() {
               </Link>
             </div>
           </div>
-          <OtpLogin onSuccess={handleLoginSuccess} />
+          <CandidateLogin onSuccess={handleLoginSuccess} submitLabel="Login & Continue" />
         </div>
       )}
 
