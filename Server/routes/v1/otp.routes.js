@@ -12,16 +12,28 @@ import {
   sendLoginOtp,
   verifyLoginOtp,
 } from "../../controllers/v1/candidateOtp.controller.js";
+import {
+  otpSendLimiter,
+  otpVerifyLimiter,
+} from "../../middlewares/securityHeaders.js";
 
 const router = express.Router();
 
 // ── Candidate OTP ─────────────────────────────────────────────────────────────
-router.post("/candidates/send", sendCandidateOtp);
-router.post("/candidates/verify", verifyCandidateOtp);
-router.post("/candidates/password-reset/send", sendPasswordResetOtp);
-router.post("/candidates/password-reset/verify", verifyPasswordResetOtp);
-router.post("/candidates/login/send", sendLoginOtp);
-router.post("/candidates/login/verify", verifyLoginOtp);
+router.post("/candidates/send", otpSendLimiter, sendCandidateOtp);
+router.post("/candidates/verify", otpVerifyLimiter, verifyCandidateOtp);
+router.post(
+  "/candidates/password-reset/send",
+  otpSendLimiter,
+  sendPasswordResetOtp,
+);
+router.post(
+  "/candidates/password-reset/verify",
+  otpVerifyLimiter,
+  verifyPasswordResetOtp,
+);
+router.post("/candidates/login/send", otpSendLimiter, sendLoginOtp);
+router.post("/candidates/login/verify", otpVerifyLimiter, verifyLoginOtp);
 
 /**
  * @swagger
@@ -51,7 +63,7 @@ router.post("/candidates/login/verify", verifyLoginOtp);
  *       500:
  *         description: Server error
  */
-router.post("/send", createOtp);
+router.post("/send", otpSendLimiter, createOtp);
 
 /**
  * @swagger
@@ -82,7 +94,7 @@ router.post("/send", createOtp);
  *       500:
  *         description: Server error
  */
-router.post("/verify", verifyOtp);
+router.post("/verify", otpVerifyLimiter, verifyOtp);
 
 /**
  * @swagger
@@ -117,6 +129,6 @@ router.post("/verify", verifyOtp);
  *       500:
  *         description: Server error
  */
-router.post("/reset-password", resetPassword);
+router.post("/reset-password", otpVerifyLimiter, resetPassword);
 
 export default router;

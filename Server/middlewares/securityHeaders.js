@@ -50,6 +50,46 @@ export const helpQueryLimiter = rateLimit({
 });
 
 /**
+ * OTP dispatch (send). Per-attempt lockout inside candidateOtp.controller.js
+ * only throttles guessing against one already-issued OTP — nothing stopped an
+ * attacker from requesting fresh OTPs repeatedly (resetting that counter each
+ * time) or blasting SMS/email spend. Keyed by IP; a genuine candidate needs at
+ * most a couple of sends per code.
+ */
+export const otpSendLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000,
+  max: 5,
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: rateLimitResponse,
+});
+
+/**
+ * OTP verification. Backstops the in-memory per-code attempt cap with an
+ * IP-wide window so an attacker can't outrun it by requesting a new code
+ * before each cap trips.
+ */
+export const otpVerifyLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000,
+  max: 20,
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: rateLimitResponse,
+});
+
+/**
+ * EasyPay initiation. Unthrottled, this is a free way to spam the gateway
+ * with pending orders (each claims a fresh RID/CRN) for a single application.
+ */
+export const paymentInitiateLimiter = rateLimit({
+  windowMs: 60 * 1000,
+  max: 10,
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: rateLimitResponse,
+});
+
+/**
  * Configure Helmet security headers
  */
 const S3_BASE = process.env.S3_PUBLIC_BASE_URL?.replace(/\/$/, "");

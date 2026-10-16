@@ -1,6 +1,9 @@
 import express from "express";
 import { authMiddleware } from "../../middlewares/authMiddleware.js";
-import { feeStatusLimiter } from "../../middlewares/securityHeaders.js";
+import {
+  feeStatusLimiter,
+  paymentInitiateLimiter,
+} from "../../middlewares/securityHeaders.js";
 import {
   getFeeStatus,
   getFeeReceipt,
@@ -33,6 +36,7 @@ router.get(
 router.post(
   "/fee-payments/easypay/initiate",
   authMiddleware(["CANDIDATE"]),
+  paymentInitiateLimiter,
   initiateEasyPayPayment,
 );
 
