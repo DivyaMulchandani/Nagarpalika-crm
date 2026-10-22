@@ -65,6 +65,7 @@ const FEE_REMARK = {
 };
 
 const statusColor = {
+  pending_payment: "warning",
   submitted: "primary",
   under_review: "info",
   shortlisted: "warning",
@@ -73,7 +74,11 @@ const statusColor = {
 };
 
 // Mirrors Server/constants/applicationStatus.js — admin-initiated transitions only.
+// pending_payment is promoted to submitted by the payment itself, never by
+// staff, so only rejection is offered here: nobody should be able to wave an
+// application past the fee by hand.
 const ALLOWED_TRANSITIONS = {
+  pending_payment: ["rejected"],
   submitted: ["under_review", "rejected"],
   under_review: ["shortlisted", "rejected"],
   shortlisted: ["selected", "rejected"],

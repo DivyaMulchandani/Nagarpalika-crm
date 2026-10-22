@@ -8,13 +8,16 @@ import * as easypay from "../../services/easypay.service.js";
 import {
   sendFeeReceiptEmail,
   settleFromEnquiry,
+  markApplicationSubmitted,
 } from "../../services/feeReconciliation.service.js";
 import { resolveApplicationFee } from "../../services/feeCalculator.service.js";
 import { generateReceiptPdf } from "../../services/receiptPdf.service.js";
 import { escapeRegex } from "../../utils/escapeRegex.js";
+import { deadlinePassed } from "../../utils/deadline.js";
 
 const hashAadhaar = (raw) =>
   crypto.createHash("sha256").update(raw.replace(/\s/g, "")).digest("hex");
+
 
 // Receipt delivery and enquiry-settlement live in the reconciliation service so
 // the scheduled sweep and these handlers apply exactly the same rules.
@@ -101,7 +104,9 @@ export const getFeeReceipt = async (req, res) => {
         .select("-password -aadhaar_hash -login_attempts -lockout_until")
         .lean(),
       Advertisement.findOne({ advt_no: fee.advt_no })
-        .populate("department", "name")
+        // The field is departmentName — selecting "name" silently returned
+        // undefined, which is why every receipt printed "Department: —".
+        .populate("department", "departmentName departmentCode")
         .lean(),
     ]);
 
@@ -205,10 +210,25 @@ export const initiateEasyPayPayment = async (req, res) => {
         .status(404)
         .json({ isOk: false, status: 404, message: "Advertisement not found" });
 
+    // The fee is part of applying, so it closes when applications close.
+    //
+    // This blocks STARTING a payment only. A transfer begun before the deadline
+    // that clears afterwards — NEFT routinely takes days — is still settled by
+    // the return handler and the reconciliation sweep, and still promotes the
+    // application. The candidate paid in time; the bank was slow, and they must
+    // not lose their application over that.
+    if (deadlinePassed(advt.end_date))
+      return res.status(400).json({
+        isOk: false,
+        status: 400,
+        message:
+          "The deadline for this advertisement has passed, so the fee can no longer be paid.",
+      });
+
     // Fee tier is resolved from the stored candidate record, never from the
     // request — a candidate must not be able to choose which fee they pay.
     const candidate = await Candidate.findOne({ registration_id })
-      .select("category gender")
+      .select("category gender name")
       .lean();
     const fees = resolveApplicationFee(advt, candidate);
     const amount = fees.amount;
@@ -269,6 +289,16 @@ export const initiateEasyPayPayment = async (req, res) => {
       rid,
       crn,
       amount,
+      // Shown to the candidate on the bank's own payment page, so they can
+      // confirm they are paying for the right application before authorising.
+      // Field order is set by EASYPAY_PPI to match the layout Axis configured.
+      ppi: {
+        application_ref_no: app.application_ref_no,
+        candidate_name: candidate?.name,
+        advt_no: app.advt_no,
+        post_title: advt?.post_title?.en,
+        registration_id,
+      },
       extra: { RE2: registration_id, RE3: app.advt_no },
     });
 
@@ -340,6 +370,9 @@ export const easyPayReturn = async (req, res) => {
             `already settled by RID ${fee.easypay_settled_rid}, now RID ${rid} also reports paid ` +
             `(BRN ${data.BRN}, TRN ${data.TRN}, AMT ${data.AMT}) — refund required`,
         );
+      // Safety net: if the promotion failed the first time round (a transient
+      // database error), a refresh of the return URL repairs it. Idempotent.
+      await markApplicationSubmitted(fee.application_ref_no);
       return redirectToPortal(res, "/fee/success", { ref: fee.application_ref_no });
     }
 
@@ -378,6 +411,7 @@ export const easyPayReturn = async (req, res) => {
     await fee.save();
 
     if (parsed.status === "paid") {
+      await markApplicationSubmitted(fee.application_ref_no);
       sendFeeReceiptEmail(fee).catch(() => {});
       return redirectToPortal(res, "/fee/success", { ref: fee.application_ref_no });
     }
@@ -564,6 +598,8 @@ export const manualVerification = async (req, res) => {
       overridden_at: new Date(),
     };
     await fee.save();
+    // An offline payment settles the application exactly as a gateway one does.
+    await markApplicationSubmitted(fee.application_ref_no);
 
     return res.status(200).json({
       isOk: true,
