@@ -31,24 +31,6 @@ const FEE_OPTIONS = [
   { value: "not_applicable", label: "No fee for this post" },
 ];
 
-// Fee is advisory here — an unpaid application is still reviewable, it just
-// carries a visible remark so nobody processes one unknowingly.
-const feeBadge = {
-  paid:           { color: "success",   label: "PAID" },
-  pending:        { color: "warning",   label: "PENDING" },
-  failed:         { color: "danger",    label: "FAILED" },
-  unpaid:         { color: "danger",    label: "UNPAID" },
-  not_applicable: { color: "secondary", label: "NO FEE" },
-};
-
-const FEE_OPTIONS = [
-  { value: "outstanding",    label: "Fee outstanding (unpaid / pending / failed)" },
-  { value: "unpaid",         label: "Unpaid — never attempted" },
-  { value: "pending",        label: "Pending" },
-  { value: "failed",         label: "Failed" },
-  { value: "paid",           label: "Paid" },
-  { value: "not_applicable", label: "No fee for this post" },
-];
 
 const ApplicationList = () => {
   const { adminData } = useContext(AuthContext);
