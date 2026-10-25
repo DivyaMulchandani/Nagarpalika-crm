@@ -180,6 +180,14 @@ export const initiateEasyPayPayment = async (req, res) => {
     const { application_ref_no } = req.body;
     const registration_id = req.user.registration_id;
 
+    // UAT on the live portal: real candidates must not reach the test gateway.
+    if (!easypay.isAllowedPayer(registration_id))
+      return res.status(503).json({
+        isOk: false,
+        status: 503,
+        message: "Online fee payment will open shortly. Please check back later.",
+      });
+
     if (!application_ref_no)
       return res.status(422).json({
         isOk: false,
@@ -302,6 +310,16 @@ export const initiateEasyPayPayment = async (req, res) => {
       extra: { RE2: registration_id, RE3: app.advt_no },
     });
 
+    // UAT evidence for the bank's test-case sheet. Off by default: the plain
+    // payload carries the candidate's name, so it must not log in production.
+    if (process.env.EASYPAY_DEBUG_LOG === "true")
+      console.log(
+        `[easypay][request] ${new Date().toISOString()} payment_id=${fee.payment_id} RID=${rid} CRN=${crn} AMT=${amount}\n` +
+          `  URL       : ${url}\n` +
+          `  PLAIN     : ${easypay.decrypt(i)}\n` +
+          `  ENCRYPTED : ${i}`,
+      );
+
     return res.status(201).json({
       isOk: true,
       status: 201,
@@ -337,6 +355,19 @@ export const easyPayReturn = async (req, res) => {
       return redirectToPortal(res, "/fee/failure", { reason: "missing_response" });
 
     const parsed = easypay.parseGatewayResponse(i, "payment");
+
+    if (process.env.EASYPAY_DEBUG_LOG === "true")
+      console.log(
+        `[easypay][response] ${new Date().toISOString()} method=${req.method} verified=${parsed.ok}${parsed.ok ? "" : ` (${parsed.error})`}\n` +
+          `  ENCRYPTED : ${i}\n` +
+          `  PLAIN     : ${
+            parsed.plain ??
+            (parsed.data
+              ? Object.entries(parsed.data).map(([k, v]) => `${k}=${v}`).join("&")
+              : "(could not decrypt)")
+          }`,
+      );
+
     if (!parsed.ok) {
       // Includes checksum failure — i.e. a forged or tampered result.
       console.error("[easypay] rejected return payload:", parsed.error);
@@ -396,6 +427,16 @@ export const easyPayReturn = async (req, res) => {
         reason: "amount_mismatch",
         ref: fee.application_ref_no,
       });
+    }
+
+    // In TEST mode a "success" can be forged with the published UAT keys, so
+    // it may only settle a fee belonging to an allowlisted test account.
+    if (parsed.status === "paid" && !easypay.isAllowedPayer(fee.registration_id)) {
+      console.error(
+        `[easypay] REJECTED test-mode success for non-test account ${fee.registration_id} ` +
+          `(payment ${fee.payment_id}, RID ${rid}) — possible forged response`,
+      );
+      return redirectToPortal(res, "/fee/failure", { reason: "invalid_response" });
     }
 
     fee.status = parsed.status; // paid | pending | failed

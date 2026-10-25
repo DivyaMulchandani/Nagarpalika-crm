@@ -108,14 +108,24 @@ try {
     rid: "1757500000000001",
     crn: "1757500000000001",
     amount: 1500,
+    ppi: {
+      application_ref_no: "APP-2026-0001-000001",
+      candidate_name: "Sample Candidate",
+      advt_no: "ADV/2026/0001",
+      post_title: "Sample Post",
+      registration_id: "OTR2026000000",
+    },
     extra: { RE2: "OTR2026000000", RE3: "ADV/2026/0001" },
   });
 
-  const ppiTotal = req.fields.PPI.split("|").map(Number).reduce((a, b) => a + (b || 0), 0);
-  const amt = Number(req.fields.AMT);
-  ppiTotal === amt
-    ? ok(`PPI total ${ppiTotal.toFixed(2)} equals AMT ${req.fields.AMT}`)
-    : bad(`PPI total ${ppiTotal.toFixed(2)} != AMT ${req.fields.AMT} — the gateway will answer 427 (Amount Mismatch)`);
+  // Axis validates the FINAL PPI field against AMT; a mismatch is error 427.
+  const parts = req.fields.PPI.split("|");
+  const lastField = parts[parts.length - 1];
+  Number(lastField) === Number(req.fields.AMT) && lastField !== ""
+    ? ok(`last PPI field "${lastField}" equals AMT ${req.fields.AMT} (${parts.length} fields)`)
+    : bad(`last PPI field "${lastField}" != AMT ${req.fields.AMT} — the gateway will answer 427 (Amount Mismatch)`);
+  if (parts.some((p) => p === ""))
+    warn(`PPI has an empty field — check the template matches the values supplied: ${req.fields.PPI}`);
 
   console.log(`${DIM}  posts to : ${req.url}${OFF}`);
   console.log(`${DIM}  payload  : ${ep.decrypt(req.i).replace(/CKS=.*/, "CKS=<sha256>")}${OFF}`);

@@ -182,6 +182,14 @@ export const settleFromEnquiry = async (fee) => {
 
     if (gatewayStatus !== "paid") continue;
 
+    // A UAT "paid" is not real money — never let it settle a real candidate.
+    if (!easypay.isAllowedPayer(fee.registration_id)) {
+      console.error(
+        `[RECONCILE] ignoring test-mode paid for non-test account ${fee.registration_id} (${fee.payment_id})`,
+      );
+      continue;
+    }
+
     // Checked against what THIS attempt was started for, not the row's current
     // amount — a retry may have moved that on since.
     if (Number(data.AMT) !== Number(ref.amount)) {

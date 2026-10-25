@@ -52,6 +52,25 @@ const requireConfig = (...needed) => {
   return c;
 };
 
+// ── UAT fence ────────────────────────────────────────────────────────────────
+// The UAT keys are printed in the integration PDF Axis sends every client, so
+// while they're in use ANYONE can decrypt a request and forge a valid
+// "success" response. Running UAT on the live portal therefore must not let a
+// real candidate's fee become "paid". In TEST mode only the registration IDs
+// in EASYPAY_TEST_REGISTRATION_IDS may pay; with none listed, nobody can.
+// Production keys are secret, which is what makes TYP=LIVE safe to open up.
+export const isTestMode = () =>
+  String(process.env.EASYPAY_TYP || "TEST").toUpperCase() === "TEST";
+
+export const isAllowedPayer = (registrationId) => {
+  if (!isTestMode()) return true;
+  const allowed = String(process.env.EASYPAY_TEST_REGISTRATION_IDS || "")
+    .split(",")
+    .map((s) => s.trim().toUpperCase())
+    .filter(Boolean);
+  return allowed.includes(String(registrationId || "").trim().toUpperCase());
+};
+
 export const isConfigured = () => {
   try {
     requireConfig("cid", "ppi", "cksKey", "encKey", "paymentUrl", "returnUrl");
