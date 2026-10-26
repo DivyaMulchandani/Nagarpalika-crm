@@ -1,4 +1,29 @@
-import { post } from "./index";
+import { post, BASE } from "./index";
+
+/**
+ * Download the fee receipt PDF for a paid payment.
+ * A fetch rather than a plain link: the session cookie must travel with the
+ * request, and an error (e.g. not yet paid) should surface as a message rather
+ * than a raw JSON page in a new tab.
+ */
+export async function downloadFeeReceipt(paymentId) {
+  const res = await fetch(
+    `${BASE}/api/v1/fee-payments/receipt/${encodeURIComponent(paymentId)}`,
+    { credentials: "include" },
+  );
+  if (!res.ok) {
+    const json = await res.json().catch(() => null);
+    throw new Error(json?.message || "Could not download the receipt.");
+  }
+  const url = URL.createObjectURL(await res.blob());
+  const a = document.createElement("a");
+  a.href = url;
+  a.download = `fee-receipt-${paymentId}.pdf`;
+  document.body.appendChild(a);
+  a.click();
+  a.remove();
+  URL.revokeObjectURL(url);
+}
 
 /**
  * Full-screen "don't close this" overlay shown during the hand-off to the bank.

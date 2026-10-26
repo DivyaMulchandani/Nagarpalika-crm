@@ -1,4 +1,5 @@
 import crypto from "crypto";
+import mongoose from "mongoose";
 import FeePayment from "../../models/FeePayment.js";
 import Application from "../../models/Application.js";
 import Advertisement from "../../models/Advertisement.js";
@@ -89,7 +90,9 @@ export const getFeeReceipt = async (req, res) => {
       return res
         .status(404)
         .json({ isOk: false, status: 404, message: "Payment not found" });
-    if (fee.registration_id !== req.user.registration_id)
+    // Candidates may only fetch their own receipt; staff may fetch any.
+    const isStaff = ["ADMIN", "EMPLOYEE", "DEPT_ADMIN"].includes(req.user.role);
+    if (!isStaff && fee.registration_id !== req.user.registration_id)
       return res
         .status(403)
         .json({ isOk: false, status: 403, message: "Access denied" });
@@ -131,6 +134,12 @@ export const getFeeReceipt = async (req, res) => {
 // How many past RID/CRN pairs to retain per payment. Generous enough to cover
 // any realistic retry sequence, bounded so the document can't grow without end.
 const MAX_EASYPAY_REFS = 20;
+
+// After the bank answers "pending", block new attempts for this long. 30 min
+// spans two reconciliation runs (every 15 min), so the sweep has had its
+// chance to confirm the first payment before a second one can start.
+const PENDING_HOLD_MS =
+  Number(process.env.EASYPAY_PENDING_HOLD_MINUTES || 30) * 60 * 1000;
 
 /**
  * Numeric reference pair for the gateway. RID must be 6–20 digits and CRN
@@ -212,6 +221,31 @@ export const initiateEasyPayPayment = async (req, res) => {
         status: 409,
         message: "Fee already paid for this application",
       });
+
+    // The bank said "pending" recently: hold off a new attempt long enough for
+    // the reconciliation sweep to get its answer, or the candidate risks paying
+    // twice (e.g. a NEFT that is still clearing). After the hold, a retry is
+    // allowed — if the bank still hasn't confirmed, the candidate shouldn't be
+    // stuck indefinitely.
+    const held = await FeePayment.findOne({
+      application_ref_no,
+      status: "pending",
+      bank_pending_at: { $gte: new Date(Date.now() - PENDING_HOLD_MS) },
+    })
+      .select("bank_pending_at")
+      .lean();
+    if (held) {
+      const retryAt = new Date(held.bank_pending_at.getTime() + PENDING_HOLD_MS);
+      const minutes = Math.max(1, Math.ceil((retryAt - Date.now()) / 60000));
+      return res.status(409).json({
+        isOk: false,
+        status: 409,
+        code: "PAYMENT_PENDING_AT_BANK",
+        message: `Your previous payment is still being confirmed by the bank. Please do not pay again — check back in ${minutes} minute(s). If it is confirmed, your fee will show as paid automatically.`,
+        retry_after_minutes: minutes,
+        retry_at: retryAt,
+      });
+    }
 
     const advt = await Advertisement.findOne({ advt_no: app.advt_no });
     if (!advt)
@@ -450,6 +484,8 @@ export const easyPayReturn = async (req, res) => {
       fee.paid_at = new Date();
       fee.easypay_settled_rid = rid;
     }
+    // Starts the hold on new attempts — see PENDING_HOLD_MS.
+    if (parsed.status === "pending") fee.bank_pending_at = new Date();
     await fee.save();
 
     if (parsed.status === "paid") {
@@ -709,6 +745,28 @@ export const searchFeePayments = async (req, res) => {
   }
 };
 
+/** Admin detail view: one payment by its database id. */
+export const getFeePaymentById = async (req, res) => {
+  try {
+    if (!mongoose.Types.ObjectId.isValid(req.params.id))
+      return res
+        .status(404)
+        .json({ isOk: false, status: 404, message: "Payment not found" });
+
+    const fee = await FeePayment.findById(req.params.id).lean();
+    if (!fee)
+      return res
+        .status(404)
+        .json({ isOk: false, status: 404, message: "Payment not found" });
+
+    return res.status(200).json({ isOk: true, status: 200, data: fee });
+  } catch (error) {
+    return res
+      .status(500)
+      .json({ isOk: false, status: 500, message: "An unexpected error occurred" });
+  }
+};
+
 export const getMyFeePayments = async (req, res) => {
   try {
     const list = await FeePayment.find({
@@ -716,7 +774,18 @@ export const getMyFeePayments = async (req, res) => {
     })
       .sort({ createdAt: -1 })
       .lean();
-    return res.status(200).json({ isOk: true, status: 200, data: list });
+
+    // Tell the page when a "pending at bank" hold lifts, so it can show that
+    // instead of a Pay button the server would refuse.
+    const now = Date.now();
+    const data = list.map((f) => {
+      const until =
+        f.status === "pending" && f.bank_pending_at
+          ? new Date(new Date(f.bank_pending_at).getTime() + PENDING_HOLD_MS)
+          : null;
+      return { ...f, payment_hold_until: until && until > now ? until : null };
+    });
+    return res.status(200).json({ isOk: true, status: 200, data });
   } catch (error) {
     return res
       .status(500)

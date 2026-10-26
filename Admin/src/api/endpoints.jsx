@@ -161,8 +161,9 @@ export const ENDPOINTS = {
         BASE:           `${V1}/fee-payments`,
         BY_ID:          (id) => `${V1}/fee-payments/${id}`,
         RECONCILIATION: `${V1}/fee-payments/reconciliation`,
-        MANUAL_VERIFY:  (id) => `${V1}/fee-payments/${id}/manual-verify`,
+        MANUAL_VERIFY:  (id) => `${V1}/fee-payments/${id}/manual`,
         SEARCH:         `${V1}/fee-payments/search`,
+        RECEIPT:        (paymentId) => `${V1}/fee-payments/receipt/${encodeURIComponent(paymentId)}`,
     },
 
     CALL_LETTERS: {

@@ -2,7 +2,9 @@ import { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { toast } from 'react-toastify'
 import { get } from '../../api/index'
-import { startEasyPayPayment } from '../../api/easypay'
+import { startEasyPayPayment, downloadFeeReceipt } from '../../api/easypay'
+
+const fmtTime = (d) => new Date(d).toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit' })
 
 const fmtDate = (d) => d ? new Date(d).toLocaleDateString('en-IN') : '—'
 const statusColor = { pending_payment: 'var(--ojas-red)', submitted: '#2a7a2a', under_review: 'var(--ojas-saffron-deep)', shortlisted: 'var(--ojas-navy)', rejected: 'var(--ojas-red)', selected: '#2a7a2a' }
@@ -12,7 +14,11 @@ export default function ApplicationsList() {
   const [apps, setApps] = useState(null)
   const [loading, setLoading] = useState(true)
   const [fees, setFees] = useState({})
+  // When a "pending at bank" hold lifts, per application. Tracked across ALL of
+  // an application's rows: the held row is not necessarily the one shown.
+  const [holds, setHolds] = useState({})
   const [paying, setPaying] = useState(null)
+  const [downloading, setDownloading] = useState(null)
 
   useEffect(() => {
     get('/api/v1/applications/me', undefined, { silent401: true })
@@ -31,17 +37,35 @@ export default function ApplicationsList() {
     get('/api/v1/fee-payments/me', undefined, { silent401: true })
       .then((res) => {
         const byRef = {}
+        const holdByRef = {}
         // The API returns newest first.
         for (const f of res?.data ?? []) {
           const kept = byRef[f.application_ref_no]
           if (!kept || (kept.status !== 'paid' && f.status === 'paid')) {
             byRef[f.application_ref_no] = f
           }
+          if (f.payment_hold_until) {
+            const prev = holdByRef[f.application_ref_no]
+            if (!prev || new Date(f.payment_hold_until) > new Date(prev))
+              holdByRef[f.application_ref_no] = f.payment_hold_until
+          }
         }
         setFees(byRef)
+        setHolds(holdByRef)
       })
       .catch(() => setFees({}))
   }, [])
+
+  const handleReceipt = async (paymentId) => {
+    setDownloading(paymentId)
+    try {
+      await downloadFeeReceipt(paymentId)
+    } catch (err) {
+      toast.error(err.message || 'Could not download the receipt.')
+    } finally {
+      setDownloading(null)
+    }
+  }
 
   const handlePay = async (refNo) => {
     setPaying(refNo)
@@ -104,7 +128,21 @@ export default function ApplicationsList() {
                   <td style={{ fontSize: 12 }}>{fmtDate(a.submitted_at)}</td>
                   <td>
                     {fee?.status === 'paid'
-                      ? <span style={{ fontWeight: 700, color: '#2a7a2a', fontSize: 12 }}>PAID</span>
+                      ? <div style={{ display: 'flex', flexDirection: 'column', gap: 4, alignItems: 'flex-start' }}>
+                          <span style={{ fontWeight: 700, color: '#2a7a2a', fontSize: 12 }}>PAID</span>
+                          <button
+                            className="btn"
+                            style={{ fontSize: 11, padding: '3px 8px' }}
+                            onClick={() => handleReceipt(fee.payment_id)}
+                            disabled={downloading === fee.payment_id}
+                          >
+                            {downloading === fee.payment_id ? 'Downloading…' : 'Receipt ⬇'}
+                          </button>
+                        </div>
+                      : holds[a.application_ref_no] && new Date(holds[a.application_ref_no]) > new Date()
+                      ? <span style={{ fontSize: 11.5, lineHeight: 1.4, color: 'var(--ojas-saffron-deep)', fontWeight: 600 }}>
+                          Bank confirming payment.<br />Retry after {fmtTime(holds[a.application_ref_no])}
+                        </span>
                       : <button
                           className="btn primary"
                           style={{ fontSize: 11, padding: '3px 8px' }}

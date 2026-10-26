@@ -15,6 +15,7 @@ import {
   initiateEasyPayPayment,
   easyPayReturn,
   easyPayEnquiry,
+  getFeePaymentById,
 } from "../../controllers/v1/feePayment.controller.js";
 
 const router = express.Router();
@@ -26,9 +27,10 @@ router.post("/fee-payments/status", feeStatusLimiter, getFeeStatus);
 
 // ── Candidate ─────────────────────────────────────────────────────────────────
 router.get("/fee-payments/me", authMiddleware(["CANDIDATE"]), getMyFeePayments);
+// Candidates get their own receipt; staff can download any (Admin detail page).
 router.get(
   "/fee-payments/receipt/:payment_id",
-  authMiddleware(["CANDIDATE"]),
+  authMiddleware(["CANDIDATE", "ADMIN", "EMPLOYEE", "DEPT_ADMIN"]),
   getFeeReceipt,
 );
 
@@ -75,6 +77,14 @@ router.post(
   "/fee-payments/search",
   authMiddleware(["ADMIN", "EMPLOYEE", "DEPT_ADMIN"]),
   searchFeePayments,
+);
+
+// Admin detail page. MUST stay last among the GETs: "/fee-payments/:id" would
+// otherwise capture "/fee-payments/me" and "/fee-payments/reconciliation".
+router.get(
+  "/fee-payments/:id",
+  authMiddleware(["ADMIN", "EMPLOYEE", "DEPT_ADMIN"]),
+  getFeePaymentById,
 );
 
 export default router;

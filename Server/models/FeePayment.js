@@ -55,6 +55,10 @@ const FeePaymentSchema = new mongoose.Schema(
     // Which attempt actually paid — lets a second attempt clearing afterwards
     // be recognised as a duplicate payment needing a refund, not a no-op.
     easypay_settled_rid: { type: String },
+    // When the bank last answered "pending" (STC=101). New payment attempts for
+    // this application are held off for a while afterwards, so a candidate
+    // can't start a second payment while the first may still be settling.
+    bank_pending_at: { type: Date },
     bank_ref_no: { type: String }, // BRN
     gateway_status_code: { type: String }, // STC: 000 paid / 101 pending / 111 failed
     payment_mode_code: { type: String }, // PMD: AIB | OIB | CD | NR

@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useContext } from "react";
 import { Card, CardBody, CardHeader, Col, Container, Row, Badge, Button } from "reactstrap";
 import { useParams, useNavigate } from "react-router-dom";
-import { getFeePaymentById } from "../../api/feePayments.api";
+import { getFeePaymentById, downloadFeeReceipt } from "../../api/feePayments.api";
 import BreadCrumb from "../../Components/Common/BreadCrumb";
 import { toast } from "react-toastify";
 import { AuthContext } from "../../context/AuthContext";
@@ -29,6 +29,26 @@ const FeePaymentView = () => {
   const { adminData } = useContext(AuthContext);
   const [fee, setFee] = useState(null);
   const [loading, setLoading] = useState(true);
+  const [downloading, setDownloading] = useState(false);
+
+  const handleDownloadReceipt = async () => {
+    setDownloading(true);
+    try {
+      const res = await downloadFeeReceipt(fee.payment_id);
+      const url = URL.createObjectURL(new Blob([res.data], { type: "application/pdf" }));
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = `receipt-${fee.payment_id}.pdf`;
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+      URL.revokeObjectURL(url);
+    } catch {
+      toast.error("Could not download the receipt");
+    } finally {
+      setDownloading(false);
+    }
+  };
 
   useEffect(() => {
     getFeePaymentById(id)
@@ -68,9 +88,9 @@ const FeePaymentView = () => {
             </Row>
             {fee.status === "paid" && (
               <div className="mt-2">
-                <a href={`/api/v1/fee-payments/${fee.payment_id}/receipt`} target="_blank" rel="noreferrer" className="btn btn-sm btn-outline-primary">
-                  <i className="ri-file-pdf-line me-1"></i>Download Receipt PDF
-                </a>
+                <Button size="sm" color="primary" outline onClick={handleDownloadReceipt} disabled={downloading}>
+                  <i className="ri-file-pdf-line me-1"></i>{downloading ? "Downloading…" : "Download Receipt PDF"}
+                </Button>
               </div>
             )}
           </CardBody>
