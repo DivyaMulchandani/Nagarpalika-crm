@@ -339,14 +339,34 @@ export const enquire = async ({ rid, crn, brn }) => {
     CKS: enquiryChecksum({ cid: c.cid, rid, crn, key: c.cksKey }),
   };
 
+  const plainRequest = toQuery(fields);
+  const encryptedRequest = encrypt(plainRequest);
+
   const res = await fetch(c.enquiryUrl, {
     method: "POST",
     headers: { "Content-Type": "application/x-www-form-urlencoded" },
-    body: new URLSearchParams({ i: encrypt(toQuery(fields)) }).toString(),
+    body: new URLSearchParams({ i: encryptedRequest }).toString(),
     signal: AbortSignal.timeout(20_000),
   });
 
   const text = (await res.text()).trim();
+
+  // UAT evidence for the "Enquiry Integration" section of the bank's sheet.
+  if (process.env.EASYPAY_DEBUG_LOG === "true") {
+    let plainResponse = "(not decryptable)";
+    try {
+      const body = text.includes("i=") ? new URLSearchParams(text).get("i") : text;
+      plainResponse = decrypt(body);
+    } catch { /* error code or non-encrypted body — raw text is logged below */ }
+    console.log(
+      `[easypay][enquiry] ${new Date().toISOString()} RID=${rid} CRN=${crn} HTTP=${res.status}\n` +
+        `  URL                : ${c.enquiryUrl}\n` +
+        `  REQUEST PLAIN      : ${plainRequest}\n` +
+        `  REQUEST ENCRYPTED  : ${encryptedRequest}\n` +
+        `  RESPONSE RAW       : ${text}\n` +
+        `  RESPONSE PLAIN     : ${plainResponse}`,
+    );
+  }
   if (!res.ok)
     return { ok: false, error: `Enquiry failed: HTTP ${res.status} ${res.statusText}`, raw: text };
 
