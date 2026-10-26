@@ -260,21 +260,45 @@ export const reconcilePendingEasyPayPayments = async () => {
   if (!easypay.isConfigured()) return { checked: 0, settled: 0, skipped: "not configured" };
 
   const now = Date.now();
-  const candidates = await FeePayment.find({
+  const cutoff = new Date(now - GIVE_UP_AFTER_DAYS * 24 * 60 * 60 * 1000);
+
+  // The window runs from the most RECENT attempt, not from when the record was
+  // created. A retry reuses the pending row, so a candidate who started weeks
+  // ago and pays today has an old createdAt — keying on that would silently
+  // exclude a payment made today from reconciliation forever.
+  const found = await FeePayment.find({
     status: { $in: ["pending", "failed"] },
     easypay_rid: { $exists: true, $ne: null },
-    createdAt: {
-      $lte: new Date(now - MIN_AGE_MS),
-      $gte: new Date(now - GIVE_UP_AFTER_DAYS * 24 * 60 * 60 * 1000),
-    },
-    $or: [
-      { last_reconciled_at: { $exists: false } },
-      { last_reconciled_at: null },
-      { last_reconciled_at: { $lte: new Date(now - RETRY_INTERVAL_MS) } },
+    $and: [
+      {
+        $or: [
+          { "easypay_refs.issued_at": { $gte: cutoff } },
+          // Rows written before attempts were timestamped.
+          { easypay_refs: { $size: 0 }, createdAt: { $gte: cutoff } },
+          { easypay_refs: { $exists: false }, createdAt: { $gte: cutoff } },
+        ],
+      },
+      {
+        $or: [
+          { last_reconciled_at: { $exists: false } },
+          { last_reconciled_at: null },
+          { last_reconciled_at: { $lte: new Date(now - RETRY_INTERVAL_MS) } },
+        ],
+      },
     ],
   })
     .sort({ last_reconciled_at: 1, createdAt: 1 })
     .limit(BATCH_SIZE);
+
+  // Give the browser redirect a fair chance to land before enquiring: skip a
+  // row whose latest attempt is younger than MIN_AGE. It is picked up next run.
+  const latestAttempt = (fee) => {
+    const times = (fee.easypay_refs || [])
+      .map((r) => new Date(r.issued_at).getTime())
+      .filter(Number.isFinite);
+    return times.length ? Math.max(...times) : new Date(fee.createdAt).getTime();
+  };
+  const candidates = found.filter((fee) => now - latestAttempt(fee) >= MIN_AGE_MS);
 
   let settled = 0;
   for (const fee of candidates) {
