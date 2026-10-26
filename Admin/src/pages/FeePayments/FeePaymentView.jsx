@@ -38,7 +38,7 @@ const FeePaymentView = () => {
       const url = URL.createObjectURL(new Blob([res.data], { type: "application/pdf" }));
       const a = document.createElement("a");
       a.href = url;
-      a.download = `receipt-${fee.payment_id}.pdf`;
+      a.download = `${fee.status === "paid" ? "fee-receipt" : `payment-slip-${fee.status}`}-${fee.application_ref_no}.pdf`;
       document.body.appendChild(a);
       a.click();
       a.remove();
@@ -86,10 +86,11 @@ const FeePaymentView = () => {
               <Field label="Paid At" value={fmtDate(fee.paid_at)} />
               <Field label="Created At" value={fmtDate(fee.createdAt)} />
             </Row>
-            {fee.status === "paid" && (
+            {(fee.status === "paid" || fee.gateway_status_code || fee.gateway_response?.STC) && (
               <div className="mt-2">
                 <Button size="sm" color="primary" outline onClick={handleDownloadReceipt} disabled={downloading}>
-                  <i className="ri-file-pdf-line me-1"></i>{downloading ? "Downloading…" : "Download Receipt PDF"}
+                  <i className="ri-file-pdf-line me-1"></i>
+                  {downloading ? "Downloading…" : fee.status === "paid" ? "Download Receipt PDF" : "Download Transaction Slip"}
                 </Button>
               </div>
             )}

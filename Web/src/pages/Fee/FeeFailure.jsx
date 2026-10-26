@@ -1,4 +1,8 @@
+import { useEffect, useState } from 'react'
 import { useNavigate, useSearchParams } from 'react-router-dom'
+import { toast } from 'react-toastify'
+import { get } from '../../api/index'
+import { downloadFeeReceipt } from '../../api/easypay'
 
 // An amount mismatch is NOT a plain decline: the checksum was valid, so the
 // bank really did process something — just not the figure we asked for. Telling
@@ -34,6 +38,34 @@ export default function FeeFailure() {
   const r = { ...DEFAULT, ...(REASONS[params.get('reason')] || {}) }
   const ref = params.get('ref')
 
+  // The latest attempt for this application that the bank actually answered —
+  // its slip carries the reference the Help Desk will ask for.
+  const [slipId, setSlipId] = useState(null)
+  const [downloading, setDownloading] = useState(false)
+  useEffect(() => {
+    if (!ref) return
+    get('/api/v1/fee-payments/me', undefined, { silent401: true })
+      .then((res) => {
+        // Newest first.
+        const answered = (res?.data ?? []).find(
+          (f) => f.application_ref_no === ref && (f.gateway_status_code || f.gateway_response?.STC),
+        )
+        if (answered) setSlipId(answered.payment_id)
+      })
+      .catch(() => {})
+  }, [ref])
+
+  const handleSlip = async () => {
+    setDownloading(true)
+    try {
+      await downloadFeeReceipt(slipId)
+    } catch (err) {
+      toast.error(err.message || 'Could not download the slip.')
+    } finally {
+      setDownloading(false)
+    }
+  }
+
   return (
     <>
       <div className="page-heading">
@@ -52,8 +84,13 @@ export default function FeeFailure() {
           </p>
         )}
         <p style={{ fontSize: 12, color: 'var(--ojas-ink-3)', marginTop: 8 }}>For assistance, contact the Help Desk with your Registration ID and transaction reference.</p>
-        <div style={{ marginTop: 16, display: 'flex', gap: 10, justifyContent: 'center' }}>
+        <div style={{ marginTop: 16, display: 'flex', gap: 10, justifyContent: 'center', flexWrap: 'wrap' }}>
           {r.retry && <button className="btn primary" onClick={() => navigate('/applications')}>Try Again</button>}
+          {slipId && (
+            <button className="btn" onClick={handleSlip} disabled={downloading}>
+              {downloading ? 'Downloading…' : 'Download Transaction Slip ⬇'}
+            </button>
+          )}
           <button className={r.retry ? 'btn' : 'btn primary'} onClick={() => navigate('/contact')}>Contact Help Desk</button>
         </div>
       </div>

@@ -96,11 +96,19 @@ export const getFeeReceipt = async (req, res) => {
       return res
         .status(403)
         .json({ isOk: false, status: 403, message: "Access denied" });
-    if (fee.status !== "paid")
+    // Paid → receipt. Failed / pending → transaction slip, clearly marked as
+    // not a proof of payment. An attempt the bank never answered (the payer
+    // abandoned before reaching the bank) has nothing to show, so no slip.
+    const bankAnswered =
+      fee.status === "paid" ||
+      !!fee.gateway_status_code ||
+      !!(fee.gateway_response && fee.gateway_response.STC);
+    if (!bankAnswered)
       return res.status(400).json({
         isOk: false,
         status: 400,
-        message: "Receipt only available for paid payments",
+        message:
+          "No bank response has been recorded for this payment yet, so there is no slip to download.",
       });
 
     const [candidate, advt] = await Promise.all([
@@ -117,7 +125,7 @@ export const getFeeReceipt = async (req, res) => {
     res.setHeader("Content-Type", "application/pdf");
     res.setHeader(
       "Content-Disposition",
-      `attachment; filename="receipt-${fee.payment_id}.pdf"`,
+      `attachment; filename="${fee.status === "paid" ? "fee-receipt" : `payment-slip-${fee.status}`}-${fee.application_ref_no}.pdf"`,
     );
 
     await generateReceiptPdf({ fee, candidate, advertisement: advt }, res);
@@ -494,9 +502,11 @@ export const easyPayReturn = async (req, res) => {
       return redirectToPortal(res, "/fee/success", { ref: fee.application_ref_no });
     }
     if (parsed.status === "pending")
-      // "/fee" is the status page; there is no "/fee/status" route and the
-      // SPA catch-all would silently bounce it to "/".
-      return redirectToPortal(res, "/fee", {
+      // My Applications shows the pending state and when a retry is allowed,
+      // without the candidate having to type their Registration ID. It is
+      // behind login; an expired session goes to login and comes back here
+      // with this query intact.
+      return redirectToPortal(res, "/applications", {
         ref: fee.application_ref_no,
         reason: "pending",
       });

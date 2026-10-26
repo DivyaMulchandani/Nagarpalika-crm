@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react'
-import { useNavigate } from 'react-router-dom'
+import { useNavigate, useSearchParams } from 'react-router-dom'
 import { toast } from 'react-toastify'
 import { get } from '../../api/index'
 import { startEasyPayPayment, downloadFeeReceipt } from '../../api/easypay'
@@ -11,6 +11,9 @@ const statusColor = { pending_payment: 'var(--ojas-red)', submitted: '#2a7a2a', 
 
 export default function ApplicationsList() {
   const navigate = useNavigate()
+  // Set by the server when the bank answered "pending" for a payment.
+  const [params] = useSearchParams()
+  const pendingRef = params.get('reason') === 'pending' ? params.get('ref') : null
   const [apps, setApps] = useState(null)
   const [loading, setLoading] = useState(true)
   const [fees, setFees] = useState({})
@@ -88,6 +91,20 @@ export default function ApplicationsList() {
         <span className="guj">મારી અરજીઓ</span>
       </div>
 
+      {pendingRef && (
+        <div style={{ margin: '0 0 12px', padding: '10px 14px', border: '1px solid var(--ojas-saffron-deep)', borderLeft: '4px solid var(--ojas-saffron-deep)', background: '#fff8ec', borderRadius: 3 }}>
+          <p style={{ margin: 0, fontSize: 13.5, fontWeight: 700, color: '#8a2a2a' }}>
+            Your payment for <span style={{ fontFamily: 'var(--font-mono)' }}>{pendingRef}</span> is being confirmed by the bank.
+          </p>
+          <p style={{ margin: '4px 0 0', fontSize: 13, lineHeight: 1.7, color: 'var(--ojas-ink-2, #3a3a3a)' }}>
+            This is normal for net banking and NEFT/RTGS. <strong>Do not pay again</strong> — the fee will show as PAID below automatically once the bank confirms.
+          </p>
+          <p style={{ margin: '4px 0 0', fontSize: 12.5, lineHeight: 1.7, color: 'var(--ojas-ink-3)', fontFamily: 'var(--font-guj)' }}>
+            તમારી ચુકવણી બેંક દ્વારા ચકાસવામાં આવી રહી છે. ફરીથી ચુકવણી કરશો નહીં.
+          </p>
+        </div>
+      )}
+
       {apps.length > 0 && apps.some((a) => fees[a.application_ref_no]?.status !== 'paid') && (
         <div style={{ margin: '0 0 12px', padding: '10px 14px', border: '1px solid var(--ojas-saffron-deep)', borderLeft: '4px solid var(--ojas-saffron-deep)', background: '#fff8ec', borderRadius: 3 }}>
           <p style={{ margin: 0, fontSize: 13.5, fontWeight: 700, color: '#8a2a2a' }}>
@@ -139,18 +156,33 @@ export default function ApplicationsList() {
                             {downloading === fee.payment_id ? 'Downloading…' : 'Receipt ⬇'}
                           </button>
                         </div>
-                      : holds[a.application_ref_no] && new Date(holds[a.application_ref_no]) > new Date()
-                      ? <span style={{ fontSize: 11.5, lineHeight: 1.4, color: 'var(--ojas-saffron-deep)', fontWeight: 600 }}>
-                          Bank confirming payment.<br />Retry after {fmtTime(holds[a.application_ref_no])}
-                        </span>
-                      : <button
-                          className="btn primary"
-                          style={{ fontSize: 11, padding: '3px 8px' }}
-                          onClick={() => handlePay(a.application_ref_no)}
-                          disabled={paying === a.application_ref_no}
-                        >
-                          {paying === a.application_ref_no ? 'Opening…' : 'Pay Fee ▶'}
-                        </button>
+                      : <div style={{ display: 'flex', flexDirection: 'column', gap: 4, alignItems: 'flex-start' }}>
+                          {holds[a.application_ref_no] && new Date(holds[a.application_ref_no]) > new Date()
+                            ? <span style={{ fontSize: 11.5, lineHeight: 1.4, color: 'var(--ojas-saffron-deep)', fontWeight: 600 }}>
+                                Bank confirming payment.<br />Retry after {fmtTime(holds[a.application_ref_no])}
+                              </span>
+                            : <button
+                                className="btn primary"
+                                style={{ fontSize: 11, padding: '3px 8px' }}
+                                onClick={() => handlePay(a.application_ref_no)}
+                                disabled={paying === a.application_ref_no}
+                              >
+                                {paying === a.application_ref_no ? 'Opening…' : 'Pay Fee ▶'}
+                              </button>
+                          }
+                          {/* A slip only exists once the bank has answered an attempt. */}
+                          {fee && (fee.gateway_status_code || fee.gateway_response?.STC) && (
+                            <button
+                              className="btn"
+                              style={{ fontSize: 11, padding: '3px 8px' }}
+                              onClick={() => handleReceipt(fee.payment_id)}
+                              disabled={downloading === fee.payment_id}
+                              title={fee.status === 'pending' ? 'Pending payment slip' : 'Failed payment slip'}
+                            >
+                              {downloading === fee.payment_id ? 'Downloading…' : 'Slip ⬇'}
+                            </button>
+                          )}
+                        </div>
                     }
                   </td>
                   <td><button className="btn" style={{ fontSize: 11, padding: '3px 8px' }} onClick={() => navigate(`/applications/${encodeURIComponent(a.application_ref_no)}`)}>View ▶</button></td>

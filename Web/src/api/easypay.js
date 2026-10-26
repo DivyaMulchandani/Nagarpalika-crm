@@ -1,10 +1,11 @@
 import { post, BASE } from "./index";
 
 /**
- * Download the fee receipt PDF for a paid payment.
+ * Download the fee document for a payment: a receipt when paid, otherwise a
+ * transaction slip clearly marked as not a proof of payment.
  * A fetch rather than a plain link: the session cookie must travel with the
- * request, and an error (e.g. not yet paid) should surface as a message rather
- * than a raw JSON page in a new tab.
+ * request, and an error should surface as a message rather than a raw JSON
+ * page in a new tab.
  */
 export async function downloadFeeReceipt(paymentId) {
   const res = await fetch(
@@ -13,12 +14,18 @@ export async function downloadFeeReceipt(paymentId) {
   );
   if (!res.ok) {
     const json = await res.json().catch(() => null);
-    throw new Error(json?.message || "Could not download the receipt.");
+    throw new Error(json?.message || "Could not download the document.");
   }
+  // The server names the file by what it is ("fee-receipt-…" or
+  // "payment-slip-failed-…"); fall back to a neutral name if the header
+  // isn't readable.
+  const disposition = res.headers.get("Content-Disposition") || "";
+  const filename =
+    disposition.match(/filename="?([^";]+)"?/)?.[1] || `fee-document-${paymentId}.pdf`;
   const url = URL.createObjectURL(await res.blob());
   const a = document.createElement("a");
   a.href = url;
-  a.download = `fee-receipt-${paymentId}.pdf`;
+  a.download = filename;
   document.body.appendChild(a);
   a.click();
   a.remove();
