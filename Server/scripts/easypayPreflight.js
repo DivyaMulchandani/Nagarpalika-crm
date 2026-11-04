@@ -144,7 +144,9 @@ if (process.argv.includes("--live")) {
     // A reference the gateway cannot know. We only care which error comes back.
     const res = await ep.enquire({ rid: "9999999999999999", crn: "9999999999999999" });
     if (res.ok) {
-      warn("gateway answered a reference that should not exist — unexpected, but it is reachable and talking to us");
+      // Axis answers an unknown reference with a properly signed "Record not
+      // found", so a verified reply is the proof that it accepts this server.
+      ok(`gateway accepted us and answered with a verified reply: STC=${res.data?.STC} "${res.data?.RMK}"`);
     } else if (/whitelist|Unauthorised|Corporate match/i.test(res.error || "")) {
       bad(`NOT WHITELISTED — ${res.error}`);
       console.log(`${DIM}        Send Axis this server's public egress IP and the domain in EASYPAY_RETURN_URL.${OFF}`);
@@ -152,8 +154,10 @@ if (process.argv.includes("--live")) {
       bad(`gateway rejected our crypto — ${res.error}`);
       console.log(`${DIM}        Usually the wrong EASYPAY_CHECKSUM_KEY or EASYPAY_ENC_KEY for this environment.${OFF}`);
     } else {
-      ok(`gateway reachable and authenticated us; it simply does not know that reference`);
-      console.log(`${DIM}        reply: ${res.error}${OFF}`);
+      // Only a verified reply proves anything. This covers HTML pages, plain
+      // text errors and undecryptable bodies, and payments can't settle on them.
+      bad(`gateway did not give a usable answer — ${res.error}`);
+      if (res.raw) console.log(`${DIM}        it replied: ${String(res.raw).slice(0, 300)}${OFF}`);
     }
   } catch (err) {
     bad(`could not reach the gateway: ${err.message}`);

@@ -392,6 +392,18 @@ export const enquire = async ({ rid, crn, brn }) => {
   if (!res.ok)
     return { ok: false, error: `Enquiry failed: HTTP ${res.status} ${res.statusText}`, raw: text };
 
+  // Refusals arrive unencrypted with HTTP 200: "error=422&message=Corp+match+not+found."
+  if (/^error=/i.test(text)) {
+    const refusal = new URLSearchParams(text);
+    const code = refusal.get("error");
+    return {
+      ok: false,
+      error: ERROR_CODES[code] || `Gateway error ${code}: ${refusal.get("message")}`,
+      code,
+      raw: text,
+    };
+  }
+
   // The gateway may answer with a bare base64 blob, a form body, or JSON.
   let payload = text;
   if (text.includes("i=")) payload = new URLSearchParams(text).get("i") ?? text;
@@ -404,5 +416,8 @@ export const enquire = async ({ rid, crn, brn }) => {
   if (/^\d{3}[a-z]?$/i.test(payload))
     return { ok: false, error: describeError(payload), code: payload };
 
-  return parseGatewayResponse(payload, "enquiry");
+  const parsed = parseGatewayResponse(payload, "enquiry");
+  // Keep what the bank actually said when we can't read it — HTML, a plain-text
+  // error — or the only clue to the problem is a decryption message.
+  return parsed.ok ? parsed : { ...parsed, raw: text };
 };
