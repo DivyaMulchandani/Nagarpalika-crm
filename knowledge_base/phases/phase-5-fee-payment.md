@@ -20,7 +20,7 @@
 > |---|---|---|
 > | Flow | JS SDK modal | Browser form POST redirect |
 > | Payload | JSON | AES-128-ECB encrypted `i` field |
-> | Authenticity | Webhook HMAC | SHA-256 checksum on the redirect response |
+> | Authenticity | Webhook HMAC | Server-to-server enquiry. The redirect's checksum doesn't cover STC and can't be trusted alone |
 > | Settlement push | `payment.captured` webhook | **None** — redirect only |
 > | Missed payments | Webhook retries | Scheduled enquiry sweep (no webhook exists) |
 >

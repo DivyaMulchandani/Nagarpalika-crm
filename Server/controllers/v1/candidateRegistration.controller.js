@@ -4,6 +4,10 @@ import Candidate from "../../models/Candidate.js";
 import Qualification from "../../models/Qualification.js";
 import { sendEmail, sendTemplatedEmail } from "../../services/email.service.js";
 import { resolveFileUrl, deleteFile } from "../../services/storage.service.js";
+import {
+  CANDIDATE_GENDERS,
+  CANDIDATE_CATEGORIES,
+} from "../../utils/candidateClassification.js";
 
 const EDIT_WINDOW_HOURS = 72;
 
@@ -217,6 +221,15 @@ export const saveStep = async (req, res) => {
         message: `Unknown or unauthorized profile fields: ${unknownKeys.join(", ")}`,
       });
 
+    if ("gender" in data && !CANDIDATE_GENDERS.includes(data.gender))
+      return res
+        .status(422)
+        .json({ isOk: false, status: 422, message: "Invalid gender" });
+    if ("category" in data && !CANDIDATE_CATEGORIES.includes(data.category))
+      return res
+        .status(422)
+        .json({ isOk: false, status: 422, message: "Invalid category" });
+
     // Sanitize string values (strip HTML angle brackets, cap length)
     const sanitized = Object.fromEntries(
       Object.entries(data).map(([k, v]) => [
@@ -343,8 +356,10 @@ export const submitRegistration = async (req, res) => {
     // Server-side required profile fields validation
     const candidateName = (name || data.name || "").trim();
     const candidateDob = req.body.dob || data.dob;
-    const candidateGender = req.body.gender || data.gender;
-    const candidateCategory = req.body.category || data.category;
+    // Read from the saved steps only: that is what gets stored below, and these
+    // two decide the fee, so a value that was only in this request must not pass.
+    const candidateGender = data.gender;
+    const candidateCategory = data.category;
 
     const candidateMotherTongue = req.body.mother_tongue || data.mother_tongue;
     const candidatePhoto = data.photo_path;

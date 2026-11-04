@@ -1,6 +1,12 @@
 import bcrypt from "bcrypt";
 import crypto from "crypto";
 import Candidate from "../../models/Candidate.js";
+import Application from "../../models/Application.js";
+import FeePayment from "../../models/FeePayment.js";
+import {
+  CANDIDATE_GENDERS,
+  CANDIDATE_CATEGORIES,
+} from "../../utils/candidateClassification.js";
 import {
   attachFileUrls,
   resolveFileUrl,
@@ -255,6 +261,25 @@ export const getMyProfile = async (req, res) => {
   }
 };
 
+// The profile fields that decide the fee, and the values each may take.
+const FEE_DECIDING_FIELDS = {
+  gender: CANDIDATE_GENDERS,
+  category: CANDIDATE_CATEGORIES,
+};
+
+/**
+ * Whether the fee has already been decided from this candidate's profile: they
+ * started a payment, or an application went through without one (fee-exempt).
+ * Changing gender or category after that would pay one tier and claim another.
+ */
+const feeAlreadyDecided = async (registration_id) => {
+  const [attempt, settled] = await Promise.all([
+    FeePayment.exists({ registration_id }),
+    Application.exists({ registration_id, status: { $ne: "pending_payment" } }),
+  ]);
+  return Boolean(attempt || settled);
+};
+
 // PATCH / PUT — candidate profile update with 1-time lifetime limit and immutable identity fields
 export const editCandidate = async (req, res) => {
   try {
@@ -301,6 +326,31 @@ export const editCandidate = async (req, res) => {
         message: `Cannot edit locked fields: ${attemptedLocked.join(", ")}. Aadhaar Number, Mobile Number, and Email Address are permanently locked.`,
       });
     }
+
+    // Only a change is checked: the form always resends both, and an older
+    // record may hold a value from before these lists existed.
+    const changedFeeFields = Object.keys(FEE_DECIDING_FIELDS).filter(
+      (f) => f in req.body && req.body[f] !== (candidate[f] ?? ""),
+    );
+    const invalidFeeField = changedFeeFields.find(
+      (f) => !FEE_DECIDING_FIELDS[f].includes(req.body[f]),
+    );
+    if (invalidFeeField)
+      return res.status(422).json({
+        isOk: false,
+        status: 422,
+        message: `Invalid ${invalidFeeField}`,
+      });
+    if (
+      changedFeeFields.length &&
+      (await feeAlreadyDecided(candidate.registration_id))
+    )
+      return res.status(422).json({
+        isOk: false,
+        status: 422,
+        message:
+          "Gender and Category cannot be changed after a fee payment has been started or an application has been submitted. Please contact the Nagarpalika Helpline (Phone: 02766-233232 / Email: np_patan@yahoo.co.in) for assistance.",
+      });
 
     // Whitelist of allowed editable fields
     const EDITABLE = [

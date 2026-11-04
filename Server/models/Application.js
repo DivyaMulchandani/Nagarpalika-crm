@@ -25,6 +25,10 @@ const ApplicationSchema = new mongoose.Schema(
       enum: APPLICATION_STATUSES,
       default: "submitted",
     },
+    // Set by the server at submit when this candidate's fee resolved to nothing
+    // (a free advertisement, or a concession of 0), so there is no payment row
+    // to look for. Never set from the request.
+    fee_exempt: { type: Boolean, default: false },
     // Scaffold fields — finalize with municipality before launch
     exam_centre: { type: String, trim: true },
     declaration_accepted: { type: Boolean, default: false },

@@ -16,7 +16,7 @@ export const ALLOWED_TRANSITIONS = {
   // Staff may reject an unpaid application but cannot advance it: promotion to
   // submitted is the payment's job, so nobody can wave an application through
   // the fee by hand.
-  pending_payment: ["submitted", "rejected"],
+  pending_payment: ["rejected"],
   submitted: ["under_review", "rejected"],
   under_review: ["shortlisted", "rejected"],
   shortlisted: ["selected", "rejected"],

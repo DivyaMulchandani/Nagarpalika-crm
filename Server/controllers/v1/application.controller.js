@@ -156,6 +156,7 @@ const feeStatusStages = () => [
         $switch: {
           branches: [
             { case: { $lte: ["$_advt_fee_max", 0] }, then: "not_applicable" },
+            { case: { $eq: ["$fee_exempt", true] }, then: "not_applicable" },
             { case: { $gt: [{ $size: "$_paid_fees" }, 0] }, then: "paid" },
             { case: { $in: ["pending", "$_fees.status"] }, then: "pending" },
             { case: { $gt: [{ $size: "$_fees" }, 0] }, then: "failed" },
@@ -181,12 +182,14 @@ const feeStatusStages = () => [
  *
  * @param {object[]} fees FeePayment rows for one application
  * @param {object}   advt That application's advertisement
+ * @param {object}   app  The application itself
  */
-const resolveFeeVerdict = (fees = [], advt) => {
+const resolveFeeVerdict = (fees = [], advt, app) => {
   const paidFee = fees.find((f) => f.status === "paid");
   const feeApplies =
-    Number(advt?.application_fee) > 0 ||
-    Number(advt?.application_fee_concessional) > 0;
+    !app?.fee_exempt &&
+    (Number(advt?.application_fee) > 0 ||
+      Number(advt?.application_fee_concessional) > 0);
   const status = !feeApplies
     ? "not_applicable"
     : paidFee
@@ -348,6 +351,7 @@ export const submitApplication = async (req, res) => {
     } = req.body;
     const advt_no = req.body.advt_no.trim();
 
+    const candidate = await Candidate.findOne({ registration_id }).lean();
     const advt = await Advertisement.findOne({ advt_no });
     if (!advt)
       return res
@@ -368,7 +372,6 @@ export const submitApplication = async (req, res) => {
 
     // Enforce Category & Gender vacancy eligibility if enabled
     if (advt.enforce_reservation_rules !== false && advt.vacancies) {
-      const candidate = await Candidate.findOne({ registration_id }).lean();
       const eligibility = checkCandidateVacancyEligibility(
         advt.vacancies,
         candidate,
@@ -402,12 +405,12 @@ export const submitApplication = async (req, res) => {
       });
 
     // An application is only in the running once its fee is paid, so it starts
-    // as pending_payment and the payment promotes it. A fee-free advertisement
-    // has nothing to pay, and must not be left waiting for a settlement that
-    // can never arrive — it goes straight to submitted.
-    const requiresPayment =
-      Number(advt?.application_fee) > 0 ||
-      Number(advt?.application_fee_concessional) > 0;
+    // as pending_payment and the payment promotes it. A candidate whose own fee
+    // is nothing — a free advertisement, or a concession of 0 — has nothing to
+    // pay, and must not be left waiting for a settlement that can never arrive:
+    // they go straight to submitted. Same resolution as the payment path, so
+    // this can't disagree with what they would be charged.
+    const requiresPayment = resolveApplicationFee(advt, candidate).amount > 0;
 
     const app = new Application({
       registration_id,
@@ -417,6 +420,7 @@ export const submitApplication = async (req, res) => {
       experience_years,
       additional_fields,
       status: requiresPayment ? "pending_payment" : "submitted",
+      fee_exempt: !requiresPayment,
     });
     try {
       await app.save();
@@ -766,7 +770,7 @@ export const getApplicationForAdmin = async (req, res) => {
         application: { ...app, documents: documentsWithUrls },
         candidate: candidateWithUrls,
         advertisement: advt,
-        fee: resolveFeeVerdict(fees, advt),
+        fee: resolveFeeVerdict(fees, advt, app),
       },
     });
   } catch (error) {
@@ -833,7 +837,7 @@ export const exportApplications = async (req, res) => {
           application: app,
           candidate,
           advertisement: advt,
-          fee: resolveFeeVerdict(feesByRef.get(app.application_ref_no), advt),
+          fee: resolveFeeVerdict(feesByRef.get(app.application_ref_no), advt, app),
         };
       }),
     );

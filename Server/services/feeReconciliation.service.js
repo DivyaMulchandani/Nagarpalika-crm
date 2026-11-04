@@ -149,11 +149,13 @@ const collectRefs = (fee) => {
  * wrong one would only confuse the lookup.
  *
  * @param {object} fee A FeePayment document (not lean — it gets saved).
+ * @param {{onlyRid?: string}} [opts] Check just this attempt instead of all of
+ *        them — the return handler has a candidate waiting on one specific RID.
  * @returns {Promise<{ok: boolean, changed: boolean, gatewayStatus?: string,
  *                    data?: object, rid?: string, error?: string}>}
  */
-export const settleFromEnquiry = async (fee) => {
-  const refs = collectRefs(fee);
+export const settleFromEnquiry = async (fee, { onlyRid } = {}) => {
+  const refs = collectRefs(fee).filter((r) => !onlyRid || r.rid === String(onlyRid));
   if (!refs.length)
     return { ok: false, changed: false, error: "Payment was not initiated through EasyPay" };
 
@@ -177,6 +179,12 @@ export const settleFromEnquiry = async (fee) => {
     }
 
     const { data } = result;
+    // An answer about some other transaction says nothing about this one.
+    if (String(data.RID) !== ref.rid) {
+      lastError = `Enquiry for RID ${ref.rid} was answered for RID ${data.RID}`;
+      continue;
+    }
+
     const gatewayStatus = easypay.STATUS[String(data.STC)] || "failed";
     lastOk = { data, gatewayStatus, rid: ref.rid };
 
@@ -211,6 +219,10 @@ export const settleFromEnquiry = async (fee) => {
         );
       break;
     }
+
+    // The money went back, and the bank still reports the original transaction
+    // as paid — that must not bring the fee back to life.
+    if (fee.status === "refunded") break;
 
     fee.status = "paid";
     fee.paid_at = fee.paid_at || new Date();

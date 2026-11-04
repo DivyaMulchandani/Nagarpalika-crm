@@ -75,6 +75,10 @@ if (typ === "TEST" && /^https:\/\/(?!uat-)/.test(process.env.EASYPAY_PAYMENT_URL
   warn(`EASYPAY_TYP is "TEST" but the payment URL is not a UAT host — confirm the production value with Axis`);
 if ((process.env.EASYPAY_PAYMENT_URL || "").includes("uat-"))
   warn("Payment URL is the UAT host — this is not production");
+if (ep.usingPublishedKeysOutsideTest())
+  bad(`EASYPAY_TYP is "${typ}" but the UAT keys from Axis's public PDF are still set — anyone could forge a payment, so EasyPay will refuse to run`);
+if (process.env.ENABLE_MANUAL_PAYMENT_OVERRIDE === "true")
+  warn("ENABLE_MANUAL_PAYMENT_OVERRIDE is on — an admin can mark any payment paid without the bank");
 
 // ── 2. Algorithms, against the vendor's published vectors ────────────────────
 section("2. Algorithms (verified against the integration doc's own examples)");

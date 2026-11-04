@@ -11,9 +11,13 @@
  *   • Response : same encryption, arriving URL-encoded in `i`.
  *
  * The bank redirects the user's browser to the return URL, so that request is
- * cross-site and carries no session cookie. The checksum below is the *only*
- * thing establishing that a payment result is genuine — never trust `i` without
- * verifying it, and never take the amount from anywhere but our own database.
+ * cross-site and carries no session cookie, and the payload passes through the
+ * payer's hands. The checksum does NOT make it trustworthy: it covers CID, RID,
+ * CRN and AMT but not STC, and ECB encrypts each 16-byte block independently, so
+ * a payer holding any genuine success response can swap its status block into a
+ * failed one and the checksum still verifies. A "paid" in `i` is therefore only
+ * a hint — only a server-to-server enquire() may mark a payment paid. And never
+ * take the amount from anywhere but our own database.
  */
 import crypto from "crypto";
 
@@ -49,8 +53,22 @@ const requireConfig = (...needed) => {
     throw new Error(
       `EASYPAY_ENC_KEY must be exactly 16 bytes for AES-128 (got ${Buffer.byteLength(c.encKey)})`,
     );
+  // The test allowlist is off outside TEST, so the published keys would let
+  // anyone forge a response. Fail closed rather than go live on them.
+  if (usingPublishedKeysOutsideTest())
+    throw new Error(
+      "EasyPay refuses to run: EASYPAY_TYP is not TEST but the published UAT keys are still configured",
+    );
   return c;
 };
+
+// The keys printed in Axis's integration PDF — public, so never for real money.
+const PUBLISHED_UAT_KEYS = { checksum: "axis", enc: "axisbank12345678" };
+
+export const usingPublishedKeysOutsideTest = () =>
+  !isTestMode() &&
+  (process.env.EASYPAY_CHECKSUM_KEY === PUBLISHED_UAT_KEYS.checksum ||
+    process.env.EASYPAY_ENC_KEY === PUBLISHED_UAT_KEYS.enc);
 
 // ── UAT fence ────────────────────────────────────────────────────────────────
 // The UAT keys are printed in the integration PDF Axis sends every client, so
@@ -250,6 +268,10 @@ export const describeError = (code) =>
  * `variant` picks the checksum formula: "payment" includes AMT, "enquiry"
  * doesn't. Returns { ok:false } for anything that fails to decrypt or whose
  * checksum doesn't verify — callers must treat that as "not paid".
+ *
+ * ok:true proves RID, CRN and AMT, not STC — see the note at the top of this
+ * file. A "payment" result's status must be confirmed by enquire() before it
+ * can settle anything.
  */
 export const parseGatewayResponse = (i, variant = "payment") => {
   const c = requireConfig("cid", "cksKey", "encKey");

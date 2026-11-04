@@ -44,7 +44,8 @@ router.post(
 
 // Return URL (RTU). Deliberately unauthenticated: the bank redirects the user's
 // browser here, and with sameSite=strict that cross-site request carries no
-// session cookie. Authenticity comes from the response checksum, not the session.
+// session cookie. A reported success is confirmed with the bank by the handler
+// before it settles anything; the session and the browser's payload can't do that.
 // Both verbs are accepted — the spec says GET, gateways vary in practice.
 router.get("/fee-payments/easypay/return", easyPayReturn);
 router.post("/fee-payments/easypay/return", easyPayReturn);

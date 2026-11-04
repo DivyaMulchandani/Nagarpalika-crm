@@ -17,6 +17,13 @@ const REASONS = {
     bodyGuj: 'બેંકે અપેક્ષિત રકમથી અલગ રકમ જણાવી છે, તેથી તમારી ચુકવણી આપમેળે ખાતરી કરી શકાઈ નથી. કૃપા કરીને ફરીથી ચુકવણી કરશો નહીં.',
     retry: false,
   },
+  refunded: {
+    heading: 'Payment Refunded',
+    guj: 'ચૂકવણી પરત કરાઈ',
+    title: 'This Payment Was Refunded',
+    body: 'This payment has been refunded and is no longer valid towards the application fee. Please contact the Help Desk if you have any questions.',
+    retry: false,
+  },
   server_error: {
     title: 'Payment Result Could Not Be Processed',
     body: 'The bank\'s response reached us but could not be processed. If an amount was deducted, do NOT pay again — contact the Help Desk and it will be verified against the bank.',

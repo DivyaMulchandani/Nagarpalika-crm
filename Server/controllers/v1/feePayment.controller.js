@@ -7,7 +7,6 @@ import Candidate from "../../models/Candidate.js";
 import Counter from "../../models/Counter.js";
 import * as easypay from "../../services/easypay.service.js";
 import {
-  sendFeeReceiptEmail,
   settleFromEnquiry,
   markApplicationSubmitted,
   amountForRid,
@@ -163,6 +162,21 @@ const nextEasyPayRefs = async () => {
   );
   const ref = `${String(Date.now()).slice(-10)}${String(counter.seq % 1e6).padStart(6, "0")}`;
   return { rid: ref, crn: ref };
+};
+
+// The bank may need a moment to report a payment it has only just taken.
+const BANK_CONFIRM_RETRY_MS = 2000;
+
+/**
+ * Ask the bank directly whether one attempt was paid, settling it if so. Retried
+ * once when the bank answers "not paid", since that can just be lag. An error is
+ * not retried: the candidate is waiting, and the sweep will pick the row up.
+ */
+const confirmPaidWithBank = async (fee, rid) => {
+  const first = await settleFromEnquiry(fee, { onlyRid: rid });
+  if (first.changed || !first.ok) return first;
+  await new Promise((resolve) => setTimeout(resolve, BANK_CONFIRM_RETRY_MS));
+  return settleFromEnquiry(fee, { onlyRid: rid });
 };
 
 const portalUrl = () => (process.env.PORTAL_URL || "").replace(/\/$/, "");
@@ -389,7 +403,11 @@ export const initiateEasyPayPayment = async (req, res) => {
 /**
  * Return URL (RTU). The bank redirects the user's browser here, so this is a
  * cross-site request with NO session cookie (sameSite=strict) — the payment is
- * identified solely from the checksum-verified payload.
+ * identified from the checksum-verified payload.
+ *
+ * That payload passed through the payer's browser and its STC is not covered by
+ * the checksum, so a reported success can be forged (see easypay.service.js).
+ * It only triggers a server-to-server enquiry; the enquiry is what marks paid.
  */
 export const easyPayReturn = async (req, res) => {
   try {
@@ -429,20 +447,33 @@ export const easyPayReturn = async (req, res) => {
       return redirectToPortal(res, "/fee/failure", { reason: "unknown_reference" });
     }
 
+    // Final: the old success URL still verifies, and replaying it must not turn
+    // a refunded fee back into a paid one.
+    if (fee.status === "refunded") {
+      console.error(
+        `[easypay] ignored return for refunded payment ${fee.payment_id} (RID ${rid}, STC ${data.STC})`,
+      );
+      return redirectToPortal(res, "/fee/failure", {
+        reason: "refunded",
+        ref: fee.application_ref_no,
+      });
+    }
+
     // Already settled — a browser refresh must not re-process or downgrade it.
     if (fee.status === "paid") {
       // A *different* attempt clearing after one already paid means the
       // candidate has been charged twice (e.g. paid by card, then the earlier
-      // NEFT landed). Never silently swallow that — it needs a refund.
+      // NEFT landed). Never silently swallow that. But this is only the
+      // browser's word for it, so check with the bank before refunding anything.
       if (
         String(data.STC) === "000" &&
         fee.easypay_settled_rid &&
         fee.easypay_settled_rid !== rid
       )
         console.error(
-          `[easypay] DUPLICATE PAYMENT on ${fee.payment_id} (${fee.application_ref_no}): ` +
-            `already settled by RID ${fee.easypay_settled_rid}, now RID ${rid} also reports paid ` +
-            `(BRN ${data.BRN}, TRN ${data.TRN}, AMT ${data.AMT}) — refund required`,
+          `[easypay] POSSIBLE DUPLICATE PAYMENT on ${fee.payment_id} (${fee.application_ref_no}): ` +
+            `already settled by RID ${fee.easypay_settled_rid}, browser reports RID ${rid} also paid ` +
+            `(BRN ${data.BRN}, TRN ${data.TRN}, AMT ${data.AMT}) — confirm with the bank before refunding`,
         );
       // Safety net: if the promotion failed the first time round (a transient
       // database error), a refresh of the return URL repairs it. Idempotent.
@@ -482,25 +513,39 @@ export const easyPayReturn = async (req, res) => {
       return redirectToPortal(res, "/fee/failure", { reason: "invalid_response" });
     }
 
-    fee.status = parsed.status; // paid | pending | failed
+    // A reported success settles only if the bank itself confirms it. Everything
+    // recorded on the row then comes from the bank's answer, not from `i`.
+    if (parsed.status === "paid") {
+      const confirmed = await confirmPaidWithBank(fee, rid);
+      if (confirmed.changed || fee.status === "paid")
+        return redirectToPortal(res, "/fee/success", { ref: fee.application_ref_no });
+
+      // Either bank lag or a forged response — we can't tell which from here,
+      // and neither may become paid. If the money did move, the sweep finds it.
+      console.error(
+        `[easypay] browser reported success for ${fee.payment_id} (RID ${rid}) but the bank did not confirm it: ` +
+          (confirmed.ok ? `bank says ${confirmed.gatewayStatus}` : confirmed.error),
+      );
+      if (fee.status === "pending") {
+        fee.bank_pending_at = new Date();
+        await fee.save();
+      }
+      return redirectToPortal(res, "/applications", {
+        ref: fee.application_ref_no,
+        reason: "pending",
+      });
+    }
+
+    fee.status = parsed.status; // pending | failed
     fee.gateway_status_code = data.STC;
     fee.bank_ref_no = data.BRN;
     fee.payment_mode_code = data.PMD;
     fee.gateway_response = data;
     if (data.TRN) fee.gateway_txn_id = data.TRN;
-    if (parsed.status === "paid") {
-      fee.paid_at = new Date();
-      fee.easypay_settled_rid = rid;
-    }
     // Starts the hold on new attempts — see PENDING_HOLD_MS.
     if (parsed.status === "pending") fee.bank_pending_at = new Date();
     await fee.save();
 
-    if (parsed.status === "paid") {
-      await markApplicationSubmitted(fee.application_ref_no);
-      sendFeeReceiptEmail(fee).catch(() => {});
-      return redirectToPortal(res, "/fee/success", { ref: fee.application_ref_no });
-    }
     if (parsed.status === "pending")
       // My Applications shows the pending state and when a retry is allowed,
       // without the candidate having to type their Registration ID. It is
@@ -669,6 +714,12 @@ export const manualVerification = async (req, res) => {
       return res
         .status(404)
         .json({ isOk: false, status: 404, message: "Payment not found" });
+    if (fee.status === "refunded")
+      return res.status(409).json({
+        isOk: false,
+        status: 409,
+        message: "A refunded payment cannot be marked as paid",
+      });
 
     fee.status = "paid";
     fee.paid_at = fee.paid_at || new Date();

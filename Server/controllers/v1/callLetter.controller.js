@@ -108,7 +108,7 @@ export const checkEligibility = async (req, res) => {
       application_ref_no: app.application_ref_no,
       status: "paid",
     });
-    if (!fee)
+    if (!fee && !app.fee_exempt)
       return respond(200, {
         isOk: true,
         status: 200,
@@ -196,7 +196,7 @@ export const downloadCallLetter = async (req, res) => {
       application_ref_no: app.application_ref_no,
       status: "paid",
     });
-    if (!fee)
+    if (!fee && !app.fee_exempt)
       return res
         .status(403)
         .json({ isOk: false, status: 403, message: "Fee not paid" });
@@ -282,7 +282,7 @@ export const listCallLetters = async (req, res) => {
     const results = callLetters
       .filter((cl) => {
         const app = appByAdvt[cl.advt_no];
-        return app && paidRefs.has(app.application_ref_no);
+        return app && (app.fee_exempt || paidRefs.has(app.application_ref_no));
       })
       .map((cl) => ({
         advt_no: cl.advt_no,
@@ -451,7 +451,7 @@ export const uploadRollNumbers = async (req, res) => {
 
     const regIds = rows.map((r) => r.registration_id);
 
-    const [candidates, paidFees] = await Promise.all([
+    const [candidates, paidFees, exemptApps] = await Promise.all([
       Candidate.find({ registration_id: { $in: regIds } })
         .select("registration_id")
         .lean(),
@@ -462,10 +462,19 @@ export const uploadRollNumbers = async (req, res) => {
       })
         .select("registration_id")
         .lean(),
+      Application.find({
+        advt_no,
+        fee_exempt: true,
+        registration_id: { $in: regIds },
+      })
+        .select("registration_id")
+        .lean(),
     ]);
 
     const validRegIds = new Set(candidates.map((c) => c.registration_id));
-    const paidRegIds = new Set(paidFees.map((f) => f.registration_id));
+    const paidRegIds = new Set(
+      [...paidFees, ...exemptApps].map((f) => f.registration_id),
+    );
 
     const rollNums = rows.map((r) => r.roll_number);
     const duplicateRolls = [

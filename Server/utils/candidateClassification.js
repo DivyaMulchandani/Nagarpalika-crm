@@ -2,10 +2,16 @@
  * Shared normalisation of the free-text candidate fields that drive policy
  * decisions (fee tier, vacancy eligibility).
  *
- * `category` and `gender` are stored as free text, so every consumer has to
- * agree on how to read them. Keeping that in one place is the point — two
- * copies of this logic will drift.
+ * `category` and `gender` are stored as text, so every consumer has to agree on
+ * how to read them. Keeping that in one place is the point — two copies of this
+ * logic will drift.
  */
+
+// What a candidate may submit — the options on the registration and profile
+// forms. They decide the fee, so the server can't accept whatever a direct API
+// call sends. Older records may hold other text, hence the readers below.
+export const CANDIDATE_GENDERS = ["Male", "Female", "Other"];
+export const CANDIDATE_CATEGORIES = ["General", "OBC", "SC", "ST", "EWS"];
 
 /**
  * Map a free-text category onto one of: general | sc | st | sebc | ews.
