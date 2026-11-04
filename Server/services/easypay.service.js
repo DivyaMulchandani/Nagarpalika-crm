@@ -20,6 +20,7 @@
  * take the amount from anywhere but our own database.
  */
 import crypto from "crypto";
+import https from "https";
 
 const cfg = () => ({
   ver: process.env.EASYPAY_VER || "1.0",
@@ -347,6 +348,43 @@ export const parseGatewayResponse = (i, variant = "payment") => {
 
 // ── Enquiry ──────────────────────────────────────────────────────────────────
 
+/**
+ * POST a form over IPv4 only. Axis whitelists our IPv4 address, but its production
+ * host also has an IPv6 one, so a dual-stack server can connect over IPv6 and be
+ * refused with 422 "Corp match not found". fetch() can't pin the address family.
+ */
+const postFormIpv4 = (url, body) =>
+  new Promise((resolve, reject) => {
+    const req = https.request(
+      url,
+      {
+        method: "POST",
+        family: 4,
+        headers: {
+          "Content-Type": "application/x-www-form-urlencoded",
+          "Content-Length": Buffer.byteLength(body),
+        },
+        signal: AbortSignal.timeout(20_000),
+      },
+      (res) => {
+        let text = "";
+        res.setEncoding("utf8");
+        res.on("data", (chunk) => (text += chunk));
+        res.on("error", reject);
+        res.on("end", () =>
+          resolve({
+            ok: res.statusCode >= 200 && res.statusCode < 300,
+            status: res.statusCode,
+            statusText: res.statusMessage,
+            text,
+          }),
+        );
+      },
+    );
+    req.on("error", reject);
+    req.end(body);
+  });
+
 /** Server-to-server status enquiry — the source of truth for reconciliation. */
 export const enquire = async ({ rid, crn, brn }) => {
   const c = requireConfig("cid", "cksKey", "encKey", "enquiryUrl");
@@ -364,14 +402,12 @@ export const enquire = async ({ rid, crn, brn }) => {
   const plainRequest = toQuery(fields);
   const encryptedRequest = encrypt(plainRequest);
 
-  const res = await fetch(c.enquiryUrl, {
-    method: "POST",
-    headers: { "Content-Type": "application/x-www-form-urlencoded" },
-    body: new URLSearchParams({ i: encryptedRequest }).toString(),
-    signal: AbortSignal.timeout(20_000),
-  });
+  const res = await postFormIpv4(
+    c.enquiryUrl,
+    new URLSearchParams({ i: encryptedRequest }).toString(),
+  );
 
-  const text = (await res.text()).trim();
+  const text = res.text.trim();
 
   // UAT evidence for the "Enquiry Integration" section of the bank's sheet.
   if (process.env.EASYPAY_DEBUG_LOG === "true") {
