@@ -1,5 +1,6 @@
 import express from "express";
 import { authMiddleware } from "../../middlewares/authMiddleware.js";
+import { requirePermission } from "../../middlewares/requirePermission.js";
 import {
   createEmailSetup,
   updateEmailSetup,
@@ -247,6 +248,7 @@ router.post(
 router.post(
   "/email-for",
   authMiddleware(["ADMIN", "EMPLOYEE"]),
+  requirePermission("/email-for", "write"),
   createEmailFor,
 );
 
@@ -269,6 +271,7 @@ router.post(
 router.get(
   "/email-for",
   authMiddleware(["ADMIN", "EMPLOYEE"]),
+  requirePermission(["/email-for", "/email-template"], "read"),
   listAllEmailFor,
 );
 
@@ -300,6 +303,7 @@ router.get(
 router.get(
   "/email-for/:emailForId",
   authMiddleware(["ADMIN", "EMPLOYEE"]),
+  requirePermission(["/email-for", "/email-template"], "read"),
   getEmailForById,
 );
 
@@ -333,6 +337,7 @@ router.get(
 router.put(
   "/email-for/:emailForId",
   authMiddleware(["ADMIN", "EMPLOYEE"]),
+  requirePermission("/email-for", "edit"),
   updateEmailFor,
 );
 
@@ -360,6 +365,7 @@ router.put(
 router.delete(
   "/email-for/:emailForId",
   authMiddleware(["ADMIN", "EMPLOYEE"]),
+  requirePermission("/email-for", "delete"),
   deleteEmailFor,
 );
 
@@ -388,6 +394,7 @@ router.delete(
 router.post(
   "/email-for/search",
   authMiddleware(["ADMIN", "EMPLOYEE"]),
+  requirePermission(["/email-for", "/email-template"], "read"),
   listEmailForByParams,
 );
 
@@ -418,6 +425,7 @@ router.post(
 router.post(
   "/email-templates",
   authMiddleware(["ADMIN", "EMPLOYEE"]),
+  requirePermission("/email-template", "write"),
   createEmailTemplate,
 );
 
@@ -440,6 +448,7 @@ router.post(
 router.get(
   "/email-templates",
   authMiddleware(["ADMIN", "EMPLOYEE"]),
+  requirePermission("/email-template", "read"),
   listAllEmailTemplates,
 );
 
@@ -471,6 +480,7 @@ router.get(
 router.get(
   "/email-templates/:emailTemplateId",
   authMiddleware(["ADMIN", "EMPLOYEE"]),
+  requirePermission("/email-template", "read"),
   getEmailTemplateById,
 );
 
@@ -504,6 +514,7 @@ router.get(
 router.put(
   "/email-templates/:emailTemplateId",
   authMiddleware(["ADMIN", "EMPLOYEE"]),
+  requirePermission("/email-template", "edit"),
   updateEmailTemplate,
 );
 
@@ -531,6 +542,7 @@ router.put(
 router.delete(
   "/email-templates/:emailTemplateId",
   authMiddleware(["ADMIN", "EMPLOYEE"]),
+  requirePermission("/email-template", "delete"),
   deleteEmailTemplate,
 );
 
@@ -559,6 +571,7 @@ router.delete(
 router.post(
   "/email-templates/search",
   authMiddleware(["ADMIN", "EMPLOYEE"]),
+  requirePermission("/email-template", "read"),
   listEmailTemplateByParams,
 );
 
@@ -611,6 +624,7 @@ router.post(
 router.post(
   "/email-templates/upload-signature",
   authMiddleware(["ADMIN", "EMPLOYEE"]),
+  requirePermission("/email-template", ["write", "edit"]),
   secureSignatureUpload,      // Secure file validation & compression
   async (req, res) => {
     if (!req.file) {

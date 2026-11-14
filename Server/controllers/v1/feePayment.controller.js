@@ -14,7 +14,7 @@ import {
 import { resolveApplicationFee } from "../../services/feeCalculator.service.js";
 import { generateReceiptPdf } from "../../services/receiptPdf.service.js";
 import { escapeRegex } from "../../utils/escapeRegex.js";
-import { deadlinePassed } from "../../utils/deadline.js";
+import { feePaymentClosed } from "../../utils/deadline.js";
 
 const hashAadhaar = (raw) =>
   crypto.createHash("sha256").update(raw.replace(/\s/g, "")).digest("hex");
@@ -282,12 +282,12 @@ export const initiateEasyPayPayment = async (req, res) => {
     // the return handler and the reconciliation sweep, and still promotes the
     // application. The candidate paid in time; the bank was slow, and they must
     // not lose their application over that.
-    if (deadlinePassed(advt.end_date))
+    if (feePaymentClosed(advt))
       return res.status(400).json({
         isOk: false,
         status: 400,
         message:
-          "The deadline for this advertisement has passed, so the fee can no longer be paid.",
+          "This advertisement is closed, so the fee can no longer be paid.",
       });
 
     // Fee tier is resolved from the stored candidate record, never from the

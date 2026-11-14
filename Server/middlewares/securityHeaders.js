@@ -90,6 +90,49 @@ export const paymentInitiateLimiter = rateLimit({
 });
 
 /**
+ * Staff login, per IP. Staff accounts have no lockout of their own, so nothing
+ * else limits password guessing. Only failures count, so a shared office IP
+ * isn't penalised for people logging in normally.
+ */
+export const staffLoginIpLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000,
+  max: 10,
+  skipSuccessfulRequests: true,
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: rateLimitResponse,
+});
+
+/**
+ * Staff login, per account. Stops one account being guessed from many IPs. The
+ * ceiling is higher than per-IP because a stranger can also trip it: the real
+ * user is locked out for at most 15 minutes, which beats an unlimited guess.
+ */
+export const staffLoginAccountLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000,
+  max: 20,
+  skipSuccessfulRequests: true,
+  keyGenerator: (req) => String(req.body?.email ?? "").trim().toLowerCase(),
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: rateLimitResponse,
+});
+
+/**
+ * Public call-letter routes. The only inputs are a sequential Registration ID
+ * and a date of birth, so without a limit anyone can guess their way to other
+ * candidates' admit cards. Kept generous for a cyber cafe or a mobile network
+ * where many candidates share one IP on the day admit cards are released.
+ */
+export const callLetterLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000,
+  max: 60,
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: rateLimitResponse,
+});
+
+/**
  * Configure Helmet security headers
  */
 const S3_BASE = process.env.S3_PUBLIC_BASE_URL?.replace(/\/$/, "");

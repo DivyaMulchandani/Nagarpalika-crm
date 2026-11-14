@@ -8,6 +8,10 @@ import {
 } from "../../controllers/v1/company.controller.js";
 import { authMiddleware } from "../../middlewares/authMiddleware.js";
 import {
+  staffLoginIpLimiter,
+  staffLoginAccountLimiter,
+} from "../../middlewares/securityHeaders.js";
+import {
   loginValidation,
   createCompanyValidation,
   allowOnlyFields,
@@ -195,6 +199,8 @@ router.get(
 // SECURITY: Rate limit + field whitelist + input validation on login
 router.post(
   "/auth/company/login",
+  staffLoginIpLimiter,
+  staffLoginAccountLimiter,
   allowOnlyFields(allowedLoginFields), // Reject unexpected fields
   loginValidation, // Validate & sanitize input
   loginCompany,

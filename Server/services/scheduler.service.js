@@ -1,6 +1,7 @@
 import mongoose from "mongoose";
 import Advertisement from "../models/Advertisement.js";
 import { reconcilePendingEasyPayPayments } from "./feeReconciliation.service.js";
+import { todayInIndia } from "../utils/deadline.js";
 
 const RUN_INTERVAL_MS = 15 * 60 * 1000; // every 15 minutes
 
@@ -10,11 +11,10 @@ const RUN_INTERVAL_MS = 15 * 60 * 1000; // every 15 minutes
  */
 export async function archiveExpiredAdvertisements() {
   // end_date is inclusive: an ad ending 2026-06-06 stays open through
-  // 23:59:59 that day, so only archive ads whose end_date is before today.
-  const startOfToday = new Date();
-  startOfToday.setHours(0, 0, 0, 0);
+  // 23:59:59 that day in India, so only archive ads whose end_date is before
+  // today in India.
   const result = await Advertisement.updateMany(
-    { status: "Published", end_date: { $lt: startOfToday } },
+    { status: "Published", end_date: { $lt: todayInIndia() } },
     { $set: { status: "Archived" } },
   );
   if (result.modifiedCount > 0)

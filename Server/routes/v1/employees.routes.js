@@ -1,6 +1,11 @@
 import express from "express";
 import mongoose from "mongoose";
 import { authMiddleware } from "../../middlewares/authMiddleware.js";
+import { requirePermission } from "../../middlewares/requirePermission.js";
+import {
+  staffLoginIpLimiter,
+  staffLoginAccountLimiter,
+} from "../../middlewares/securityHeaders.js";
 import {
   createEmployee,
   updateEmployee,
@@ -79,6 +84,7 @@ router.post(
 router.get(
   "/employees",
   authMiddleware(["ADMIN", "EMPLOYEE"]),
+  requirePermission("/employee", "read"),
   listAllEmployees,
 );
 
@@ -106,6 +112,7 @@ router.get(
 router.get(
   "/employees/:employeeId",
   authMiddleware(["ADMIN", "EMPLOYEE"]),
+  requirePermission("/employee", "read"),
   getEmployeeById,
 );
 
@@ -194,6 +201,7 @@ router.delete(
 router.post(
   "/employees/search",
   authMiddleware(["ADMIN", "EMPLOYEE"]),
+  requirePermission("/employee", "read"),
   listEmployeesByParams,
 );
 
@@ -222,6 +230,7 @@ router.post(
 router.get(
   "/employees/department/:departmentId",
   authMiddleware(["ADMIN", "EMPLOYEE"]),
+  requirePermission("/employee", "read"),
   listAllEmployeesByDepartment,
 );
 
@@ -289,6 +298,8 @@ router.post(
 // SECURITY: Rate limit + field whitelist + input validation on login
 router.post(
   "/auth/employee/login",
+  staffLoginIpLimiter,
+  staffLoginAccountLimiter,
   allowOnlyFields(allowedLoginFields),      // Reject unexpected fields
   loginValidation,                          // Validate & sanitize input
   loginEmployee

@@ -105,7 +105,7 @@ export default function ApplicationsList() {
         </div>
       )}
 
-      {apps.length > 0 && apps.some((a) => fees[a.application_ref_no]?.status !== 'paid') && (
+      {apps.length > 0 && apps.some((a) => fees[a.application_ref_no]?.status !== 'paid' && !a.fee?.closed && a.fee?.applies !== false) && (
         <div style={{ margin: '0 0 12px', padding: '10px 14px', border: '1px solid var(--ojas-saffron-deep)', borderLeft: '4px solid var(--ojas-saffron-deep)', background: '#fff8ec', borderRadius: 3 }}>
           <p style={{ margin: 0, fontSize: 13.5, fontWeight: 700, color: '#8a2a2a' }}>
             While paying, do not close the window, press Back, or refresh. You will be returned to this portal automatically once the payment is complete.
@@ -161,14 +161,20 @@ export default function ApplicationsList() {
                             ? <span style={{ fontSize: 11.5, lineHeight: 1.4, color: 'var(--ojas-saffron-deep)', fontWeight: 600 }}>
                                 Bank confirming payment.<br />Retry after {fmtTime(holds[a.application_ref_no])}
                               </span>
-                            : <button
-                                className="btn primary"
-                                style={{ fontSize: 11, padding: '3px 8px' }}
-                                onClick={() => handlePay(a.application_ref_no)}
-                                disabled={paying === a.application_ref_no}
-                              >
-                                {paying === a.application_ref_no ? 'Opening…' : 'Pay Fee ▶'}
-                              </button>
+                            : a.fee?.applies === false
+                              ? <span style={{ fontSize: 12, color: 'var(--ojas-ink-3)' }}>No fee</span>
+                              : a.fee?.closed
+                                ? <span style={{ fontSize: 11.5, lineHeight: 1.4, color: 'var(--ojas-red)', fontWeight: 600 }}>
+                                    Closed. Fee can no longer be paid.
+                                  </span>
+                                : <button
+                                    className="btn primary"
+                                    style={{ fontSize: 11, padding: '3px 8px' }}
+                                    onClick={() => handlePay(a.application_ref_no)}
+                                    disabled={paying === a.application_ref_no}
+                                  >
+                                    {paying === a.application_ref_no ? 'Opening…' : 'Pay Fee ▶'}
+                                  </button>
                           }
                           {/* A slip only exists once the bank has answered an attempt. */}
                           {fee && (fee.gateway_status_code || fee.gateway_response?.STC) && (

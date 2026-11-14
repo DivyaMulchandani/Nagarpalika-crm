@@ -2,6 +2,7 @@ import crypto from "crypto";
 import express from "express";
 import multer from "multer";
 import { authMiddleware } from "../../middlewares/authMiddleware.js";
+import { requirePermission } from "../../middlewares/requirePermission.js";
 import { roleScope } from "../../middlewares/roleScope.js";
 import {
   createAdvertisement,
@@ -49,18 +50,21 @@ router.get("/advertisements/:id", getAdvertisementById);
 router.post(
   "/advertisements",
   authMiddleware(["ADMIN", "EMPLOYEE"]),
+  requirePermission("/advertisements", "write"),
   createAdvertisement,
 );
-router.patch("/advertisements/:id", adminAuth, roleScope, patchAdvertisement);
+router.patch("/advertisements/:id", adminAuth, requirePermission("/advertisements", "edit"), roleScope, patchAdvertisement);
 router.patch(
   "/advertisements/:id/status",
   adminAuth,
+  requirePermission("/advertisements", "edit"),
   roleScope,
   patchAdvertisementStatus,
 );
 router.post(
   "/advertisements/:id/pdf",
   adminAuth,
+  requirePermission("/advertisements", ["write", "edit"]),
   roleScope,
   handlePdfUpload,
   uploadAdvertisementPdf,
@@ -73,16 +77,19 @@ router.delete(
 router.get(
   "/advertisements/:id/zip-export",
   authMiddleware(["ADMIN", "EMPLOYEE"]),
+  requirePermission("/applications", "read"),
   getZipExportStatus,
 );
 router.post(
   "/advertisements/:id/zip-export",
   authMiddleware(["ADMIN", "EMPLOYEE"]),
+  requirePermission("/applications", "read"),
   triggerZipExport,
 );
 router.get(
   "/advertisements/:id/zip-export/download",
   authMiddleware(["ADMIN", "EMPLOYEE"]),
+  requirePermission("/applications", "read"),
   downloadZipExport,
 );
 

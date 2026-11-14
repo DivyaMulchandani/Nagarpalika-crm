@@ -61,7 +61,7 @@ const FeePaymentSchema = new mongoose.Schema(
     bank_pending_at: { type: Date },
     bank_ref_no: { type: String }, // BRN
     gateway_status_code: { type: String }, // STC: 000 paid / 101 pending / 111 failed
-    payment_mode_code: { type: String }, // PMD: AIB | OIB | CD | NR
+    payment_mode_code: { type: String }, // PMD: AIB | OIB | CD | UPI | NR
     gateway_response: { type: mongoose.Schema.Types.Mixed },
     // Set by the scheduled sweep that chases payments the browser redirect
     // never reported back (closed tab, or a NEFT that settles days later).

@@ -3,6 +3,7 @@ import nodemailer from "nodemailer";
 import EmailSetup from "../models/EmailSetup.js";
 import EmailFor from "../models/EmailFor.js";
 import EmailTemplate from "../models/EmailTemplate.js";
+import { DEFAULT_EMAILS } from "./emailDefaults.js";
 
 const buildTransporter = (smtp) => {
   if (!smtp?.host) {
@@ -64,6 +65,9 @@ const substitute = (str, vars) =>
     str,
   );
 
+const escapeHtml = (v) =>
+  String(v ?? "").replace(/[&<>"']/g, (c) => `&#${c.charCodeAt(0)};`);
+
 /**
  * Send a plain email using the active EmailSetup record or local Postfix / .env SMTP fallback.
  */
@@ -92,6 +96,10 @@ export const sendEmail = async ({
  * Look up an EmailFor record by templateKey string, find its linked EmailTemplate,
  * substitute {{VARIABLE}} placeholders in subject and body, then send.
  * Uses the template's own emailFrom (EmailSetup) for SMTP, falling back to local Postfix if unconfigured.
+ *
+ * With no active template saved in the admin panel, the built-in wording from
+ * emailDefaults.js is sent instead, the same way OTP emails are sent. Only a
+ * key with neither throws.
  */
 export const sendTemplatedEmail = async (
   templateKey,
@@ -100,15 +108,29 @@ export const sendTemplatedEmail = async (
   attachments = [],
 ) => {
   const emailFor = await EmailFor.findOne({ emailFor: templateKey }).lean();
-  if (!emailFor) throw new Error(`Email type not found: ${templateKey}`);
+  const template =
+    emailFor &&
+    (await EmailTemplate.findOne({
+      emailFor: emailFor._id,
+      isActive: true,
+    })
+      .populate({ path: "emailFrom", select: "+appPassword" })
+      .lean());
 
-  const template = await EmailTemplate.findOne({
-    emailFor: emailFor._id,
-    isActive: true,
-  })
-    .populate({ path: "emailFrom", select: "+appPassword" })
-    .lean();
-  if (!template) throw new Error(`No active template for: ${templateKey}`);
+  if (!template) {
+    const builtIn = DEFAULT_EMAILS[templateKey];
+    if (!builtIn) throw new Error(`No active template for: ${templateKey}`);
+    // Values go into HTML here, so a name can't inject markup into the email.
+    const safe = Object.fromEntries(
+      Object.entries(variables).map(([k, v]) => [k, escapeHtml(v)]),
+    );
+    return sendEmail({
+      to,
+      subject: substitute(builtIn.subject, variables),
+      html: substitute(builtIn.body, safe),
+      attachments,
+    });
+  }
 
   const html = substitute(template.emailSignature, variables);
   const subject = substitute(template.emailSubject, variables);

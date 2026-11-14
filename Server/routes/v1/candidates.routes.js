@@ -1,5 +1,6 @@
 import express from "express";
 import { authMiddleware } from "../../middlewares/authMiddleware.js";
+import { requirePermission } from "../../middlewares/requirePermission.js";
 import {
   createSecureImageUpload,
   createSecureUpload,
@@ -131,11 +132,13 @@ router.post("/candidates/find", findCandidate);
 router.get(
   "/candidates",
   authMiddleware(["ADMIN", "EMPLOYEE", "DEPT_ADMIN"]),
+  requirePermission("/candidates", "read"),
   searchCandidates,
 );
 router.post(
   "/candidates/search",
   authMiddleware(["ADMIN", "EMPLOYEE", "DEPT_ADMIN"]),
+  requirePermission("/candidates", "read"),
   searchCandidates,
 );
 router.post("/candidates/export", authMiddleware(["ADMIN"]), exportCandidates);
@@ -147,6 +150,7 @@ router.post(
 router.get(
   "/candidates/:id",
   authMiddleware(["ADMIN", "EMPLOYEE", "DEPT_ADMIN"]),
+  requirePermission("/candidates", "read"),
   getCandidateById,
 );
 

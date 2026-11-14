@@ -20,6 +20,7 @@ const PAYMENT_MODES = {
   AIB: "Axis Bank Net Banking",
   OIB: "Net Banking",
   CD: "Debit / Credit Card",
+  UPI: "UPI",
   NR: "NEFT / RTGS",
 };
 

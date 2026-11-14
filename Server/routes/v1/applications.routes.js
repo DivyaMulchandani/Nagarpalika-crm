@@ -6,6 +6,7 @@ import { uploadLimits } from "../../config/portal.config.js";
 import multer from "multer";
 import { fileTypeFromBuffer } from "file-type";
 import { authMiddleware } from "../../middlewares/authMiddleware.js";
+import { requirePermission } from "../../middlewares/requirePermission.js";
 import {
   submitApplication,
   getMyApplications,
@@ -92,11 +93,13 @@ router.post(
 router.get(
   "/applications",
   authMiddleware(["ADMIN", "EMPLOYEE", "DEPT_ADMIN"]),
+  requirePermission("/applications", "read"),
   listApplications,
 );
 router.get(
   "/applications/admin/:ref",
   authMiddleware(["ADMIN", "EMPLOYEE", "DEPT_ADMIN"]),
+  requirePermission("/applications", "read"),
   getApplicationForAdmin,
 );
 router.post(
@@ -108,11 +111,13 @@ router.post(
 router.put(
   "/applications/:id/status",
   authMiddleware(["ADMIN", "EMPLOYEE", "DEPT_ADMIN"]),
+  requirePermission("/applications", "edit"),
   updateApplicationStatus,
 );
 router.post(
   "/applications/search",
   authMiddleware(["ADMIN", "EMPLOYEE", "DEPT_ADMIN"]),
+  requirePermission("/applications", "read"),
   searchApplications,
 );
 

@@ -11,6 +11,7 @@ import {
   resolveFileUrl,
 } from "../../services/storage.service.js";
 import { escapeRegex } from "../../utils/escapeRegex.js";
+import { todayInIndia } from "../../utils/deadline.js";
 
 export const createAdvertisement = async (req, res) => {
   try {
@@ -159,14 +160,6 @@ const normalizeVacancies = (v) => {
 const vacancyCount = (v) =>
   typeof v === "object" ? Number(v?.total) || 0 : Number(v) || 0;
 
-// An advertisement ending on a date is open through that whole day —
-// the deadline is midnight at the END of end_date's day (local time).
-const startOfToday = () => {
-  const d = new Date();
-  d.setHours(0, 0, 0, 0);
-  return d;
-};
-
 export const listAdvertisements = async (req, res) => {
   try {
     const isAuthenticated = !!req.session?.user;
@@ -179,11 +172,11 @@ export const listAdvertisements = async (req, res) => {
       // Public callers only ever see Published, non-expired advertisements —
       // regardless of what they pass in the query string.
       filter.status = "Published";
-      // end_date is inclusive: an ad ending today is open until midnight
+      // end_date is inclusive: an ad ending today is open until midnight in India
       filter.$or = [
         { end_date: null },
         { end_date: { $exists: false } },
-        { end_date: { $gte: startOfToday() } },
+        { end_date: { $gte: todayInIndia() } },
       ];
     }
 

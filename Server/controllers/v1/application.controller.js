@@ -24,7 +24,7 @@ import {
   buildExportZipFilename,
 } from "../../services/applicationExport.service.js";
 import { escapeRegex } from "../../utils/escapeRegex.js";
-import { deadlinePassed } from "../../utils/deadline.js";
+import { deadlinePassed, feePaymentClosed } from "../../utils/deadline.js";
 import { resolveApplicationFee } from "../../services/feeCalculator.service.js";
 
 const EDITABLE_FIELDS = [
@@ -85,8 +85,8 @@ const validateSubmissionInput = (body) => {
 const sanitizeText = (v) =>
   typeof v === "string" ? v.trim().replace(/[<>]/g, "").slice(0, 500) : v;
 
-// The deadline is midnight at the END of end_date's day: an ad ending
-// 2026-06-06 accepts applications until 2026-06-06 23:59:59.999.
+// The deadline is midnight at the END of end_date's day in India: an ad ending
+// 2026-06-06 accepts applications until 2026-06-06 23:59:59.999 IST.
 // Fields the admin list/search tables actually render
 const ADMIN_APP_PROJECTION = {
   application_ref_no: 1,
@@ -508,7 +508,7 @@ export const getMyApplication = async (req, res) => {
         .lean(),
       Advertisement.findOne({ advt_no: app.advt_no })
         .select(
-          "advt_no post_title class pay_scale application_fee end_date department",
+          "advt_no post_title class pay_scale application_fee end_date status department",
         )
         .populate("department", "departmentName")
         .lean(),
@@ -517,7 +517,12 @@ export const getMyApplication = async (req, res) => {
     return res.status(200).json({
       isOk: true,
       status: 200,
-      data: { ...app, candidate, advertisement },
+      data: {
+        ...app,
+        candidate,
+        advertisement,
+        fee_closed: feePaymentClosed(advertisement),
+      },
     });
   } catch (error) {
     return res
@@ -602,7 +607,7 @@ export const getMyApplications = async (req, res) => {
     const [candidate, advts, fees] = await Promise.all([
       Candidate.findOne({ registration_id }).select("category gender").lean(),
       Advertisement.find({ advt_no: { $in: list.map((a) => a.advt_no) } })
-        .select("advt_no post_title application_fee application_fee_concessional end_date")
+        .select("advt_no post_title application_fee application_fee_concessional end_date status")
         .lean(),
       FeePayment.find({
         application_ref_no: { $in: list.map((a) => a.application_ref_no) },
@@ -637,7 +642,7 @@ export const getMyApplications = async (req, res) => {
           payment_id: paidRow?.status === "paid" ? paidRow.payment_id : null,
           // Payment closes with the advertisement, so the pages know whether to
           // offer a Pay button or explain that it is too late.
-          closed: deadlinePassed(advt?.end_date),
+          closed: feePaymentClosed(advt),
         },
       };
     });

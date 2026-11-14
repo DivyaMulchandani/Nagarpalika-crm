@@ -1,5 +1,6 @@
 import express from "express";
 import { authMiddleware } from "../../middlewares/authMiddleware.js";
+import { requirePermission } from "../../middlewares/requirePermission.js";
 import {
   feeStatusLimiter,
   paymentInitiateLimiter,
@@ -31,6 +32,7 @@ router.get("/fee-payments/me", authMiddleware(["CANDIDATE"]), getMyFeePayments);
 router.get(
   "/fee-payments/receipt/:payment_id",
   authMiddleware(["CANDIDATE", "ADMIN", "EMPLOYEE", "DEPT_ADMIN"]),
+  requirePermission(["/fee-payments", "/applications"], "read"),
   getFeeReceipt,
 );
 
@@ -53,6 +55,7 @@ router.post("/fee-payments/easypay/return", easyPayReturn);
 router.get(
   "/fee-payments/easypay/enquiry/:payment_id",
   authMiddleware(["ADMIN", "EMPLOYEE"]),
+  requirePermission("/fee-payments", "read"),
   easyPayEnquiry,
 );
 
@@ -60,6 +63,7 @@ router.get(
 router.get(
   "/fee-payments",
   authMiddleware(["ADMIN", "EMPLOYEE"]),
+  requirePermission("/fee-payments", "read"),
   listFeePayments,
 );
 router.get(
@@ -77,6 +81,7 @@ router.patch(
 router.post(
   "/fee-payments/search",
   authMiddleware(["ADMIN", "EMPLOYEE", "DEPT_ADMIN"]),
+  requirePermission("/fee-payments", "read"),
   searchFeePayments,
 );
 
@@ -85,6 +90,7 @@ router.post(
 router.get(
   "/fee-payments/:id",
   authMiddleware(["ADMIN", "EMPLOYEE", "DEPT_ADMIN"]),
+  requirePermission("/fee-payments", "read"),
   getFeePaymentById,
 );
 

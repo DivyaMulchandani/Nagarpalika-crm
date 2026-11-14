@@ -1,5 +1,6 @@
 import express from "express";
 import { authMiddleware } from "../../middlewares/authMiddleware.js";
+import { requirePermission } from "../../middlewares/requirePermission.js";
 import {
   createDepartment,
   updateDepartment,
@@ -34,6 +35,7 @@ const router = express.Router();
 router.post(
   "/departments",
   authMiddleware(["ADMIN", "EMPLOYEE"]),
+  requirePermission("/department", "write"),
   createDepartment,
 );
 
@@ -123,6 +125,7 @@ router.get(
 router.put(
   "/departments/:departmentId",
   authMiddleware(["ADMIN", "EMPLOYEE"]),
+  requirePermission("/department", "edit"),
   updateDepartment,
 );
 
@@ -150,6 +153,7 @@ router.put(
 router.delete(
   "/departments/:departmentId",
   authMiddleware(["ADMIN", "EMPLOYEE"]),
+  requirePermission("/department", "delete"),
   deleteDepartment,
 );
 

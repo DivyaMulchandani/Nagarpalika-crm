@@ -1,5 +1,6 @@
 import express from "express";
 import { authMiddleware } from "../../middlewares/authMiddleware.js";
+import { requirePermission } from "../../middlewares/requirePermission.js";
 import {
   createQualification,
   searchQualifications,
@@ -17,9 +18,9 @@ const adminAuth = authMiddleware(["ADMIN", "EMPLOYEE"]);
 router.get("/qualifications/public", listPublicQualifications);
 router.post("/qualifications/search", adminAuth, searchQualifications);
 router.get("/qualifications", adminAuth, getAllQualifications);
-router.post("/qualifications", adminAuth, createQualification);
+router.post("/qualifications", adminAuth, requirePermission("/qualification", "write"), createQualification);
 router.get("/qualifications/:id", adminAuth, getQualificationById);
-router.put("/qualifications/:id", adminAuth, updateQualification);
+router.put("/qualifications/:id", adminAuth, requirePermission("/qualification", "edit"), updateQualification);
 router.delete(
   "/qualifications/:id",
   authMiddleware(["ADMIN"]),

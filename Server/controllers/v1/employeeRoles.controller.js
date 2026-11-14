@@ -1,9 +1,19 @@
 import mongoose from "mongoose";
 import EmployeeRoles from "../../models/EmployeeRoles.js";
+import { isOwnRole } from "../../middlewares/requirePermission.js";
+
+const ownRoleDenied = (res) =>
+  res.status(403).json({
+    isOk: false,
+    status: 403,
+    message: "You cannot change the permissions of your own role",
+  });
 
 export const createEmployeeRoles = async (req, res) => {
   try {
     const { roleId, roles } = req.body;
+
+    if (await isOwnRole(req, roleId)) return ownRoleDenied(res);
 
     // Validate roles array to ensure proper structure for menuId and menuGroupId
     if (!Array.isArray(roles)) {
@@ -108,6 +118,8 @@ export const updateEmployeeRoles = async (req, res) => {
         message: "Invalid roleId provided",
       });
     }
+    if (await isOwnRole(req, id)) return ownRoleDenied(res);
+
     const { roles } = req.body;
 
     // Validate roles array

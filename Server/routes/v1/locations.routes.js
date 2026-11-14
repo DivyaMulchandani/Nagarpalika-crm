@@ -1,5 +1,6 @@
 import express from "express";
 import { authMiddleware } from "../../middlewares/authMiddleware.js";
+import { requirePermission } from "../../middlewares/requirePermission.js";
 import {
   createCountry,
   listAllCountries,
@@ -52,7 +53,7 @@ const router = express.Router();
  *       401:
  *         description: Unauthorized
  */
-router.post("/countries", authMiddleware(["ADMIN", "EMPLOYEE"]), createCountry);
+router.post("/countries", authMiddleware(["ADMIN", "EMPLOYEE"]), requirePermission("/country", "write"), createCountry);
 
 /**
  * @swagger
@@ -138,6 +139,7 @@ router.get(
 router.put(
   "/countries/:countryId",
   authMiddleware(["ADMIN", "EMPLOYEE"]),
+  requirePermission("/country", "edit"),
   updateCountry,
 );
 
@@ -165,6 +167,7 @@ router.put(
 router.delete(
   "/countries/:countryId",
   authMiddleware(["ADMIN", "EMPLOYEE"]),
+  requirePermission("/country", "delete"),
   deleteCountry,
 );
 
@@ -243,7 +246,7 @@ router.get(
  *       401:
  *         description: Unauthorized
  */
-router.post("/states", authMiddleware(["ADMIN", "EMPLOYEE"]), createState);
+router.post("/states", authMiddleware(["ADMIN", "EMPLOYEE"]), requirePermission("/state", "write"), createState);
 
 /**
  * @swagger
@@ -325,6 +328,7 @@ router.get(
 router.put(
   "/states/:stateId",
   authMiddleware(["ADMIN", "EMPLOYEE"]),
+  requirePermission("/state", "edit"),
   updateState,
 );
 
@@ -352,6 +356,7 @@ router.put(
 router.delete(
   "/states/:stateId",
   authMiddleware(["ADMIN", "EMPLOYEE"]),
+  requirePermission("/state", "delete"),
   deleteState,
 );
 
@@ -430,7 +435,7 @@ router.get(
  *       401:
  *         description: Unauthorized
  */
-router.post("/cities", authMiddleware(["ADMIN", "EMPLOYEE"]), createCity);
+router.post("/cities", authMiddleware(["ADMIN", "EMPLOYEE"]), requirePermission("/city", "write"), createCity);
 
 /**
  * @swagger
@@ -512,6 +517,7 @@ router.get(
 router.put(
   "/cities/:cityId",
   authMiddleware(["ADMIN", "EMPLOYEE"]),
+  requirePermission("/city", "edit"),
   updateCity,
 );
 
@@ -539,6 +545,7 @@ router.put(
 router.delete(
   "/cities/:cityId",
   authMiddleware(["ADMIN", "EMPLOYEE"]),
+  requirePermission("/city", "delete"),
   deleteCity,
 );
 

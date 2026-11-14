@@ -2,6 +2,7 @@ import crypto from "crypto";
 import express from "express";
 import multer from "multer";
 import { authMiddleware } from "../../middlewares/authMiddleware.js";
+import { requirePermission } from "../../middlewares/requirePermission.js";
 import {
   createNotice,
   listNotices,
@@ -40,20 +41,23 @@ router.get("/notices/:id/pdf", getNoticePdf);
 router.get("/notices/:id", getNoticeById);
 
 // ── Admin ─────────────────────────────────────────────────────────────────────
-router.post("/notices", authMiddleware(["ADMIN", "EMPLOYEE"]), createNotice);
+router.post("/notices", authMiddleware(["ADMIN", "EMPLOYEE"]), requirePermission("/notices", "write"), createNotice);
 router.patch(
   "/notices/:id",
   authMiddleware(["ADMIN", "EMPLOYEE"]),
+  requirePermission("/notices", "edit"),
   patchNotice,
 );
 router.patch(
   "/notices/:id/status",
   authMiddleware(["ADMIN", "EMPLOYEE"]),
+  requirePermission("/notices", "edit"),
   patchNoticeStatus,
 );
 router.post(
   "/notices/:id/pdf",
   authMiddleware(["ADMIN", "EMPLOYEE"]),
+  requirePermission("/notices", ["write", "edit"]),
   handlePdfUpload,
   uploadNoticePdf,
 );

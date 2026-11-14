@@ -89,14 +89,20 @@ export default function ApplicationDetail() {
             Fee Pending — this application is not yet complete.
           </p>
           <p style={{ margin: '4px 0 0', fontSize: 13, lineHeight: 1.7, color: 'var(--ojas-ink-2, #3a3a3a)' }}>
-            Your application will only be considered once the application fee is received.
+            {app.fee_closed
+              ? 'This advertisement is closed, so the fee can no longer be paid.'
+              : 'Your application will only be considered once the application fee is received.'}
           </p>
-          <p style={{ margin: '4px 0 0', fontSize: 12.5, lineHeight: 1.7, color: 'var(--ojas-ink-3)', fontFamily: 'var(--font-guj)' }}>
-            ફી મળ્યા વિના તમારી અરજી ધ્યાનમાં લેવામાં આવશે નહીં.
-          </p>
-          <button className="btn primary" style={{ marginTop: 10 }} onClick={handlePay} disabled={paying}>
-            {paying ? 'Opening…' : 'Pay Fee Now ▶'}
-          </button>
+          {!app.fee_closed && (
+            <>
+              <p style={{ margin: '4px 0 0', fontSize: 12.5, lineHeight: 1.7, color: 'var(--ojas-ink-3)', fontFamily: 'var(--font-guj)' }}>
+                ફી મળ્યા વિના તમારી અરજી ધ્યાનમાં લેવામાં આવશે નહીં.
+              </p>
+              <button className="btn primary" style={{ marginTop: 10 }} onClick={handlePay} disabled={paying}>
+                {paying ? 'Opening…' : 'Pay Fee Now ▶'}
+              </button>
+            </>
+          )}
         </div>
       )}
 

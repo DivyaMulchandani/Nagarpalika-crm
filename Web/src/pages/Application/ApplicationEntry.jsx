@@ -68,7 +68,9 @@ export default function ApplicationEntry() {
                     {/* An unpaid application is not in the running, so the way
                         to fix that sits right next to the status saying so. */}
                     {a.status === 'pending_payment' && (
-                      <Link to="/applications" style={{ display: 'block', fontSize: 11, fontWeight: 700, color: 'var(--ojas-saffron-deep)' }}>Pay Fee ▶</Link>
+                      a.fee?.closed
+                        ? <span style={{ display: 'block', fontSize: 11, color: 'var(--ojas-ink-3)' }}>Closed. Fee can no longer be paid.</span>
+                        : <Link to="/applications" style={{ display: 'block', fontSize: 11, fontWeight: 700, color: 'var(--ojas-saffron-deep)' }}>Pay Fee ▶</Link>
                     )}
                   </td>
                   <td style={{ fontSize: 12 }}>{fmtDate(a.submitted_at)}</td>

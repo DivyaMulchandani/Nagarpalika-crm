@@ -1,5 +1,6 @@
 import express from "express";
 import { authMiddleware } from "../../middlewares/authMiddleware.js";
+import { requirePermission } from "../../middlewares/requirePermission.js";
 import {
   createMenuGroup,
   getAllMenuGroups,
@@ -46,6 +47,7 @@ const router = express.Router();
 router.post(
   "/menu-groups",
   authMiddleware(["ADMIN", "EMPLOYEE", "DOCTOR"]),
+  requirePermission("/menu-group", "write"),
   createMenuGroup,
 );
 
@@ -135,6 +137,7 @@ router.get(
 router.put(
   "/menu-groups/:menuGroupId",
   authMiddleware(["ADMIN", "EMPLOYEE", "DOCTOR"]),
+  requirePermission("/menu-group", "edit"),
   updateMenuGroup,
 );
 
@@ -162,6 +165,7 @@ router.put(
 router.delete(
   "/menu-groups/:menuGroupId",
   authMiddleware(["ADMIN", "EMPLOYEE", "DOCTOR"]),
+  requirePermission("/menu-group", "delete"),
   deleteMenuGroup,
 );
 
@@ -215,7 +219,7 @@ router.post(
  *       401:
  *         description: Unauthorized
  */
-router.post("/menus", authMiddleware(["ADMIN", "EMPLOYEE", "DOCTOR"]), createMenuMaster);
+router.post("/menus", authMiddleware(["ADMIN", "EMPLOYEE", "DOCTOR"]), requirePermission("/menu-master", "write"), createMenuMaster);
 
 /**
  * @swagger
@@ -331,6 +335,7 @@ router.get(
 router.put(
   "/menus/:menuMasterId",
   authMiddleware(["ADMIN", "EMPLOYEE", "DOCTOR"]),
+  requirePermission("/menu-master", "edit"),
   updateMenuMaster,
 );
 
@@ -358,6 +363,7 @@ router.put(
 router.delete(
   "/menus/:menuMasterId",
   authMiddleware(["ADMIN", "EMPLOYEE", "DOCTOR"]),
+  requirePermission("/menu-master", "delete"),
   deleteMenuMaster,
 );
 

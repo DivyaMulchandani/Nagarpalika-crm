@@ -1,6 +1,7 @@
 import express from "express";
 const router = express.Router();
 import { authMiddleware } from "../../middlewares/authMiddleware.js";
+import { requirePermission } from "../../middlewares/requirePermission.js";
 import {
   createRole,
   listAllRoles,
@@ -30,7 +31,7 @@ import {
  *       401:
  *         description: Unauthorized
  */
-router.post("/roles", authMiddleware(["ADMIN", "EMPLOYEE"]), createRole);
+router.post("/roles", authMiddleware(["ADMIN", "EMPLOYEE"]), requirePermission("/role-master", "write"), createRole);
 
 /**
  * @swagger
@@ -111,7 +112,7 @@ router.get(
  *       404:
  *         description: Role not found
  */
-router.put("/roles/:roleId", authMiddleware(["ADMIN", "EMPLOYEE"]), updateRole);
+router.put("/roles/:roleId", authMiddleware(["ADMIN", "EMPLOYEE"]), requirePermission("/role-master", "edit"), updateRole);
 
 /**
  * @swagger
@@ -137,6 +138,7 @@ router.put("/roles/:roleId", authMiddleware(["ADMIN", "EMPLOYEE"]), updateRole);
 router.delete(
   "/roles/:roleId",
   authMiddleware(["ADMIN", "EMPLOYEE"]),
+  requirePermission("/role-master", "delete"),
   deleteRole,
 );
 
