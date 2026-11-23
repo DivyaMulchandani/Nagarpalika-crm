@@ -5,7 +5,7 @@ import { IconPdf, IconCheckCircle, IconEye, IconEyeOff } from "../../components/
 import { get, post } from "../../api/index";
 import { useAuth } from "../../context/AuthContext";
 import { transliterateToGujarati } from "../../utils/gujaratiTransliterate";
-import { checkCandidateImage, kbRange, PHOTO_SPEC, SIGNATURE_SPEC } from "../../utils/candidateImage";
+import { checkCandidateImage, fileToDataUrl, kbRange, PHOTO_SPEC, SIGNATURE_SPEC } from "../../utils/candidateImage";
 import ImageRequirements from "../../components/ImageRequirements";
 import UploadProgress from "../../components/UploadProgress";
 import { uploadWithProgress } from "../../utils/uploadWithProgress";
@@ -268,12 +268,19 @@ export default function RegistrationStep() {
     const file = e.target.files?.[0];
     if (!file) return;
     setErrors((p) => ({ ...p, [d.file]: undefined }));
+    const isPdf = file.type === "application/pdf";
     setData((p) => ({
       ...p,
       [d.file]: file,
-      [d.preview]: URL.createObjectURL(file),
-      [d.pdf]: file.type === "application/pdf",
+      // PDFs open in a new tab (blob: is fine there); image previews need
+      // data: because the site's CSP blocks blob: images.
+      [d.preview]: isPdf ? URL.createObjectURL(file) : null,
+      [d.pdf]: isPdf,
     }));
+    if (!isPdf)
+      fileToDataUrl(file)
+        .then((url) => setData((p) => (p[d.file] === file ? { ...p, [d.preview]: url } : p)))
+        .catch(() => {});
     const max = portalConfig.uploadLimits.documentMaxBytes;
     if (file.size > max) {
       setUploadState(d.up, {

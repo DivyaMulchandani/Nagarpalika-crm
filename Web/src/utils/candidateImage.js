@@ -31,6 +31,16 @@ export const SIGNATURE_SPEC = {
 const ACCEPTED = ["image/jpeg", "image/jpg", "image/png"];
 const kb = (b) => `${Math.round(b / 1024)} KB`;
 
+// Previews use a data: URL, not blob: — the live site's Content-Security-Policy
+// allows images from data: but not blob:, so a blob: preview fails to load.
+export const fileToDataUrl = (file) =>
+  new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = () => resolve(reader.result);
+    reader.onerror = () => reject(new Error("read failed"));
+    reader.readAsDataURL(file);
+  });
+
 const readSize = (url) =>
   new Promise((resolve, reject) => {
     const img = new Image();
@@ -51,12 +61,12 @@ export async function checkCandidateImage(file, spec, label = "Image") {
   if (file.size < spec.minBytes || file.size > spec.maxBytes)
     throw new Error(`${label} file size must be between ${kb(spec.minBytes)} and ${kb(spec.maxBytes)} — yours is ${kb(file.size)}. Please resize it and upload again.`);
 
-  const previewUrl = URL.createObjectURL(file);
+  let previewUrl;
   let size;
   try {
+    previewUrl = await fileToDataUrl(file);
     size = await readSize(previewUrl);
   } catch {
-    URL.revokeObjectURL(previewUrl);
     throw new Error(`This ${label.toLowerCase()} could not be read. Please choose a valid JPG or PNG.`);
   }
   const { width, height } = size;
@@ -66,7 +76,6 @@ export async function checkCandidateImage(file, spec, label = "Image") {
     height < spec.minHeight || height > spec.maxHeight ||
     ratio < spec.minRatio || ratio > spec.maxRatio
   ) {
-    URL.revokeObjectURL(previewUrl);
     throw new Error(
       `${label} must be ${spec.minWidth}–${spec.maxWidth} px wide and ${spec.minHeight}–${spec.maxHeight} px high ` +
       `(${spec === PHOTO_SPEC ? "portrait, passport shape" : "landscape, about 3 : 1"}). ` +
