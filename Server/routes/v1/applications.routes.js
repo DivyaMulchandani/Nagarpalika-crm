@@ -19,6 +19,8 @@ import {
   updateApplicationStatus,
   searchApplications,
   uploadApplicationDocument,
+  stageApplicationDocument,
+  getMyEligibility,
 } from "../../controllers/v1/application.controller.js";
 
 const UPLOADS_ROOT = path.resolve("uploads");
@@ -61,6 +63,19 @@ const router = express.Router();
 
 // ── Candidate ─────────────────────────────────────────────────────────────────
 router.post("/applications", authMiddleware(["CANDIDATE"]), submitApplication);
+// Age / education check for the apply page (the submit enforces the same).
+router.get(
+  "/applications/eligibility/:id",
+  authMiddleware(["CANDIDATE"]),
+  getMyEligibility,
+);
+// Document picked on the apply page — stored now, attached when the form is submitted.
+router.post(
+  "/applications/documents/stage",
+  authMiddleware(["CANDIDATE"]),
+  handleDocUpload,
+  stageApplicationDocument,
+);
 router.get(
   "/applications/me",
   authMiddleware(["CANDIDATE"]),

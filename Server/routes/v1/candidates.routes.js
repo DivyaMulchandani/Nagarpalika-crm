@@ -33,7 +33,7 @@ import {
   submitRegistration,
   resumeRegistration,
 } from "../../controllers/v1/candidateRegistration.controller.js";
-import { uploadLimits } from "../../config/portal.config.js";
+import { uploadLimits, candidateImageSpecs } from "../../config/portal.config.js";
 
 const router = express.Router();
 
@@ -57,6 +57,7 @@ router.post(
     fieldName: "photo",
     destination: "uploads/candidates",
     maxSize: uploadLimits.photoMaxBytes,
+    rules: candidateImageSpecs.photo,
   }),
   uploadPhoto,
 );
@@ -66,6 +67,7 @@ router.post(
     fieldName: "signature",
     destination: "uploads/candidates",
     maxSize: uploadLimits.signatureMaxBytes,
+    rules: candidateImageSpecs.signature,
   }),
   uploadSignature,
 );
@@ -101,6 +103,7 @@ router.post(
     fieldName: "photo",
     destination: "uploads/candidates",
     maxSize: uploadLimits.photoMaxBytes,
+    rules: candidateImageSpecs.photo,
   }),
   uploadProfilePhoto,
 );
@@ -111,6 +114,7 @@ router.post(
     fieldName: "signature",
     destination: "uploads/candidates",
     maxSize: uploadLimits.signatureMaxBytes,
+    rules: candidateImageSpecs.signature,
   }),
   uploadProfileSignature,
 );

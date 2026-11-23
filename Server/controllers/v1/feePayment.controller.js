@@ -25,33 +25,36 @@ const hashAadhaar = (raw) =>
 
 // ── Public ────────────────────────────────────────────────────────────────────
 
-// Lookup fee status by registration_id or aadhaar. `advt_no` is optional — a
-// candidate checking the public page knows their Registration ID but rarely the
-// advertisement number, so without it we return every fee row they have.
+// Lookup fee status by registration_id or aadhaar, plus date of birth. `advt_no`
+// is optional — a candidate checking the public page knows their Registration ID
+// but rarely the advertisement number, so without it we return every fee row.
 // Always an array, even for a single match, so the caller renders one way.
+//
+// Date of birth is required because Registration IDs are issued in sequence:
+// with the ID alone, anyone could walk the range and read who applied and paid.
 export const getFeeStatus = async (req, res) => {
   try {
-    const { registration_id, aadhaar, advt_no } = req.body;
-    if (!registration_id && !aadhaar)
+    const { registration_id, aadhaar, advt_no, dob } = req.body;
+    const dobDate = typeof dob === "string" ? new Date(dob) : null;
+    if ((!registration_id && !aadhaar) || !dobDate || Number.isNaN(dobDate.getTime()))
       return res.status(422).json({
         isOk: false,
         status: 422,
-        message: "Provide registration_id or aadhaar",
+        message: "Provide registration_id or aadhaar, and date of birth",
       });
 
-    let reg_id = registration_id;
-    if (!reg_id && aadhaar) {
-      const candidate = await Candidate.findOne({
-        aadhaar_hash: hashAadhaar(aadhaar),
-      }).select("registration_id");
-      // Unknown Aadhaar looks the same as "no fees yet" — an empty list rather
-      // than a 404, so this endpoint can't be used to probe who is registered.
-      if (!candidate)
-        return res.status(200).json({ isOk: true, status: 200, data: [] });
-      reg_id = candidate.registration_id;
-    }
+    const candidate = await Candidate.findOne(
+      registration_id
+        ? { registration_id: String(registration_id).trim().toUpperCase(), dob: dobDate }
+        : { aadhaar_hash: hashAadhaar(String(aadhaar)), dob: dobDate },
+    ).select("registration_id");
+    // A wrong ID or date of birth looks the same as "no fees yet" — an empty
+    // list rather than a 404, so this endpoint can't be used to probe who is
+    // registered.
+    if (!candidate)
+      return res.status(200).json({ isOk: true, status: 200, data: [] });
 
-    const filter = { registration_id: reg_id };
+    const filter = { registration_id: candidate.registration_id };
     if (advt_no) filter.advt_no = advt_no;
 
     const fees = await FeePayment.find(filter)

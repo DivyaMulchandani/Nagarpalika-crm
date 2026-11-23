@@ -58,6 +58,8 @@ const Qualification = () => {
   const col = [
     { name: "Sr No", selector: (_, index) => index + 1, maxWidth: "60px" },
     { name: "Name", selector: (row) => row.name, sortable: true, sortField: "name" },
+    { name: "Type", selector: (row) => ({ education: "Education", certificate: "Certificate", document: "Other document" }[row.type || "education"]), sortable: true, sortField: "type", maxWidth: "160px" },
+    { name: "Level", selector: (row) => ((row.type || "education") === "education" ? (row.level ?? "— not set") : ""), sortable: true, sortField: "level", maxWidth: "120px" },
     { name: "Status", selector: (row) => row.isActive ? "Active" : "Inactive", maxWidth: "100px" },
     {
       name: "Action",

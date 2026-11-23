@@ -1,4 +1,5 @@
 import HelpQuery from "../../models/HelpQuery.js";
+import { escapeRegex } from "../../utils/escapeRegex.js";
 
 export const submitHelpQuery = async (req, res) => {
   try {
@@ -42,7 +43,8 @@ export const getHelpQueries = async (req, res) => {
     if (status) filter.status = status;
     if (category) filter.category = category;
     if (search) {
-      const re = new RegExp(search, "i");
+      // Matched as plain text: a pattern typed here could otherwise stall the server.
+      const re = new RegExp(escapeRegex(search), "i");
       filter.$or = [
         { name: re },
         { email: re },

@@ -1,7 +1,9 @@
 import { useState, useEffect, useRef } from 'react'
 import { toast } from 'react-toastify'
 import { get, patch, BASE } from '../../api/index'
-import StoredImage from '../../components/StoredImage'
+import { CandidatePhoto, CandidateSignature } from '../../components/CandidateImage'
+import { checkCandidateImage, PHOTO_SPEC, SIGNATURE_SPEC } from '../../utils/candidateImage'
+import ImageRequirements from '../../components/ImageRequirements'
 import { IconCheck } from '../../components/Icons'
 
 const fmtDate = (d) => (d ? new Date(d).toLocaleDateString('en-IN') : '—')
@@ -59,6 +61,8 @@ export default function Profile() {
   const [isEditing, setIsEditing] = useState(false)
   const [formData, setFormData] = useState({})
   const [qualificationsList, setQualificationsList] = useState([])
+  // A typed-in or "Others" qualification needs the master entry it equals.
+  const needsEquivalent = (q) => !!q && (/^others$/i.test(q) || (qualificationsList.length > 0 && !qualificationsList.includes(q)))
   const [saving, setSaving] = useState(false)
   const [formErrors, setFormErrors] = useState({})
   const [confirmModalOpen, setConfirmModalOpen] = useState(false)
@@ -111,6 +115,7 @@ export default function Profile() {
       mother_tongue: profile.mother_tongue || 'Gujarati',
       alternate_mobile: profile.alternate_mobile || '',
       qualification: profile.qualification || '',
+      qualification_equivalent: profile.qualification_equivalent || '',
       address_permanent: {
         line1: profile.address_permanent?.line1 || '',
         line2: profile.address_permanent?.line2 || '',
@@ -201,34 +206,33 @@ export default function Profile() {
     })
   }
 
-  const handlePhotoSelect = (e) => {
-    const file = e.target.files?.[0]
-    if (!file) return
-    if (!['image/jpeg', 'image/jpg', 'image/png'].includes(file.type)) {
-      toast.error('Only JPG/PNG images are allowed for photo.')
-      return
+  // Checked against the photo/signature rules; uploaded exactly as picked.
+  const handlePhotoSelect = async (e) => {
+    const picked = e.target.files?.[0]
+    if (!picked) return
+    try {
+      const { previewUrl } = await checkCandidateImage(picked, PHOTO_SPEC, 'Photo')
+      const file = picked
+      setPhotoFile(file)
+      setPhotoPreview(previewUrl)
+    } catch (err) {
+      e.target.value = ''
+      toast.error(err.message)
     }
-    if (file.size > 5 * 1024 * 1024) {
-      toast.error('Photo size must be under 5 MB.')
-      return
-    }
-    setPhotoFile(file)
-    setPhotoPreview(URL.createObjectURL(file))
   }
 
-  const handleSigSelect = (e) => {
-    const file = e.target.files?.[0]
-    if (!file) return
-    if (!['image/jpeg', 'image/jpg', 'image/png'].includes(file.type)) {
-      toast.error('Only JPG/PNG images are allowed for signature.')
-      return
+  const handleSigSelect = async (e) => {
+    const picked = e.target.files?.[0]
+    if (!picked) return
+    try {
+      const { previewUrl } = await checkCandidateImage(picked, SIGNATURE_SPEC, 'Signature')
+      const file = picked
+      setSigFile(file)
+      setSigPreview(previewUrl)
+    } catch (err) {
+      e.target.value = ''
+      toast.error(err.message)
     }
-    if (file.size > 5 * 1024 * 1024) {
-      toast.error('Signature size must be under 5 MB.')
-      return
-    }
-    setSigFile(file)
-    setSigPreview(URL.createObjectURL(file))
   }
 
   const validateForm = () => {
@@ -237,6 +241,7 @@ export default function Profile() {
     if (!formData.father_husband_name?.trim()) errs.father_husband_name = 'Father / Husband name is required'
     if (!formData.dob) errs.dob = 'Date of birth is required'
     if (!formData.qualification?.trim()) errs.qualification = 'Qualification is required'
+    if (needsEquivalent(formData.qualification) && !formData.qualification_equivalent) errs.qualification_equivalent = 'Choose which qualification yours is equal to'
     if (!formData.address_permanent?.line1?.trim()) errs.perm_line1 = 'Permanent address line 1 is required'
     if (!formData.address_permanent?.district?.trim()) errs.perm_district = 'District is required'
     if (!formData.address_permanent?.pincode?.trim() || !/^\d{6}$/.test(formData.address_permanent.pincode)) {
@@ -316,6 +321,7 @@ export default function Profile() {
         mother_tongue: formData.mother_tongue?.trim() || 'Gujarati',
         alternate_mobile: formData.alternate_mobile?.trim() || undefined,
         qualification: formData.qualification,
+        qualification_equivalent: needsEquivalent(formData.qualification) ? formData.qualification_equivalent : '',
         languages: formData.languages,
         address_permanent: formData.address_permanent,
         address_current: formData.address_current,
@@ -705,6 +711,19 @@ export default function Profile() {
                 </select>
                 {formErrors.qualification && <p style={{ color: 'var(--ojas-red)', fontSize: 12, margin: '2px 0 0' }}>{formErrors.qualification}</p>}
               </div>
+              {needsEquivalent(formData.qualification) && (
+                <div className="form-field" style={{ maxWidth: 400, marginBottom: 20 }}>
+                  <label>Equivalent to / સમકક્ષ લાયકાત *</label>
+                  <select value={formData.qualification_equivalent} onChange={handleTextChange('qualification_equivalent')}>
+                    <option value="">-- Select the qualification yours is equal to --</option>
+                    {qualificationsList.filter((q) => !/^others$/i.test(q)).map((q) => (
+                      <option key={q} value={q}>{q}</option>
+                    ))}
+                  </select>
+                  <p style={{ fontSize: 11.5, margin: '2px 0 0', color: 'var(--ojas-ink-3)' }}>Used to check which posts you can apply for.</p>
+                  {formErrors.qualification_equivalent && <p style={{ color: 'var(--ojas-red)', fontSize: 12, margin: '2px 0 0' }}>{formErrors.qualification_equivalent}</p>}
+                </div>
+              )}
 
               <div>
                 <label style={{ fontWeight: 700, fontSize: 13, marginBottom: 8, display: 'block' }}>Languages Known</label>
@@ -741,41 +760,29 @@ export default function Profile() {
               <div>
                 <label style={{ fontWeight: 700, fontSize: 13, display: 'block', marginBottom: 6 }}>Candidate Photograph</label>
                 <div style={{ display: 'flex', gap: 16, alignItems: 'center' }}>
-                  {photoPreview ? (
-                    <img src={photoPreview} alt="Preview" style={{ width: 110, height: 140, objectFit: 'cover', borderRadius: 4, border: '1px solid var(--ojas-line)' }} />
-                  ) : profile.photo_path ? (
-                    <StoredImage path={profile.photo_path} alt="Photo" style={{ width: 110, height: 140, objectFit: 'cover', borderRadius: 4, border: '1px solid var(--ojas-line)' }} />
-                  ) : (
-                    <div style={{ width: 110, height: 140, background: '#f3f4f6', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#9ca3af', fontSize: 12 }}>No photo</div>
-                  )}
+                  <CandidatePhoto src={photoPreview} url={profile.photo_url} path={profile.photo_path} caption={photoPreview ? 'New photo (preview)' : undefined} />
                   <div>
                     <input type="file" accept="image/jpeg,image/png" ref={photoInputRef} onChange={handlePhotoSelect} style={{ display: 'none' }} />
                     <button type="button" className="btn" onClick={() => photoInputRef.current?.click()} style={{ fontSize: 12.5, padding: '6px 12px' }}>
                       Change Photo
                     </button>
-                    <div style={{ fontSize: 11, color: 'var(--ojas-ink-3)', marginTop: 4 }}>Max 5 MB (JPG/PNG)</div>
-                  </div>
+                    </div>
                 </div>
+                <div style={{ marginTop: 10 }}><ImageRequirements spec={PHOTO_SPEC} title="Photo requirements / ફોટો માટેની શરતો" compact /></div>
               </div>
 
               <div>
                 <label style={{ fontWeight: 700, fontSize: 13, display: 'block', marginBottom: 6 }}>Candidate Signature</label>
                 <div style={{ display: 'flex', gap: 16, alignItems: 'center' }}>
-                  {sigPreview ? (
-                    <img src={sigPreview} alt="Preview" style={{ width: 150, height: 75, objectFit: 'contain', background: '#fff', borderRadius: 4, border: '1px solid var(--ojas-line)' }} />
-                  ) : profile.signature_path ? (
-                    <StoredImage path={profile.signature_path} alt="Signature" style={{ width: 150, height: 75, objectFit: 'contain', background: '#fff', borderRadius: 4, border: '1px solid var(--ojas-line)' }} />
-                  ) : (
-                    <div style={{ width: 150, height: 75, background: '#f3f4f6', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#9ca3af', fontSize: 12 }}>No signature</div>
-                  )}
+                  <CandidateSignature src={sigPreview} url={profile.signature_url} path={profile.signature_path} caption={sigPreview ? 'New signature (preview)' : undefined} />
                   <div>
                     <input type="file" accept="image/jpeg,image/png" ref={sigInputRef} onChange={handleSigSelect} style={{ display: 'none' }} />
                     <button type="button" className="btn" onClick={() => sigInputRef.current?.click()} style={{ fontSize: 12.5, padding: '6px 12px' }}>
                       Change Signature
                     </button>
-                    <div style={{ fontSize: 11, color: 'var(--ojas-ink-3)', marginTop: 4 }}>Max 5 MB (JPG/PNG)</div>
-                  </div>
+                    </div>
                 </div>
+                <div style={{ marginTop: 10 }}><ImageRequirements spec={SIGNATURE_SPEC} title="Signature requirements / સહી માટેની શરતો" compact /></div>
               </div>
             </div>
           </div>
@@ -801,39 +808,10 @@ export default function Profile() {
           <div className="box-body">
             <div style={{ display: 'flex', gap: 28, flexWrap: 'wrap', alignItems: 'flex-start', marginBottom: 24 }}>
               {profile.photo_path && (
-                <div style={{ flexShrink: 0, textAlign: 'center' }}>
-                  <StoredImage
-                    path={profile.photo_path}
-                    alt="Candidate photo"
-                    style={{
-                      width: 130,
-                      height: 160,
-                      objectFit: 'cover',
-                      borderRadius: 6,
-                      border: '1px solid var(--ojas-line)',
-                      boxShadow: '0 1px 3px rgba(0,0,0,0.08)',
-                    }}
-                  />
-                  <div style={{ fontSize: 11, color: 'var(--ojas-ink-3)', marginTop: 4, fontWeight: 600 }}>Photo</div>
-                </div>
+                <CandidatePhoto url={profile.photo_url} path={profile.photo_path} caption="Photo" />
               )}
               {profile.signature_path && (
-                <div style={{ flexShrink: 0, textAlign: 'center' }}>
-                  <StoredImage
-                    path={profile.signature_path}
-                    alt="Candidate signature"
-                    style={{
-                      width: 160,
-                      height: 70,
-                      objectFit: 'contain',
-                      background: '#fff',
-                      borderRadius: 6,
-                      border: '1px solid var(--ojas-line)',
-                      boxShadow: '0 1px 3px rgba(0,0,0,0.08)',
-                    }}
-                  />
-                  <div style={{ fontSize: 11, color: 'var(--ojas-ink-3)', marginTop: 4, fontWeight: 600 }}>Signature</div>
-                </div>
+                <CandidateSignature url={profile.signature_url} path={profile.signature_path} caption="Signature" />
               )}
             </div>
 
@@ -924,7 +902,7 @@ export default function Profile() {
                 rowGap: 14,
               }}
             >
-              <Field label="Highest Qualification" value={profile.qualification} />
+              <Field label="Highest Qualification" value={profile.qualification_equivalent ? `${profile.qualification} (equivalent to ${profile.qualification_equivalent})` : profile.qualification} />
               <Field
                 label="Languages Known"
                 value={

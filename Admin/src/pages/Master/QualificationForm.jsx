@@ -10,7 +10,13 @@ import { toast } from "react-toastify";
 import { AuthContext } from "../../context/AuthContext";
 import { MenuContext } from "../../context/MenuContext";
 
-const initialState = { name: "", isActive: true };
+const initialState = { name: "", type: "education", level: "", isActive: true };
+
+const TYPE_OPTIONS = [
+  { value: "education", label: "Education", help: "Shown in OTR \"Highest Qualification\". Give it a level." },
+  { value: "certificate", label: "Certificate", help: "e.g. CCC, typing, licence — asked for only by advertisements that need it." },
+  { value: "document", label: "Other document", help: "e.g. experience letter, NOC — asked for only by advertisements that need it." },
+];
 
 const QualificationForm = () => {
   const { id } = useParams();
@@ -34,7 +40,7 @@ const QualificationForm = () => {
       getQualificationById(id)
         .then((res) => {
           const d = res.data.data;
-          setValues({ name: d.name, isActive: d.isActive });
+          setValues({ name: d.name, type: d.type || "education", level: d.level ?? "", isActive: d.isActive });
         })
         .catch(() => toast.error("Failed to fetch qualification details"))
         .finally(() => setIsFetching(false));
@@ -44,6 +50,8 @@ const QualificationForm = () => {
   const validate = (v) => {
     const errors = {};
     if (!v.name?.trim()) errors.name = "Name is required!";
+    if (v.type === "education" && v.level !== "" && !(Number(v.level) >= 0 && Number(v.level) <= 99))
+      errors.level = "Level must be a number from 0 to 99";
     return errors;
   };
 
@@ -58,7 +66,8 @@ const QualificationForm = () => {
     if (Object.keys(errors).length > 0) return;
 
     setIsLoading(true);
-    const action = isEdit ? updateQualification(id, values) : createQualification(values);
+    const payload = { ...values, level: values.type === "education" && values.level !== "" ? Number(values.level) : "" };
+    const action = isEdit ? updateQualification(id, payload) : createQualification(payload);
     action
       .then((res) => {
         if (res.data.isOk) {
@@ -106,6 +115,24 @@ const QualificationForm = () => {
                       {isSubmit && <p className="text-danger mt-1 mb-0" style={{ fontSize: 12 }}>{formErrors.name}</p>}
                     </div>
 
+                    <div className="mb-3">
+                      <Label className="mb-1">Type <span className="text-danger">*</span></Label>
+                      <Input type="select" name="type" value={values.type} onChange={handleChange} disabled={isView}>
+                        {TYPE_OPTIONS.map((t) => <option key={t.value} value={t.value}>{t.label}</option>)}
+                      </Input>
+                      <small className="text-muted">{TYPE_OPTIONS.find((t) => t.value === values.type)?.help}</small>
+                    </div>
+                    {values.type === "education" && (
+                      <div className="mb-3">
+                        <Label className="mb-1">Level</Label>
+                        <Input type="number" min={0} max={99} name="level" value={values.level} onChange={handleChange} disabled={isView} placeholder="e.g. 10th = 1, 12th = 2, Graduation = 3" />
+                        <small className="text-muted d-block">
+                          Higher number = higher qualification. Entries with the same level count as equal (e.g. 12th and Diploma).
+                          A candidate can apply only if their level is at or above the advertisement's minimum education.
+                        </small>
+                        {isSubmit && formErrors.level && <p className="text-danger mt-1 mb-0" style={{ fontSize: 12 }}>{formErrors.level}</p>}
+                      </div>
+                    )}
                     <div className="mb-3 d-flex align-items-center gap-2">
                       <Input
                         type="checkbox"

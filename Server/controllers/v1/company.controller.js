@@ -207,11 +207,14 @@ export const loginCompany = async (req, res) => {
       role = "EMPLOYEE";
     }
 
+    // Same answer as a wrong password, so the login can't be used to find out
+    // which email addresses have staff accounts.
     if (!user) {
-      return res.status(404).json({
+      return res.status(401).json({
         isOk: false,
-        message: "User not found",
-        status: 404,
+        message: "Invalid email or password",
+        error: "Invalid credentials",
+        status: 401,
       });
     }
 

@@ -124,13 +124,15 @@ const Dashboard = () => {
   const adv  = stats?.advertisements  || {};
   const appl = stats?.applications    || {};
   const fee  = stats?.feePayments     || {};
+  // The server leaves fee figures out for roles without Fee Payments access.
+  const showFees = !!stats?.feePayments;
   const totalApps = (appl.submitted || 0) + (appl.under_review || 0) + (appl.shortlisted || 0) + (appl.rejected || 0) + (appl.selected || 0);
 
   const widgets = [
     { title: "Active Advertisements",     value: fmt(adv.published),               icon: "ri-newspaper-line",         accent: true,  onClick: () => navigate("/advertisements") },
     { title: "Registered Candidates",     value: fmt(stats?.candidates?.total),     icon: "ri-user-search-line",                      onClick: () => navigate("/candidates") },
     { title: "Applications Submitted",    value: fmt(totalApps),                    icon: "ri-file-list-3-line",                      onClick: () => navigate("/applications") },
-    { title: "Fees Collected",            value: fmtRs(fee.paid?.amount),           icon: "ri-money-rupee-circle-line",               onClick: () => navigate("/fee-payments") },
+    ...(showFees ? [{ title: "Fees Collected", value: fmtRs(fee.paid?.amount), icon: "ri-money-rupee-circle-line", onClick: () => navigate("/fee-payments") }] : []),
   ];
 
   const appStatusColors = ["#4A90D9", "#F5A623", "#7ED321", "#D0021B", "#417505"];
@@ -171,7 +173,7 @@ const Dashboard = () => {
             <>
               <Row className="mb-3">
                 {widgets.map((w, i) => (
-                  <Col md={6} xl={3} key={i}>
+                  <Col md={6} xl={12 / widgets.length} key={i}>
                     <Card className="card-animate" style={{ cursor: w.onClick ? "pointer" : "default" }} onClick={w.onClick}>
                       <CardBody>
                         <div className="d-flex align-items-start justify-content-between">
@@ -227,7 +229,7 @@ const Dashboard = () => {
                     </CardBody>
                   </Card>
 
-                  <Card>
+                  {showFees && <Card>
                     <CardHeader><h6 className="card-title"><i className="ri-bank-card-line me-2"></i>Fee Payments</h6></CardHeader>
                     <CardBody>
                       <div className="d-flex flex-wrap gap-3">
@@ -244,7 +246,7 @@ const Dashboard = () => {
                         ))}
                       </div>
                     </CardBody>
-                  </Card>
+                  </Card>}
                 </Col>
               </Row>
 

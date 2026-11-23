@@ -5,6 +5,11 @@ import { IconPdf, IconCheckCircle, IconEye, IconEyeOff } from "../../components/
 import { get, post } from "../../api/index";
 import { useAuth } from "../../context/AuthContext";
 import { transliterateToGujarati } from "../../utils/gujaratiTransliterate";
+import { checkCandidateImage, kbRange, PHOTO_SPEC, SIGNATURE_SPEC } from "../../utils/candidateImage";
+import ImageRequirements from "../../components/ImageRequirements";
+import UploadProgress from "../../components/UploadProgress";
+import { uploadWithProgress } from "../../utils/uploadWithProgress";
+import { CandidatePhoto, CandidateSignature } from "../../components/CandidateImage";
 
 const API_BASE = import.meta.env.VITE_API_URL || "";
 
@@ -16,12 +21,12 @@ const GENDERS = ["Male", "Female", "Other"];
 const CERT_REQUIRED_CATS = new Set(["OBC", "SC", "ST", "EWS"]);
 const DEFAULT_PORTAL_CONFIG = {
   uploadLimits: {
-    photoMaxBytes: 5 * 1024 * 1024,
-    photoMaxLabel: "5 MB",
-    signatureMaxBytes: 5 * 1024 * 1024,
-    signatureMaxLabel: "5 MB",
-    documentMaxBytes: 10 * 1024 * 1024,
-    documentMaxLabel: "10 MB",
+    photoMaxBytes: 250 * 1024,
+    photoMaxLabel: "250 KB",
+    signatureMaxBytes: 150 * 1024,
+    signatureMaxLabel: "150 KB",
+    documentMaxBytes: 2 * 1024 * 1024,
+    documentMaxLabel: "2 MB",
   },
   otp: { maxVerifyAttempts: 3 },
 };
@@ -46,9 +51,12 @@ function FieldError({ msg }) {
 
 const SESSION_KEY = "otr_form_data";
 const NON_SERIALIZABLE = new Set([
-  "casteCertFile", "casteCertPreview", "casteCertIsPdf",
-  "photoFile", "photoPreview",
-  "sigFile", "sigPreview",
+  "casteCertFile", "casteCertPreview", "casteCertIsPdf", "casteCertUpload", "caste_cert_path",
+  "udidCertUpload", "udid_cert_path",
+  "photoUpload", "sigUpload",
+  "photo_path", "signature_path", // only trusted from the server (resume)
+  "photoFile", "photoPreview", "photoUploaded", "photoUploadedPreview", "photo_url",
+  "sigFile", "sigPreview", "sigUploaded", "sigUploadedPreview", "signature_url",
   "udidCertFile", "udidCertPreview", "udidCertIsPdf",
 ]);
 
@@ -76,6 +84,9 @@ export default function RegistrationStep() {
   const [data, setData] = useState(() => loadPersistedData());
   const [otp, setOtp] = useState("");
   const [otpSent, setOtpSent] = useState(false);
+  // Seconds before "Resend OTP" can be pressed again, and a note after a resend.
+  const [resendIn, setResendIn] = useState(0);
+  const [otpNotice, setOtpNotice] = useState("");
   const [deliveryChannel, setDeliveryChannel] = useState(null);
   const [detailsVerified, setDetailsVerified] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
@@ -137,13 +148,6 @@ export default function RegistrationStep() {
   const back = (n) => {
     if (photoRef.current) photoRef.current.value = "";
     if (sigRef.current) sigRef.current.value = "";
-    setData((p) => ({
-      ...p,
-      photoFile: undefined,
-      photoPreview: undefined,
-      sigFile: undefined,
-      sigPreview: undefined,
-    }));
     go(n);
   };
 
@@ -181,6 +185,40 @@ export default function RegistrationStep() {
       .catch(() => setSessionMissing(true));
   }, [step]);
 
+  useEffect(() => {
+    if (resendIn <= 0) return;
+    const t = setTimeout(() => setResendIn((n) => n - 1), 1000);
+    return () => clearTimeout(t);
+  }, [resendIn]);
+
+  // Send (or resend) the registration OTP. Stays on the OTP screen.
+  const sendRegistrationOtp = async (isResend = false) => {
+    setErrors({});
+    setOtpNotice("");
+    setLoading(true);
+    try {
+      const res = await post("/api/v1/otp/candidates/send", {
+        mobile: data.mobile,
+        aadhaar: data.aadhaar,
+        email: data.email,
+      });
+      const returnedChannel = res?.data?.channel;
+      const activeChannel = (returnedChannel && returnedChannel !== "dev")
+        ? returnedChannel
+        : (portalConfig?.otp?.primaryChannel || "email");
+      setDeliveryChannel(activeChannel);
+      setOtpSent(true);
+      setOtp("");
+      setResendIn(60);
+      if (isResend) setOtpNotice("A new OTP has been sent. The earlier OTP no longer works. / નવો OTP મોકલવામાં આવ્યો છે.");
+    } catch (err) {
+      const msg = err.message || "Failed to send OTP.";
+      if (msg.toLowerCase().includes("mobile") && msg.toLowerCase().includes("registered"))
+        setErrors({ mobile: "This mobile number is already registered. Please login instead." });
+      else setErrors({ _: msg });
+    } finally { setLoading(false); }
+  };
+
   const saveStep = async (payload) => {
     setErrors({});
     setLoading(true);
@@ -196,47 +234,113 @@ export default function RegistrationStep() {
     }
   };
 
-  const uploadFile = async (url, field, file, maxBytes, maxLabel) => {
-    if (!file) {
-      setErrors({ [field]: "Please select a file." });
-      return;
-    }
-    if (file.size > maxBytes) {
-      setErrors({ [field]: `File must be under ${maxLabel || formatBytes(maxBytes)}.` });
-      return;
-    }
-    if (field === "photo" || field === "signature") {
-      if (!["image/jpeg", "image/jpg", "image/png"].includes(file.type)) {
-        setErrors({ [field]: "Only JPEG or PNG files are accepted." });
-        return;
-      }
-    } else if (!file.type.startsWith("image/")) {
-      setErrors({ [field]: "Only image files are accepted." });
-      return;
-    }
-    setErrors({});
-    setLoading(true);
+  // Files upload the moment they are picked, with a progress bar, so the
+  // step's Continue button only moves on. `key` is the data field holding the
+  // upload's state: { status: "uploading" | "done" | "error", pct, message, name, file }.
+  const setUploadState = (key, patch) =>
+    setData((p) => ({ ...p, [key]: { ...(p[key] || {}), ...patch } }));
+
+  const sendFile = async (key, url, field, file, onDone) => {
+    setUploadState(key, { status: "uploading", pct: 0, message: null, name: file.name, file });
     try {
       const fd = new FormData();
       fd.append(field, file);
-      const res = await fetch(`${API_BASE}${url}`, {
-        method: "POST",
-        credentials: "include",
-        body: fd,
+      const json = await uploadWithProgress(url, fd, (pct) =>
+        setData((p) => (p[key]?.file === file ? { ...p, [key]: { ...p[key], pct } } : p)),
+      );
+      setData((p) => {
+        if (p[key]?.file !== file) return p; // a newer file was picked meanwhile
+        return { ...p, ...(onDone ? onDone(p, json) : {}), [key]: { ...p[key], status: "done", pct: 100 } };
       });
-      if (!res.ok) {
-        const json = await res.json().catch(() => ({}));
-        throw new Error(json?.message || "Upload failed.");
-      }
-      go(step + 1);
     } catch (err) {
-      if (err.message?.toLowerCase().includes("no registration"))
-        setSessionMissing(true);
-      else setErrors({ [field]: err.message || "Upload failed." });
-    } finally {
-      setLoading(false);
+      if (err.message?.toLowerCase().includes("no registration")) setSessionMissing(true);
+      setData((p) => (p[key]?.file === file ? { ...p, [key]: { ...p[key], status: "error", message: err.message } } : p));
     }
   };
+
+  // Caste / UDID certificate: check size, preview, upload straight away.
+  const DOCS = {
+    caste: { file: "casteCertFile", preview: "casteCertPreview", pdf: "casteCertIsPdf", up: "casteCertUpload", url: "/api/v1/candidates/register/caste-cert", field: "caste_cert" },
+    udid: { file: "udidCertFile", preview: "udidCertPreview", pdf: "udidCertIsPdf", up: "udidCertUpload", url: "/api/v1/candidates/register/udid-cert", field: "udid_cert" },
+  };
+  const pickDocument = (e, kind) => {
+    const d = DOCS[kind];
+    const file = e.target.files?.[0];
+    if (!file) return;
+    setErrors((p) => ({ ...p, [d.file]: undefined }));
+    setData((p) => ({
+      ...p,
+      [d.file]: file,
+      [d.preview]: URL.createObjectURL(file),
+      [d.pdf]: file.type === "application/pdf",
+    }));
+    const max = portalConfig.uploadLimits.documentMaxBytes;
+    if (file.size > max) {
+      setUploadState(d.up, {
+        status: "error", file: null, name: file.name,
+        message: `File must be under ${portalConfig.uploadLimits.documentMaxLabel} (yours is ${formatBytes(file.size)}).`,
+      });
+      return;
+    }
+    sendFile(d.up, d.url, d.field, file);
+  };
+  const retryDocument = (kind) => {
+    const d = DOCS[kind];
+    const f = data[d.up]?.file;
+    if (f) sendFile(d.up, d.url, d.field, f);
+  };
+  // Is the certificate stored? (uploaded now, or earlier in this registration)
+  const docReady = (kind) => data[DOCS[kind].up]?.status === "done" || !!data[`${DOCS[kind].field}_path`];
+  const docUploading = (kind) => data[DOCS[kind].up]?.status === "uploading";
+
+  // Photo / signature: check against the rules (never altered), preview the
+  // original, then upload straight away.
+  const pickImage = async (e, field) => {
+    const picked = e.target.files?.[0];
+    const isPhoto = field === "photo";
+    const fileKey = isPhoto ? "photoFile" : "sigFile";
+    const previewKey = isPhoto ? "photoPreview" : "sigPreview";
+    const upKey = isPhoto ? "photoUpload" : "sigUpload";
+    if (!picked) return;
+    try {
+      const { previewUrl } = await checkCandidateImage(
+        picked,
+        isPhoto ? PHOTO_SPEC : SIGNATURE_SPEC,
+        isPhoto ? "Photo" : "Signature",
+      );
+      setErrors({});
+      setData((p) => ({ ...p, [fileKey]: picked, [previewKey]: previewUrl }));
+      sendFile(
+        upKey,
+        isPhoto ? "/api/v1/candidates/register/photo" : "/api/v1/candidates/register/signature",
+        field,
+        picked,
+        (p, json) =>
+          isPhoto
+            ? { photoUploaded: true, photoUploadedPreview: previewUrl, photo_url: json?.data?.url || null }
+            : { sigUploaded: true, sigUploadedPreview: previewUrl, signature_url: json?.data?.url || null },
+      );
+    } catch (err) {
+      e.target.value = "";
+      setData((p) => ({ ...p, [fileKey]: undefined, [previewKey]: undefined, [upKey]: undefined }));
+      setErrors({ [field]: err.message });
+    }
+  };
+  const retryImage = (field) => {
+    const isPhoto = field === "photo";
+    const f = data[isPhoto ? "photoUpload" : "sigUpload"]?.file;
+    if (!f) return;
+    const previewUrl = data[isPhoto ? "photoPreview" : "sigPreview"];
+    sendFile(isPhoto ? "photoUpload" : "sigUpload",
+      isPhoto ? "/api/v1/candidates/register/photo" : "/api/v1/candidates/register/signature",
+      field, f,
+      (p, json) => isPhoto
+        ? { photoUploaded: true, photoUploadedPreview: previewUrl, photo_url: json?.data?.url || null }
+        : { sigUploaded: true, sigUploadedPreview: previewUrl, signature_url: json?.data?.url || null });
+  };
+  const imageReady = (field) => field === "photo"
+    ? data.photoUpload?.status === "done" || (!data.photoUpload && (data.photoUploaded || data.photo_path))
+    : data.sigUpload?.status === "done" || (!data.sigUpload && (data.sigUploaded || data.signature_path));
 
   const renderStep = () => {
     switch (step) {
@@ -279,20 +383,29 @@ export default function RegistrationStep() {
                 </li>
                 <li style={{ marginBottom: 6 }}>
                   <span style={{ fontFamily: "var(--font-guj)", fontSize: 14 }}>
-                    ફોટો: JPEG/PNG, મહત્તમ 2 MB, સફેદ પૃષ્ઠભૂ, સ્પષ્ટ ચહેરો.
+                    ફોટો: JPG/PNG, {kbRange(PHOTO_SPEC)}, {PHOTO_SPEC.minWidth}–{PHOTO_SPEC.maxWidth} px પહોળો × {PHOTO_SPEC.minHeight}–{PHOTO_SPEC.maxHeight} px ઊંચો (ઊભો, પાસપોર્ટ સાઇઝ), સફેદ પૃષ્ઠભૂમિ, સ્પષ્ટ ચહેરો.
                   </span>
                   <br />
                   <span style={{ fontSize: 12 }}>
-                    (Photo: JPEG/PNG, max 2 MB, white background, clear face.)
+                    (Photo: JPG/PNG, {kbRange(PHOTO_SPEC)}, {PHOTO_SPEC.minWidth}–{PHOTO_SPEC.maxWidth} px wide × {PHOTO_SPEC.minHeight}–{PHOTO_SPEC.maxHeight} px high, portrait passport size e.g. {PHOTO_SPEC.example}, white background, clear face.)
                   </span>
                 </li>
                 <li style={{ marginBottom: 6 }}>
                   <span style={{ fontFamily: "var(--font-guj)", fontSize: 14 }}>
-                    સહી: માત્ર JPEG, મહત્તમ 2 MB, સફેદ કાગળ પર કાળી/વાદળી શાહી.
+                    સહી: JPG/PNG, {kbRange(SIGNATURE_SPEC)}, {SIGNATURE_SPEC.minWidth}–{SIGNATURE_SPEC.maxWidth} px પહોળી × {SIGNATURE_SPEC.minHeight}–{SIGNATURE_SPEC.maxHeight} px ઊંચી (આડી, આશરે 3 : 1), સફેદ કાગળ પર કાળી/વાદળી શાહી.
                   </span>
                   <br />
                   <span style={{ fontSize: 12 }}>
-                    (Signature: JPEG only, max 2 MB, black/blue ink on white paper.)
+                    (Signature: JPG/PNG, {kbRange(SIGNATURE_SPEC)}, {SIGNATURE_SPEC.minWidth}–{SIGNATURE_SPEC.maxWidth} px wide × {SIGNATURE_SPEC.minHeight}–{SIGNATURE_SPEC.maxHeight} px high, landscape about 3 : 1 e.g. {SIGNATURE_SPEC.example}, black/blue ink on white paper.)
+                  </span>
+                </li>
+                <li style={{ marginBottom: 6 }}>
+                  <span style={{ fontFamily: "var(--font-guj)", fontSize: 14 }}>
+                    ફોટો અને સહી જેમ અપલોડ કરશો તેમ જ વપરાશે — અપલોડ કરતાં પહેલાં જાતે સાઇઝ ગોઠવી રાખો.
+                  </span>
+                  <br />
+                  <span style={{ fontSize: 12 }}>
+                    (Photo and signature are used exactly as uploaded — resize them yourself and keep them ready before you start.)
                   </span>
                 </li>
                 <li style={{ marginBottom: 6 }}>
@@ -491,28 +604,7 @@ export default function RegistrationStep() {
                   <button
                     className="btn primary"
                     disabled={loading}
-                    onClick={async () => {
-                      setErrors({});
-                      setLoading(true);
-                      try {
-                        const res = await post("/api/v1/otp/candidates/send", {
-                          mobile: data.mobile,
-                          aadhaar: data.aadhaar,
-                          email: data.email,
-                        });
-                        const returnedChannel = res?.data?.channel;
-                        const activeChannel = (returnedChannel && returnedChannel !== "dev")
-                          ? returnedChannel
-                          : (portalConfig?.otp?.primaryChannel || "email");
-                        setDeliveryChannel(activeChannel);
-                        setOtpSent(true);
-                      } catch (err) {
-                        const msg = err.message || "Failed to send OTP.";
-                        if (msg.toLowerCase().includes("mobile") && msg.toLowerCase().includes("registered"))
-                          setErrors({ mobile: "This mobile number is already registered. Please login instead." });
-                        else setErrors({ _: msg });
-                      } finally { setLoading(false); }
-                    }}
+                    onClick={() => sendRegistrationOtp(false)}
                   >
                     {loading ? "Sending OTP…" : "Send OTP"}
                   </button>
@@ -535,9 +627,26 @@ export default function RegistrationStep() {
                       onChange={(e) => setOtp(e.target.value.replace(/\D/g, "").slice(0, 6))}
                       placeholder="6-digit OTP"
                     />
+                    {otpNotice && (
+                      <p style={{ fontSize: 12.5, margin: "6px 0 0", color: "#2a7a2a", fontWeight: 600 }}>✓ {otpNotice}</p>
+                    )}
+                    <p style={{ fontSize: 12.5, margin: "8px 0 0", color: "var(--ojas-ink-3)" }}>
+                      Didn't get it?{" "}
+                      {resendIn > 0 ? (
+                        <span>Resend in {resendIn}s</span>
+                      ) : (
+                        <button type="button" className="btn-link" disabled={loading} onClick={() => sendRegistrationOtp(true)}>
+                          {loading ? "Sending…" : "Resend OTP"}
+                        </button>
+                      )}
+                      {" · "}
+                      <button type="button" className="btn-link" disabled={loading}
+                        onClick={() => { setOtpSent(false); setOtp(""); setDeliveryChannel(null); setOtpNotice(""); setResendIn(0); setDetailsVerified(false); }}>
+                        Change mobile / email
+                      </button>
+                    </p>
                   </div>
                   <div className="form-actions">
-                    <button className="btn" onClick={() => { setOtpSent(false); setOtp(""); setDeliveryChannel(null); }}>← Resend OTP</button>
                     <button
                       className="btn primary"
                       disabled={loading || otp.length < 6}
@@ -636,21 +745,12 @@ export default function RegistrationStep() {
                     <input
                       type="file"
                       accept="image/*,application/pdf"
-                      onChange={(e) => {
-                        const file = e.target.files[0];
-                        setData((p) => ({
-                          ...p,
-                          casteCertFile: file,
-                          casteCertPreview: file
-                            ? URL.createObjectURL(file)
-                            : null,
-                          casteCertIsPdf: file?.type === "application/pdf",
-                        }));
-                      }}
+                      onChange={(e) => pickDocument(e, "caste")}
                     />
-                    {data.casteCertFile?.name && (
-                      <p style={{ fontSize: 12, margin: "4px 0 0", color: "var(--ojas-ink-3)" }}>
-                        📎 {data.casteCertFile.name}
+                    <UploadProgress state={data.casteCertUpload} onRetry={data.casteCertUpload?.file ? () => retryDocument("caste") : undefined} />
+                    {!data.casteCertUpload && data.caste_cert_path && (
+                      <p style={{ fontSize: 12.5, margin: "6px 0 0", color: "#2a7a2a", fontWeight: 600 }}>
+                        ✓ Certificate already uploaded — choose a file only to replace it.
                       </p>
                     )}
                     <FieldError msg={errors.casteCertFile} />
@@ -707,51 +807,16 @@ export default function RegistrationStep() {
                     if (!data.gender) e.gender = "Required";
                     if (!data.category) e.category = "Required";
                     if (needsCasteCert) {
-                      if (!data.casteCertFile)
-                        e.casteCertFile =
-                          "Please upload your caste certificate.";
+                      if (docUploading("caste"))
+                        e.casteCertFile = "Please wait — the certificate is still uploading.";
+                      else if (!docReady("caste"))
+                        e.casteCertFile = data.casteCertUpload?.status === "error"
+                          ? "The certificate did not upload. Please try again."
+                          : "Please upload your caste certificate.";
                     }
                     if (Object.keys(e).length) {
                       setErrors(e);
                       return;
-                    }
-
-                    if (needsCasteCert && data.casteCertFile) {
-                      const docMax = portalConfig.uploadLimits.documentMaxBytes;
-                      const docLabel = portalConfig.uploadLimits.documentMaxLabel;
-                      if (data.casteCertFile.size > docMax) {
-                        setErrors({ casteCertFile: `File must be under ${docLabel}.` });
-                        return;
-                      }
-                      setErrors({});
-                      setLoading(true);
-                      const fd = new FormData();
-                      fd.append("caste_cert", data.casteCertFile);
-                      try {
-                        const res = await fetch(
-                          `${API_BASE}/api/v1/candidates/register/caste-cert`,
-                          {
-                            method: "POST",
-                            credentials: "include",
-                            body: fd,
-                          },
-                        );
-                        if (!res.ok) {
-                          const json = await res.json().catch(() => ({}));
-                          setErrors({
-                            casteCertFile: json?.message || "Upload failed.",
-                          });
-                          setLoading(false);
-                          return;
-                        }
-                      } catch (err) {
-                        setErrors({
-                          casteCertFile: err.message || "Upload failed.",
-                        });
-                        setLoading(false);
-                        return;
-                      }
-                      setLoading(false);
                     }
 
                     saveStep({
@@ -819,15 +884,6 @@ export default function RegistrationStep() {
                   <FieldError msg={errors.current_address} />
                 </div>
               )}
-              <div className="form-field">
-                <label>Email Address *</label>
-                <input
-                  type="email"
-                  value={data.email || ""}
-                  onChange={set("email")}
-                />
-                <FieldError msg={errors.email} />
-              </div>
               <FieldError msg={errors._} />
               <div className="form-actions">
                 <button className="btn" onClick={() => back(3)}>
@@ -842,8 +898,6 @@ export default function RegistrationStep() {
                       e.permanent_address = "Required";
                     if (!data.same_address && !data.current_address?.trim())
                       e.current_address = "Required";
-                    if (!/^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/.test(data.email || ""))
-                      e.email = "Valid email required";
                     if (Object.keys(e).length) {
                       setErrors(e);
                       return;
@@ -856,7 +910,6 @@ export default function RegistrationStep() {
                           ? {}
                           : { line1: data.current_address }),
                       },
-                      email: data.email,
                     });
                   }}
                 >
@@ -918,6 +971,24 @@ export default function RegistrationStep() {
                   <FieldError msg={errors.qualification_other} />
                 </div>
               )}
+              {isOthersQual && (
+                <div className="form-field">
+                  <label>Equivalent to / સમકક્ષ લાયકાત *</label>
+                  <select
+                    value={data.qualification_equivalent || ""}
+                    onChange={set("qualification_equivalent")}
+                  >
+                    <option value="">Select the qualification yours is equal to…</option>
+                    {qualifications.filter((q) => !isOthersQualification(q)).map((q) => (
+                      <option key={q}>{q}</option>
+                    ))}
+                  </select>
+                  <p style={{ fontSize: 11.5, margin: "2px 0 0", color: "var(--ojas-ink-3)" }}>
+                    Used to check which posts you can apply for. Your certificate will be verified.
+                  </p>
+                  <FieldError msg={errors.qualification_equivalent} />
+                </div>
+              )}
               <div className="form-field">
                 <label style={{ display: "flex", gap: 8 }}>
                   <input
@@ -940,21 +1011,12 @@ export default function RegistrationStep() {
                     <input
                       type="file"
                       accept="image/*,application/pdf"
-                      onChange={(e) => {
-                        const file = e.target.files[0];
-                        setData((p) => ({
-                          ...p,
-                          udidCertFile: file,
-                          udidCertPreview: file
-                            ? URL.createObjectURL(file)
-                            : null,
-                          udidCertIsPdf: file?.type === "application/pdf",
-                        }));
-                      }}
+                      onChange={(e) => pickDocument(e, "udid")}
                     />
-                    {data.udidCertFile?.name && (
-                      <p style={{ fontSize: 12, margin: "4px 0 0", color: "var(--ojas-ink-3)" }}>
-                        📎 {data.udidCertFile.name}
+                    <UploadProgress state={data.udidCertUpload} onRetry={data.udidCertUpload?.file ? () => retryDocument("udid") : undefined} />
+                    {!data.udidCertUpload && data.udid_cert_path && (
+                      <p style={{ fontSize: 12.5, margin: "6px 0 0", color: "#2a7a2a", fontWeight: 600 }}>
+                        ✓ Certificate already uploaded — choose a file only to replace it.
                       </p>
                     )}
                     <FieldError msg={errors.udidCertFile} />
@@ -1022,56 +1084,25 @@ export default function RegistrationStep() {
                     if (!data.qualification) e.qualification = "Required";
                     if (isOthersQual && !data.qualification_other?.trim())
                       e.qualification_other = "Required";
+                    if (isOthersQual && !data.qualification_equivalent)
+                      e.qualification_equivalent = "Required";
                     if (data.ph_status) {
-                      if (!data.udidCertFile)
-                        e.udidCertFile = "Please upload your UDID certificate.";
+                      if (docUploading("udid"))
+                        e.udidCertFile = "Please wait — the certificate is still uploading.";
+                      else if (!docReady("udid"))
+                        e.udidCertFile = data.udidCertUpload?.status === "error"
+                          ? "The certificate did not upload. Please try again."
+                          : "Please upload your UDID certificate.";
                     }
                     if (Object.keys(e).length) {
                       setErrors(e);
                       return;
                     }
 
-                    if (data.ph_status && data.udidCertFile) {
-                      const docMax = portalConfig.uploadLimits.documentMaxBytes;
-                      const docLabel = portalConfig.uploadLimits.documentMaxLabel;
-                      if (data.udidCertFile.size > docMax) {
-                        setErrors({ udidCertFile: `File must be under ${docLabel}.` });
-                        return;
-                      }
-                      setErrors({});
-                      setLoading(true);
-                      const fd = new FormData();
-                      fd.append("udid_cert", data.udidCertFile);
-                      try {
-                        const res = await fetch(
-                          `${API_BASE}/api/v1/candidates/register/udid-cert`,
-                          {
-                            method: "POST",
-                            credentials: "include",
-                            body: fd,
-                          },
-                        );
-                        if (!res.ok) {
-                          const json = await res.json().catch(() => ({}));
-                          setErrors({
-                            udidCertFile: json?.message || "Upload failed.",
-                          });
-                          setLoading(false);
-                          return;
-                        }
-                      } catch (err) {
-                        setErrors({
-                          udidCertFile: err.message || "Upload failed.",
-                        });
-                        setLoading(false);
-                        return;
-                      }
-                      setLoading(false);
-                    }
-
                     saveStep({
                       marital_status: data.marital_status,
                       qualification: finalQual,
+                      qualification_equivalent: isOthersQual ? data.qualification_equivalent : "",
                       ph_status: !!data.ph_status,
                       ex_serviceman: !!data.ex_serviceman,
                     });
@@ -1101,43 +1132,80 @@ export default function RegistrationStep() {
             <h2 style={{ fontSize: 16, marginBottom: 12 }}>
               Step 6: Languages
             </h2>
+            <p style={{ fontSize: 12.5, color: "var(--ojas-ink-3)", margin: "0 0 12px" }}>
+              Add each language you know and tick what you can do in it.
+              <span style={{ fontFamily: "var(--font-guj)", display: "block" }}>
+                તમે જાણતા હો તે દરેક ભાષા ઉમેરો અને તેમાં શું કરી શકો છો તે પસંદ કરો.
+              </span>
+            </p>
             {langs.map((lang, i) => (
               <div
                 key={i}
                 style={{
+                  border: "1px solid var(--ojas-line)",
+                  background: "#fff",
+                  padding: "12px 14px",
+                  marginBottom: 10,
+                  position: "relative",
                   display: "flex",
-                  gap: 8,
-                  alignItems: "center",
-                  marginBottom: 8,
+                  flexWrap: "wrap",
+                  alignItems: "flex-end",
+                  gap: "12px 20px",
                 }}
               >
-                <select
-                  value={lang.language}
-                  style={{ flex: 1 }}
-                  onChange={(e) => updateLang(i, { language: e.target.value })}
-                >
-                  <option value="">Select Language…</option>
-                  {languages.map((l) => (
-                    <option key={l} value={l}>{l}</option>
-                  ))}
-                </select>
-                {["read", "write", "speak"].map((sk) => (
-                  <label
-                    key={sk}
-                    style={{ display: "flex", gap: 4, fontSize: 12 }}
+                <div className="form-field" style={{ flex: "1 1 220px", minWidth: 200 }}>
+                  <label>Language {i + 1} / ભાષા {i + 1}{i === 0 ? " *" : ""}</label>
+                  <select
+                    value={lang.language}
+                    onChange={(e) => updateLang(i, { language: e.target.value })}
                   >
-                    <input
-                      type="checkbox"
-                      checked={!!lang[sk]}
-                      onChange={(e) =>
-                        updateLang(i, { [sk]: e.target.checked })
-                      }
-                    />
-                    {sk[0].toUpperCase() + sk.slice(1)}
-                  </label>
-                ))}
+                    <option value="">Select Language…</option>
+                    {languages
+                      // a language already chosen in another row is not offered again
+                      .filter((l) => l === lang.language || !langs.some((o, j) => j !== i && o.language === l))
+                      .map((l) => (
+                        <option key={l} value={l}>{l}</option>
+                      ))}
+                  </select>
+                </div>
+                <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
+                  {[
+                    ["read", "Read", "વાંચી શકું"],
+                    ["write", "Write", "લખી શકું"],
+                    ["speak", "Speak", "બોલી શકું"],
+                  ].map(([sk, en, gu]) => (
+                    <label
+                      key={sk}
+                      style={{
+                        display: "flex",
+                        alignItems: "center",
+                        gap: 6,
+                        padding: "6px 12px",
+                        border: `1px solid ${lang[sk] ? "var(--ojas-navy)" : "var(--ojas-line)"}`,
+                        background: lang[sk] ? "rgba(31, 60, 136, 0.06)" : "#fff",
+                        cursor: "pointer",
+                        fontSize: 13,
+                        lineHeight: 1.2,
+                        userSelect: "none",
+                      }}
+                    >
+                      <input
+                        type="checkbox"
+                        checked={!!lang[sk]}
+                        onChange={(e) => updateLang(i, { [sk]: e.target.checked })}
+                        style={{ width: 16, height: 16, margin: 0 }}
+                      />
+                      <span>
+                        {en}
+                        <span style={{ fontFamily: "var(--font-guj)", display: "block", fontSize: 11, color: "var(--ojas-ink-3)" }}>{gu}</span>
+                      </span>
+                    </label>
+                  ))}
+                </div>
                 {i > 0 && (
                   <button
+                    type="button"
+                    title="Remove this language"
                     onClick={() =>
                       setData((p) => ({
                         ...p,
@@ -1145,22 +1213,28 @@ export default function RegistrationStep() {
                       }))
                     }
                     style={{
-                      color: "var(--ojas-red)",
+                      position: "absolute",
+                      top: 8,
+                      right: 10,
                       background: "none",
                       border: "none",
+                      padding: 0,
                       cursor: "pointer",
-                      fontSize: 18,
-                      lineHeight: 1,
+                      fontSize: 12,
+                      fontWeight: 600,
+                      color: "var(--ojas-red)",
                     }}
                   >
-                    ×
+                    ✕ Remove / દૂર કરો
                   </button>
                 )}
               </div>
             ))}
             <button
+              type="button"
               className="btn"
-              style={{ fontSize: 12, marginBottom: 12 }}
+              style={{ fontSize: 12.5, marginBottom: 12 }}
+              disabled={langs.length >= languages.length && languages.length > 0}
               onClick={() =>
                 setData((p) => ({
                   ...p,
@@ -1171,7 +1245,7 @@ export default function RegistrationStep() {
                 }))
               }
             >
-              + Add Language
+              + Add Another Language / બીજી ભાષા ઉમેરો
             </button>
             <FieldError msg={errors._} />
             <div className="form-actions">
@@ -1197,36 +1271,24 @@ export default function RegistrationStep() {
             <h2 style={{ fontSize: 16, marginBottom: 12 }}>
               Step 7: Upload Photo
             </h2>
-            <div className="notice info" style={{ fontSize: 12 }}>
-              JPEG/PNG · Max {portalConfig.uploadLimits.photoMaxLabel} · White background · Clear face visible
-            </div>
+            <ImageRequirements spec={PHOTO_SPEC} title="Photo requirements / ફોટો માટેની શરતો" />
             <div style={{ marginTop: 12 }}>
               <input
                 ref={photoRef}
                 type="file"
                 accept="image/jpeg,image/jpg,image/png"
-                onChange={(e) =>
-                  setData((p) => ({
-                    ...p,
-                    photoFile: e.target.files[0],
-                    photoPreview: e.target.files[0]
-                      ? URL.createObjectURL(e.target.files[0])
-                      : null,
-                  }))
-                }
+                onChange={(e) => pickImage(e, "photo")}
               />
               <FieldError msg={errors.photo} />
-              {data.photoPreview && (
-                <img
-                  src={data.photoPreview}
-                  alt="Preview"
-                  style={{
-                    display: "block",
-                    marginTop: 10,
-                    maxHeight: 160,
-                    border: "1px solid var(--ojas-line)",
-                  }}
-                />
+              <UploadProgress state={data.photoUpload} onRetry={data.photoUpload?.file ? () => retryImage("photo") : undefined} />
+              {(data.photoPreview || data.photoUploadedPreview || data.photo_url) && (
+                <div style={{ marginTop: 10 }}>
+                  <CandidatePhoto
+                    src={data.photoPreview || data.photoUploadedPreview}
+                    url={data.photo_url}
+                    caption={imageReady("photo") ? "Uploaded photo" : "Preview"}
+                  />
+                </div>
               )}
             </div>
             <div className="form-actions" style={{ marginTop: 16 }}>
@@ -1235,18 +1297,15 @@ export default function RegistrationStep() {
               </button>
               <button
                 className="btn primary"
-                disabled={loading}
-                onClick={() =>
-                  uploadFile(
-                    "/api/v1/candidates/register/photo",
-                    "photo",
-                    data.photoFile,
-                    portalConfig.uploadLimits.photoMaxBytes,
-                    portalConfig.uploadLimits.photoMaxLabel,
-                  )
-                }
+                disabled={data.photoUpload?.status === "uploading"}
+                onClick={() => {
+                  if (imageReady("photo")) go(step + 1);
+                  else setErrors({ photo: data.photoUpload?.status === "error"
+                    ? "The photo did not upload. Please try again."
+                    : "Please choose your photo." });
+                }}
               >
-                {loading ? "Uploading…" : "Upload & Continue ▶"}
+                {data.photoUpload?.status === "uploading" ? `Uploading… ${data.photoUpload.pct || 0}%` : "Continue ▶"}
               </button>
             </div>
           </>
@@ -1259,36 +1318,24 @@ export default function RegistrationStep() {
             <h2 style={{ fontSize: 16, marginBottom: 12 }}>
               Step 8: Upload Signature
             </h2>
-            <div className="notice info" style={{ fontSize: 12 }}>
-              JPEG/PNG · Max {portalConfig.uploadLimits.signatureMaxLabel} · Black/blue ink on white paper
-            </div>
+            <ImageRequirements spec={SIGNATURE_SPEC} title="Signature requirements / સહી માટેની શરતો" />
             <div style={{ marginTop: 12 }}>
               <input
                 ref={sigRef}
                 type="file"
                 accept="image/jpeg,image/jpg,image/png"
-                onChange={(e) =>
-                  setData((p) => ({
-                    ...p,
-                    sigFile: e.target.files[0],
-                    sigPreview: e.target.files[0]
-                      ? URL.createObjectURL(e.target.files[0])
-                      : null,
-                  }))
-                }
+                onChange={(e) => pickImage(e, "signature")}
               />
               <FieldError msg={errors.signature} />
-              {data.sigPreview && (
-                <img
-                  src={data.sigPreview}
-                  alt="Preview"
-                  style={{
-                    display: "block",
-                    marginTop: 10,
-                    maxHeight: 80,
-                    border: "1px solid var(--ojas-line)",
-                  }}
-                />
+              <UploadProgress state={data.sigUpload} onRetry={data.sigUpload?.file ? () => retryImage("signature") : undefined} />
+              {(data.sigPreview || data.sigUploadedPreview || data.signature_url) && (
+                <div style={{ marginTop: 10 }}>
+                  <CandidateSignature
+                    src={data.sigPreview || data.sigUploadedPreview}
+                    url={data.signature_url}
+                    caption={imageReady("signature") ? "Uploaded signature" : "Preview"}
+                  />
+                </div>
               )}
             </div>
             <div className="form-actions" style={{ marginTop: 16 }}>
@@ -1297,18 +1344,15 @@ export default function RegistrationStep() {
               </button>
               <button
                 className="btn primary"
-                disabled={loading}
-                onClick={() =>
-                  uploadFile(
-                    "/api/v1/candidates/register/signature",
-                    "signature",
-                    data.sigFile,
-                    portalConfig.uploadLimits.signatureMaxBytes,
-                    portalConfig.uploadLimits.signatureMaxLabel,
-                  )
-                }
+                disabled={data.sigUpload?.status === "uploading"}
+                onClick={() => {
+                  if (imageReady("signature")) go(step + 1);
+                  else setErrors({ signature: data.sigUpload?.status === "error"
+                    ? "The signature did not upload. Please try again."
+                    : "Please choose your signature." });
+                }}
               >
-                {loading ? "Uploading…" : "Upload & Continue ▶"}
+                {data.sigUpload?.status === "uploading" ? `Uploading… ${data.sigUpload.pct || 0}%` : "Continue ▶"}
               </button>
             </div>
           </>
@@ -1321,6 +1365,10 @@ export default function RegistrationStep() {
             <h2 style={{ fontSize: 16, marginBottom: 12 }}>
               Step 9: Declaration
             </h2>
+            <div style={{ display: "flex", gap: 24, alignItems: "flex-end", flexWrap: "wrap", marginBottom: 14 }}>
+              <CandidatePhoto src={data.photoUploadedPreview} url={data.photo_url} caption="Photo" />
+              <CandidateSignature src={data.sigUploadedPreview} url={data.signature_url} caption="Signature" />
+            </div>
             <div
               className="notice info"
               style={{ maxHeight: 240, overflowY: "auto", fontSize: 13 }}

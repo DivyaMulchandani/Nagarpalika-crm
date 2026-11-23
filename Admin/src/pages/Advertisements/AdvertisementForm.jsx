@@ -24,6 +24,39 @@ const CLASS_OPTIONS = [
 ];
 const statusColor = { Draft: "secondary", Published: "success", Closed: "warning", Archived: "dark" };
 
+// Age relaxation groups (same keys the server checks against the candidate).
+const RELAX_GROUPS = [
+  { key: "SC", label: "SC" },
+  { key: "ST", label: "ST" },
+  { key: "OBC", label: "SEBC / OBC" },
+  { key: "EWS", label: "EWS" },
+  { key: "Female", label: "Women" },
+  { key: "PH", label: "Persons with disability (PH)" },
+  { key: "ExServiceman", label: "Ex-servicemen" },
+];
+const emptyRelaxation = { enabled: false, years: {}, combine: "add", max_age_cap: "", notes: "" };
+
+// The sentence candidates will read on the advertisement page.
+const describeRelaxation = (r, maxAge) => {
+  if (!r?.enabled) return "No age relaxation.";
+  const parts = RELAX_GROUPS.filter((g) => Number(r.years[g.key]) > 0).map((g) => `${g.label}: ${r.years[g.key]} years`);
+  if (!parts.length) return "Age relaxation is on, but no group has years set yet.";
+  let text = `Upper age relaxed for — ${parts.join("; ")}.`;
+  text += r.combine === "highest"
+    ? " If a candidate is in more than one group, only the highest relaxation applies."
+    : " If a candidate is in more than one group, the relaxations are added together.";
+  if (Number(r.max_age_cap) > 0) text += ` Upper age after relaxation will not exceed ${r.max_age_cap} years.`;
+  if (maxAge) text += ` (Base upper age: ${maxAge} years.)`;
+  return text;
+};
+
+const TYPE_LABEL = { education: "Education", certificate: "Certificate", document: "Other document" };
+const REQUIREMENTS = {
+  education: [["compulsory", "Upload compulsory"], ["optional", "Upload optional"]],
+  certificate: [["compulsory", "Upload compulsory"], ["optional", "Upload optional"], ["declaration", "Upload, or declare 'will obtain'"]],
+  document: [["compulsory", "Upload compulsory"], ["optional", "Upload optional"]],
+};
+
 const defaultVacancies = {
   general: { general: 0, female: 0 },
   sc: { general: 0, female: 0 },
@@ -113,6 +146,8 @@ const empty = {
   note: "",
   required_qualifications: [],
   caste_certificate: { required: false, is_compulsory: false },
+  min_education: "",
+  age_relaxation: emptyRelaxation,
 };
 
 const AdvertisementForm = () => {
@@ -154,6 +189,8 @@ const AdvertisementForm = () => {
           (r.data.data || []).map((q) => ({
             value: q._id,
             label: q.name,
+            type: q.type || "education",
+            level: q.level,
           })),
         ),
       )
@@ -202,7 +239,19 @@ const AdvertisementForm = () => {
           ).map((rq) => ({
             qualification: rq.qualification?._id || rq.qualification,
             is_compulsory: rq.is_compulsory,
+            requirement: rq.requirement || (rq.is_compulsory ? "compulsory" : "optional"),
+            instruction: rq.instruction || "",
           })),
+          min_education: d.min_education?._id || d.min_education || "",
+          age_relaxation: d.age_relaxation
+            ? {
+                enabled: !!d.age_relaxation.enabled,
+                years: Object.fromEntries((d.age_relaxation.rules || []).map((r) => [r.group, r.years])),
+                combine: d.age_relaxation.combine || "add",
+                max_age_cap: d.age_relaxation.max_age_cap ?? "",
+                notes: d.age_relaxation.notes || "",
+              }
+            : emptyRelaxation,
           caste_certificate: d.caste_certificate ?? {
             required: false,
             is_compulsory: false,
@@ -214,6 +263,44 @@ const AdvertisementForm = () => {
   }, [id]);
 
   const set = (k, v) => setValues((prev) => ({ ...prev, [k]: v }));
+  const setRelax = (patch) => setValues((prev) => ({ ...prev, age_relaxation: { ...prev.age_relaxation, ...patch } }));
+
+  const educationOptions = qualificationOptions
+    .filter((o) => o.type === "education")
+    .sort((a, b) => (a.level ?? 999) - (b.level ?? 999) || a.label.localeCompare(b.label));
+  const optionsOfType = (type) => qualificationOptions.filter((o) => o.type === type);
+  const typeOf = (qid) => qualificationOptions.find((o) => o.value === qid)?.type || "education";
+
+  // Replace the picked items of one type, keeping the other types' items.
+  const setRequiredOfType = (type, selected) => {
+    setValues((prev) => {
+      const others = prev.required_qualifications.filter((rq) => typeOf(rq.qualification) !== type);
+      const picked = (selected || []).map((opt) => {
+        const existing = prev.required_qualifications.find((rq) => rq.qualification === opt.value);
+        return existing || { qualification: opt.value, requirement: "compulsory", is_compulsory: true, instruction: "" };
+      });
+      return { ...prev, required_qualifications: [...others, ...picked] };
+    });
+  };
+  const updateRequired = (qid, patch) =>
+    setValues((prev) => ({
+      ...prev,
+      required_qualifications: prev.required_qualifications.map((rq) =>
+        rq.qualification === qid
+          ? { ...rq, ...patch, ...(patch.requirement ? { is_compulsory: patch.requirement === "compulsory" } : {}) }
+          : rq,
+      ),
+    }));
+  // Choosing the minimum education also asks for that certificate (compulsory).
+  const setMinEducation = (qid) =>
+    setValues((prev) => ({
+      ...prev,
+      min_education: qid,
+      required_qualifications:
+        qid && !prev.required_qualifications.some((rq) => rq.qualification === qid)
+          ? [...prev.required_qualifications, { qualification: qid, requirement: "compulsory", is_compulsory: true, instruction: "" }]
+          : prev.required_qualifications,
+    }));
 
   const updateVacancyCell = (category, type, rawVal) => {
     const num = Math.max(0, parseInt(rawVal, 10) || 0);
@@ -288,8 +375,24 @@ const AdvertisementForm = () => {
       ph_description: values.ph_description || undefined,
       other_conditions: values.other_conditions || undefined,
       note: values.note || undefined,
-      required_qualifications: values.required_qualifications,
+      required_qualifications: values.required_qualifications.map((rq) => ({
+        qualification: rq.qualification,
+        requirement: rq.requirement || (rq.is_compulsory ? "compulsory" : "optional"),
+        is_compulsory: (rq.requirement || (rq.is_compulsory ? "compulsory" : "optional")) === "compulsory",
+        instruction: rq.instruction?.trim() || undefined,
+      })),
       caste_certificate: values.caste_certificate,
+      min_education: values.min_education || null,
+      age_relaxation: {
+        enabled: values.age_relaxation.enabled,
+        rules: RELAX_GROUPS.filter((g) => Number(values.age_relaxation.years[g.key]) > 0).map((g) => ({
+          group: g.key,
+          years: Number(values.age_relaxation.years[g.key]),
+        })),
+        combine: values.age_relaxation.combine,
+        max_age_cap: values.age_relaxation.max_age_cap !== "" ? Number(values.age_relaxation.max_age_cap) : undefined,
+        notes: values.age_relaxation.notes || undefined,
+      },
     };
 
     setIsLoading(true);
@@ -591,63 +694,145 @@ const AdvertisementForm = () => {
 
                 <TabPane tabId="4">
                   <Row>
+                    {/* ── Age ── */}
+                    <Col md={12}><h6 className="mb-2">Age</h6></Col>
                     <Col md={2}><div className="mb-3"><Label>Min Age</Label><Input type="number" min={0} value={values.age_min} onChange={(e) => set("age_min", e.target.value)} disabled={isView} /></div></Col>
                     <Col md={2}><div className="mb-3"><Label>Max Age</Label><Input type="number" min={0} value={values.age_max} onChange={(e) => set("age_max", e.target.value)} disabled={isView} /></div></Col>
-                    <Col md={4}><div className="mb-3"><Label>Qualification (Free Text)</Label><Input value={values.qualification} onChange={(e) => set("qualification", e.target.value)} disabled={isView} /></div></Col>
-                    <Col md={4}><div className="mb-3"><Label>Experience Required</Label><Input value={values.experience_required} onChange={(e) => set("experience_required", e.target.value)} disabled={isView} /></div></Col>
-
-                    {/* ── Required Qualifications (multi-select with compulsory toggle) ── */}
-                    <Col md={12}>
-                      <div className="mb-3">
-                        <Label>Required Qualifications <span className="text-muted" style={{fontSize:12}}>(select one or more; toggle compulsory per item)</span></Label>
-                        <Select
-                          isMulti
-                          options={qualificationOptions}
-                          value={qualificationOptions.filter((opt) =>
-                            values.required_qualifications.some((rq) => rq.qualification === opt.value)
-                          )}
-                          onChange={(selected) => {
-                            const next = (selected || []).map((opt) => {
-                              const existing = values.required_qualifications.find((rq) => rq.qualification === opt.value);
-                              return { qualification: opt.value, is_compulsory: existing ? existing.is_compulsory : true };
-                            });
-                            set("required_qualifications", next);
-                          }}
-                          isDisabled={isView}
-                          placeholder="Select required qualifications..."
-                        />
-                        {values.required_qualifications.length > 0 && (
-                          <div className="mt-2 d-flex flex-wrap gap-2">
-                            {values.required_qualifications.map((rq) => {
-                              const opt = qualificationOptions.find((o) => o.value === rq.qualification);
-                              return (
-                                <div key={rq.qualification} className="d-flex align-items-center gap-1 border rounded px-2 py-1" style={{fontSize:13, background:"#f8f9fa"}}>
-                                  <span>{opt?.label || rq.qualification}</span>
-                                  <div className="form-check form-switch mb-0 ms-2">
-                                    <Input
-                                      type="checkbox"
-                                      className="form-check-input"
-                                      role="switch"
-                                      checked={rq.is_compulsory}
-                                      disabled={isView}
-                                      onChange={(e) => {
-                                        const next = values.required_qualifications.map((r) =>
-                                          r.qualification === rq.qualification ? { ...r, is_compulsory: e.target.checked } : r
-                                        );
-                                        set("required_qualifications", next);
-                                      }}
-                                    />
-                                    <Label className="form-check-label mb-0" style={{fontSize:11, color: rq.is_compulsory ? "#0f5132" : "#6c757d"}}>
-                                      {rq.is_compulsory ? "Compulsory" : "Optional"}
-                                    </Label>
-                                  </div>
-                                </div>
-                              );
-                            })}
-                          </div>
-                        )}
+                    <Col md={8}>
+                      <div className="mb-3 small text-muted" style={{ paddingTop: 30 }}>
+                        Age is counted in completed years <strong>as on the last date of application</strong>
+                        {values.end_date ? ` (${values.end_date.split("-").reverse().join("-")})` : ""}. Candidates outside the limits cannot apply.
                       </div>
                     </Col>
+
+                    <Col md={12}>
+                      <div className="border rounded p-3 mb-3" style={{ background: "#fafbf8" }}>
+                        <div className="form-check form-switch mb-2">
+                          <Input type="checkbox" className="form-check-input" role="switch" id="relax_on"
+                            checked={values.age_relaxation.enabled} disabled={isView}
+                            onChange={(e) => setRelax({ enabled: e.target.checked })} />
+                          <Label className="form-check-label fw-semibold" htmlFor="relax_on">Age relaxation applicable for this post</Label>
+                        </div>
+                        {values.age_relaxation.enabled && (
+                          <>
+                            <div className="small text-muted mb-2">Enter the years of relaxation in the <strong>upper</strong> age for each group, as given by the authority. Leave blank for groups with no relaxation.</div>
+                            <Row className="g-2 mb-2">
+                              {RELAX_GROUPS.map((g) => (
+                                <Col md={3} sm={6} key={g.key}>
+                                  <div className="input-group input-group-sm">
+                                    <span className="input-group-text" style={{ minWidth: 150 }}>{g.label}</span>
+                                    <Input type="number" min={0} max={30} placeholder="0"
+                                      value={values.age_relaxation.years[g.key] ?? ""} disabled={isView}
+                                      onChange={(e) => setRelax({ years: { ...values.age_relaxation.years, [g.key]: e.target.value } })} />
+                                    <span className="input-group-text">yrs</span>
+                                  </div>
+                                </Col>
+                              ))}
+                            </Row>
+                            <Row className="g-3 align-items-end">
+                              <Col md={5}>
+                                <Label className="mb-1 small">If a candidate is in more than one group</Label>
+                                <div className="d-flex gap-3">
+                                  {[["add", "Add the relaxations together"], ["highest", "Only the highest applies"]].map(([v, l]) => (
+                                    <div className="form-check" key={v}>
+                                      <Input type="radio" className="form-check-input" id={`comb_${v}`} name="relax_combine"
+                                        checked={values.age_relaxation.combine === v} disabled={isView}
+                                        onChange={() => setRelax({ combine: v })} />
+                                      <Label className="form-check-label small" htmlFor={`comb_${v}`}>{l}</Label>
+                                    </div>
+                                  ))}
+                                </div>
+                              </Col>
+                              <Col md={3}>
+                                <Label className="mb-1 small">Max age after relaxation (optional)</Label>
+                                <Input type="number" min={0} bsSize="sm" placeholder="e.g. 45" value={values.age_relaxation.max_age_cap} disabled={isView}
+                                  onChange={(e) => setRelax({ max_age_cap: e.target.value })} />
+                              </Col>
+                              <Col md={4}>
+                                <Label className="mb-1 small">Other relaxation rules (shown to candidates)</Label>
+                                <Input type="textarea" rows={1} bsSize="sm" value={values.age_relaxation.notes} disabled={isView}
+                                  placeholder="e.g. Govt. employees: as per GAD rules"
+                                  onChange={(e) => setRelax({ notes: e.target.value })} />
+                              </Col>
+                            </Row>
+                          </>
+                        )}
+                        <div className="mt-2 small" style={{ color: "#145c2e" }}>
+                          <i className="ri-eye-line me-1"></i><strong>Candidates will see:</strong> {describeRelaxation(values.age_relaxation, values.age_max)}
+                          {values.age_relaxation.enabled && values.age_relaxation.notes ? ` ${values.age_relaxation.notes}` : ""}
+                        </div>
+                      </div>
+                    </Col>
+
+                    {/* ── Education ── */}
+                    <Col md={12}><h6 className="mb-2 mt-1">Education</h6></Col>
+                    <Col md={4}>
+                      <div className="mb-3">
+                        <Label>Minimum Education <span className="text-danger">*</span></Label>
+                        <Select
+                          options={educationOptions.map((o) => ({ ...o, label: `${o.label}${typeof o.level === "number" ? ` (level ${o.level})` : " (no level set)"}` }))}
+                          value={(() => { const o = educationOptions.find((x) => x.value === values.min_education); return o ? { ...o, label: `${o.label}${typeof o.level === "number" ? ` (level ${o.level})` : " (no level set)"}` } : null; })()}
+                          onChange={(opt) => setMinEducation(opt?.value || "")}
+                          isClearable isDisabled={isView} placeholder="Select minimum education…"
+                        />
+                        <small className="text-muted">Candidates whose highest qualification is below this level cannot apply. Required before publishing.</small>
+                      </div>
+                    </Col>
+                    <Col md={4}><div className="mb-3"><Label>Qualification Details <span className="text-muted" style={{fontSize:12}}>(shown to candidates)</span></Label><Input value={values.qualification} onChange={(e) => set("qualification", e.target.value)} disabled={isView} placeholder="e.g. B.E. Civil from a recognised university" /></div></Col>
+                    <Col md={4}><div className="mb-3"><Label>Experience Required</Label><Input value={values.experience_required} onChange={(e) => set("experience_required", e.target.value)} disabled={isView} /></div></Col>
+
+                    {/* ── Documents & certificates ── */}
+                    <Col md={12}><h6 className="mb-2 mt-1">Documents &amp; Certificates <span className="text-muted fw-normal" style={{fontSize:12}}>(asked for on the apply page)</span></h6></Col>
+                    {["education", "certificate", "document"].map((type) => (
+                      <Col md={4} key={type}>
+                        <div className="mb-3">
+                          <Label className="mb-1">{type === "education" ? "Education certificates" : type === "certificate" ? "Certificates (CCC, typing…)" : "Other documents"}</Label>
+                          <Select
+                            isMulti
+                            options={optionsOfType(type)}
+                            value={optionsOfType(type).filter((opt) => values.required_qualifications.some((rq) => rq.qualification === opt.value))}
+                            onChange={(selected) => setRequiredOfType(type, selected)}
+                            isDisabled={isView}
+                            placeholder={optionsOfType(type).length ? "Select…" : "None in master yet"}
+                          />
+                        </div>
+                      </Col>
+                    ))}
+                    {values.required_qualifications.length > 0 && (
+                      <Col md={12}>
+                        <div className="table-responsive mb-3">
+                          <table className="table table-sm table-bordered align-middle mb-0" style={{ fontSize: 13 }}>
+                            <thead className="table-light">
+                              <tr><th>Document</th><th style={{ width: 130 }}>Type</th><th style={{ width: 260 }}>Requirement</th><th>Instruction to candidate (optional)</th></tr>
+                            </thead>
+                            <tbody>
+                              {values.required_qualifications.map((rq) => {
+                                const opt = qualificationOptions.find((o) => o.value === rq.qualification);
+                                const type = opt?.type || "education";
+                                const req = rq.requirement || (rq.is_compulsory ? "compulsory" : "optional");
+                                return (
+                                  <tr key={rq.qualification}>
+                                    <td>{opt?.label || rq.qualification}{rq.qualification === values.min_education && <Badge color="info" className="ms-2">Minimum education</Badge>}</td>
+                                    <td>{TYPE_LABEL[type]}</td>
+                                    <td>
+                                      <Input type="select" bsSize="sm" value={req} disabled={isView}
+                                        onChange={(e) => updateRequired(rq.qualification, { requirement: e.target.value })}>
+                                        {REQUIREMENTS[type].map(([v, l]) => <option key={v} value={v}>{l}</option>)}
+                                      </Input>
+                                    </td>
+                                    <td>
+                                      <Input bsSize="sm" value={rq.instruction || ""} disabled={isView} maxLength={300}
+                                        placeholder={type === "certificate" ? "e.g. CCC from NIELIT / govt-approved institute; may be passed within probation" : ""}
+                                        onChange={(e) => updateRequired(rq.qualification, { instruction: e.target.value })} />
+                                    </td>
+                                  </tr>
+                                );
+                              })}
+                            </tbody>
+                          </table>
+                        </div>
+                      </Col>
+                    )}
 
                     {/* ── Caste Certificate ── */}
                     <Col md={12}>

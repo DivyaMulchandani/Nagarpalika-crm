@@ -209,7 +209,7 @@ const ApplicationView = () => {
           ) : (
             <>
               <Row className="mb-4">
-                <StoredFileViewer label="Profile Photo" path={c.photo_path} url={c.photo_url} />
+                <StoredFileViewer label="Profile Photo" path={c.photo_path} url={c.photo_url} kind="photo" />
               </Row>
 
               <Row className="mb-3">
@@ -264,7 +264,7 @@ const ApplicationView = () => {
         {c && (
           <SectionCard title="Educational Details">
             <Row>
-              <Field label="Qualification" value={c.qualification} span={6} />
+              <Field label="Highest Qualification" value={c.qualification_equivalent ? `${c.qualification} (equivalent to ${c.qualification_equivalent})` : c.qualification} span={6} />
               <Field label="Mother Tongue" value={c.mother_tongue} span={6} />
               {c.languages?.length > 0 && (
                 <Col md={12} className="mb-3">
@@ -286,8 +286,8 @@ const ApplicationView = () => {
         {c && (c.photo_path || c.signature_path || c.caste_cert_path || (c.ph_status && c.udid_cert_path)) && (
           <SectionCard title="Documents">
             <Row>
-              {c.photo_path && <StoredFileViewer label="Photo" path={c.photo_path} url={c.photo_url} />}
-              {c.signature_path && <StoredFileViewer label="Signature" path={c.signature_path} url={c.signature_url} />}
+              {c.photo_path && <StoredFileViewer label="Photo" path={c.photo_path} url={c.photo_url} kind="photo" />}
+              {c.signature_path && <StoredFileViewer label="Signature" path={c.signature_path} url={c.signature_url} kind="signature" />}
             </Row>
             {(c.caste_cert_path || (c.ph_status && c.udid_cert_path)) && (
               <Row>
@@ -443,7 +443,26 @@ const ApplicationView = () => {
           </SectionCard>
         )}
 
+        {app?.eligibility && (app.eligibility.age_on_cutoff != null || app.eligibility.required_education) && (
+          <SectionCard title="Eligibility (checked at submission)">
+            <Row>
+              <Field label="Age on last date" value={app.eligibility.age_on_cutoff != null ? `${app.eligibility.age_on_cutoff} years` : "—"} span={3} />
+              <Field label="Age limit applied" value={
+                app.eligibility.max_age_allowed != null || app.eligibility.min_age != null
+                  ? `${app.eligibility.min_age ?? "—"} – ${app.eligibility.max_age_allowed ?? "—"} years${app.eligibility.relaxation_years ? ` (incl. ${app.eligibility.relaxation_years} yrs relaxation)` : ""}`
+                  : "—"} span={3} />
+              <Field label="Highest qualification" value={app.eligibility.education ? `${app.eligibility.education}${app.eligibility.education_level != null ? ` (level ${app.eligibility.education_level})` : ""}` : "—"} span={3} />
+              <Field label="Minimum required" value={app.eligibility.required_education ? `${app.eligibility.required_education} (level ${app.eligibility.required_level})` : "—"} span={3} />
+            </Row>
+          </SectionCard>
+        )}
+
         <SectionCard title="Application Documents">
+          {app?.declarations?.length > 0 && (
+            <div className="alert alert-warning py-2" style={{ fontSize: 13 }}>
+              <strong>Declared — will obtain (not uploaded):</strong> {app.declarations.map((d) => d.label).join(", ")}
+            </div>
+          )}
           {!app?.documents?.length ? (
             <div className="text-muted" style={{ fontSize: 13 }}>No application documents submitted.</div>
           ) : (

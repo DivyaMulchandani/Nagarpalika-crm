@@ -78,6 +78,16 @@ export const requirePermission = (menuUrls, actions) => {
 };
 
 /**
+ * The same check, for a controller that shows or hides part of a response
+ * rather than refusing the whole request. ADMIN always passes.
+ */
+export const hasPermission = async (req, menuUrls, actions) => {
+  if (req.user?.role === "ADMIN") return true;
+  const employee = await activeEmployee(req.user?.id);
+  return granted(employee, toList(menuUrls), toList(actions));
+};
+
+/**
  * For the permission list itself: every employee's own role has to load (the
  * sidebar is built from it), but reading anyone else's needs the permission.
  */

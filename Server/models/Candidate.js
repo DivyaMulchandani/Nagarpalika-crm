@@ -54,6 +54,9 @@ const CandidateSchema = new mongoose.Schema(
     ph_percentage: { type: Number },
     ex_serviceman: { type: Boolean, default: false },
     qualification: { type: String, trim: true },
+    // When the highest qualification is typed in ("Others"), the education
+    // entry it is equivalent to — that entry's level is used for eligibility.
+    qualification_equivalent: { type: String, trim: true },
     languages: [
       {
         language: { type: String, trim: true },

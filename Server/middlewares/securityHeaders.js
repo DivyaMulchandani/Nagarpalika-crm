@@ -90,6 +90,20 @@ export const paymentInitiateLimiter = rateLimit({
 });
 
 /**
+ * Every API route, per IP. The narrower limiters guard specific abuse; this one
+ * stops a single machine from occupying the server, which also hosts Palanpur.
+ * 300 a minute is far above what a person clicking through either app sends,
+ * and leaves room for candidates sharing one IP at a cyber cafe.
+ */
+export const apiLimiter = rateLimit({
+  windowMs: 60 * 1000,
+  max: 300,
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: rateLimitResponse,
+});
+
+/**
  * Staff login, per IP. Staff accounts have no lockout of their own, so nothing
  * else limits password guessing. Only failures count, so a shared office IP
  * isn't penalised for people logging in normally.
@@ -142,29 +156,11 @@ export const securityHeaders = helmet({
   contentSecurityPolicy: {
     directives: {
       defaultSrc: ["'self'"],
-      styleSrc: [
-        "'self'",
-        "'unsafe-inline'",
-        "https://fonts.googleapis.com",
-        "https://unpkg.com",
-      ],
-      styleSrcElem: [
-        "'self'",
-        "'unsafe-inline'",
-        "https://fonts.googleapis.com",
-        "https://unpkg.com",
-      ],
-      scriptSrc: [
-        "'self'",
-        "'unsafe-inline'",
-        "'unsafe-eval'",
-        "https://unpkg.com",
-      ],
-      scriptSrcElem: [
-        "'self'",
-        "'unsafe-inline'",
-        "https://unpkg.com",
-      ],
+      styleSrc: ["'self'", "'unsafe-inline'", "https://fonts.googleapis.com"],
+      styleSrcElem: ["'self'", "'unsafe-inline'", "https://fonts.googleapis.com"],
+      // Neither app loads a script from anywhere else or runs inline script.
+      scriptSrc: ["'self'"],
+      scriptSrcElem: ["'self'"],
       imgSrc: [
         "'self'",
         "data:",

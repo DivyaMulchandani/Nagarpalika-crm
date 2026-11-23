@@ -51,6 +51,7 @@ router.post(
   "/advertisements",
   authMiddleware(["ADMIN", "EMPLOYEE"]),
   requirePermission("/advertisements", "write"),
+  roleScope,
   createAdvertisement,
 );
 router.patch("/advertisements/:id", adminAuth, requirePermission("/advertisements", "edit"), roleScope, patchAdvertisement);

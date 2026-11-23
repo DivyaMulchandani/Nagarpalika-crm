@@ -42,6 +42,27 @@ const ApplicationSchema = new mongoose.Schema(
         uploaded_at: { type: Date, default: Date.now },
       },
     ],
+    // Certificates the candidate declared they will obtain (e.g. CCC within
+    // the probation period) instead of uploading.
+    declarations: [
+      {
+        label: { type: String, required: true },
+        status: { type: String, enum: ["will_obtain"], default: "will_obtain" },
+        declared_at: { type: Date, default: Date.now },
+      },
+    ],
+    // What the eligibility check saw when the application was submitted.
+    eligibility: {
+      cutoff_date: Date,
+      age_on_cutoff: Number,
+      min_age: Number,
+      max_age_allowed: Number,
+      relaxation_years: Number,
+      education: String,
+      education_level: Number,
+      required_education: String,
+      required_level: Number,
+    },
 
     edit_log: [
       {

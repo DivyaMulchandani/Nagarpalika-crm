@@ -57,6 +57,20 @@ const sanitizeString = (value) => {
  * Create MongoDB sanitization middleware instance
  * Prevents NoSQL injection attacks
  */
+/**
+ * Refuse a request that carries MongoDB operators ("$ne", "$gt") or dotted keys.
+ * The sanitizer below would rewrite them into harmless but malformed values,
+ * which then failed deep inside a handler as a 500. No real form sends these,
+ * so saying "invalid input" up front is both clearer and safer.
+ */
+export const rejectOperatorKeys = (req, res, next) => {
+  if (mongoSanitize.has(req.body) || mongoSanitize.has(req.query))
+    return res
+      .status(400)
+      .json({ isOk: false, status: 400, message: "Invalid input" });
+  next();
+};
+
 export const mongoSanitizer = mongoSanitize({
     replaceWith: '_',
     onSanitize: ({ req, key }) => {

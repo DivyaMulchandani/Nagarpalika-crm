@@ -19,6 +19,7 @@ export default function FeeStatus() {
   const returnRef    = params.get('ref')
 
   const [regId, setRegId]     = useState('')
+  const [dob, setDob]         = useState('')
   const [loading, setLoading] = useState(false)
   const [results, setResults] = useState(null)
   const [error, setError]     = useState(null)
@@ -36,12 +37,17 @@ export default function FeeStatus() {
       toast.warn('Enter a valid Registration ID.')
       return
     }
+    if (!dob) {
+      setError('Enter your date of birth.')
+      toast.warn('Enter your date of birth.')
+      return
+    }
     setError(null)
     setLoading(true)
     try {
       // POST, not GET — the lookup takes a body so the Registration ID never
       // lands in a query string, access log, or browser history.
-      const res = await post('/api/v1/fee-payments/status', { registration_id: regId.trim() })
+      const res = await post('/api/v1/fee-payments/status', { registration_id: regId.trim(), dob })
       setResults(Array.isArray(res.data) ? res.data : [])
     } catch (err) {
       setError(err.message || 'Could not fetch fee status.')
@@ -84,6 +90,10 @@ export default function FeeStatus() {
                 <label>Registration ID *</label>
                 <input type="text" placeholder="e.g. OTR2026001234" value={regId} onChange={handleRegIdChange} maxLength={30} autoComplete="off" />
               </div>
+              <div className="form-field">
+                <label>Date of Birth / જન્મ તારીખ *</label>
+                <input type="date" value={dob} onChange={(e) => { setDob(e.target.value); setError(null) }} max={new Date().toISOString().slice(0, 10)} />
+              </div>
               {error && <p style={{ color: 'var(--ojas-red)', fontSize: 13, margin: '4px 0 0' }}>{error}</p>}
               <div className="form-actions">
                 <button type="submit" className="btn primary" disabled={loading}>{loading ? 'Loading…' : 'Check Status'}</button>
@@ -98,7 +108,7 @@ export default function FeeStatus() {
           <div className="box-title"><span>Fee Status Results</span></div>
           {results.length === 0 ? (
             <div style={{ padding: 20, textAlign: 'center', color: 'var(--ojas-ink-3)', fontSize: 13.5, lineHeight: 1.7 }}>
-              No fee records found for this Registration ID.
+              No fee records found for this Registration ID and date of birth.
               <br />
               A fee record appears here only after you start a payment. If you have just
               submitted an application, open <Link to="/applications" style={{ color: 'var(--ojas-saffron-deep)', fontWeight: 700 }}>My Applications</Link> to pay.

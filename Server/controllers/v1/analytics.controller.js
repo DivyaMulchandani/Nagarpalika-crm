@@ -2,9 +2,14 @@ import Advertisement from "../../models/Advertisement.js";
 import Candidate from "../../models/Candidate.js";
 import Application from "../../models/Application.js";
 import FeePayment from "../../models/FeePayment.js";
+import { hasPermission } from "../../middlewares/requirePermission.js";
 
 export const getDashboardStats = async (req, res) => {
   try {
+    // Money totals only for someone allowed to see fee payments; the rest of
+    // the dashboard is counts every staff member may see.
+    const showFees = await hasPermission(req, "/fee-payments", "read");
+
     const [advStats, candidateCount, appStats, feeStats] = await Promise.all([
       Advertisement.aggregate([
         { $group: { _id: "$status", count: { $sum: 1 } } },
@@ -13,15 +18,17 @@ export const getDashboardStats = async (req, res) => {
       Application.aggregate([
         { $group: { _id: "$status", count: { $sum: 1 } } },
       ]),
-      FeePayment.aggregate([
-        {
-          $group: {
-            _id: "$status",
-            total: { $sum: "$amount" },
-            count: { $sum: 1 },
-          },
-        },
-      ]),
+      showFees
+        ? FeePayment.aggregate([
+            {
+              $group: {
+                _id: "$status",
+                total: { $sum: "$amount" },
+                count: { $sum: 1 },
+              },
+            },
+          ])
+        : [],
     ]);
 
     const toMap = (arr) =>
@@ -51,7 +58,7 @@ export const getDashboardStats = async (req, res) => {
           rejected: appMap.rejected?.count || 0,
           selected: appMap.selected?.count || 0,
         },
-        feePayments: {
+        feePayments: showFees ? {
           pending: {
             count: feeMap.pending?.count || 0,
             amount: feeMap.pending?.total || 0,
@@ -68,7 +75,7 @@ export const getDashboardStats = async (req, res) => {
             count: feeMap.refunded?.count || 0,
             amount: feeMap.refunded?.total || 0,
           },
-        },
+        } : null,
       },
     });
   } catch (error) {

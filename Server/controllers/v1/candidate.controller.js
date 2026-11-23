@@ -1,4 +1,5 @@
 import bcrypt from "bcrypt";
+import { qualificationProblem, isEducationEntry } from "./candidateRegistration.controller.js";
 import crypto from "crypto";
 import Candidate from "../../models/Candidate.js";
 import Application from "../../models/Application.js";
@@ -367,22 +368,38 @@ export const editCandidate = async (req, res) => {
       "address_permanent",
       "address_current",
       "qualification",
+      "qualification_equivalent",
       "languages",
       "ph_status",
       "ph_type",
       "ph_percentage",
       "ex_serviceman",
       "caste_cert_no",
-      "caste_cert_path",
-      "udid_cert_path",
-      "photo_path",
-      "signature_path",
+      // Photo, signature and certificate paths are set only by their upload
+      // endpoints, never from the request body (it could name another
+      // candidate's file).
     ];
 
-    EDITABLE.forEach((field) => {
-      if (field in req.body) {
-        candidate[field] = req.body[field];
-      }
+    // The one-time allowance is spent only by a request that edits something.
+    // One carrying nothing editable (empty, or only fields refused elsewhere)
+    // would otherwise use it up and save nothing.
+    // Highest qualification: an education entry, or typed-in with its equivalent.
+    if ("qualification" in req.body) {
+      const problem = await qualificationProblem(req.body.qualification, req.body.qualification_equivalent);
+      if (problem) return res.status(422).json({ isOk: false, status: 422, message: problem });
+      if (await isEducationEntry(req.body.qualification)) req.body.qualification_equivalent = "";
+    }
+
+    const toApply = EDITABLE.filter((field) => field in req.body);
+    if (!toApply.length)
+      return res.status(400).json({
+        isOk: false,
+        status: 400,
+        message: "No changes to save.",
+      });
+
+    toApply.forEach((field) => {
+      candidate[field] = req.body[field];
     });
 
     candidate.profile_edit_count = (candidate.profile_edit_count || 0) + 1;

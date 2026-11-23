@@ -131,6 +131,8 @@ export const sendCandidateOtp = async (req, res) => {
       expires_at,
       attempts: 0,
       aadhaar_hash: aadhaarHash,
+      // Kept so the registration uses exactly the email entered with the OTP.
+      email: typeof email === "string" && email.trim() ? email.trim() : undefined,
     };
 
     const deliveryResult = await deliverOtp({
@@ -219,6 +221,7 @@ export const verifyCandidateOtp = async (req, res) => {
 
     delete req.session.candidateOtp;
     req.session.mobileOtpVerified = mobile;
+    req.session.otpEmail = stored.email || null;
 
     return res
       .status(200)

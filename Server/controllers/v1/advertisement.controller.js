@@ -1,4 +1,6 @@
 import crypto from "crypto";
+import Qualification from "../../models/Qualification.js";
+import { sanitizeAgeRelaxation } from "../../services/eligibility.service.js";
 import mongoose from "mongoose";
 import Advertisement from "../../models/Advertisement.js";
 import Application from "../../models/Application.js";
@@ -12,6 +14,14 @@ import {
 } from "../../services/storage.service.js";
 import { escapeRegex } from "../../utils/escapeRegex.js";
 import { todayInIndia } from "../../utils/deadline.js";
+import { outsideScope } from "../../middlewares/roleScope.js";
+
+const otherDepartment = (res) =>
+  res.status(403).json({
+    isOk: false,
+    status: 403,
+    message: "You can only manage advertisements for your own department",
+  });
 
 export const createAdvertisement = async (req, res) => {
   try {
@@ -37,7 +47,15 @@ export const createAdvertisement = async (req, res) => {
       status,
       required_qualifications,
       caste_certificate,
+      min_education,
+      age_relaxation,
     } = req.body;
+
+    if (outsideScope(req, department)) return otherDepartment(res);
+    if (status === "Published") {
+      const problem = await minEducationProblem(min_education);
+      if (problem) return res.status(422).json({ isOk: false, status: 422, message: problem });
+    }
 
     const adv = new Advertisement({
       post_title,
@@ -54,7 +72,9 @@ export const createAdvertisement = async (req, res) => {
       },
       age_limit,
       qualification,
-      required_qualifications: required_qualifications ?? [],
+      required_qualifications: sanitizeRequiredQualifications(required_qualifications),
+      min_education: mongoose.Types.ObjectId.isValid(min_education) ? min_education : undefined,
+      age_relaxation: sanitizeAgeRelaxation(age_relaxation),
       caste_certificate: caste_certificate ?? {
         required: false,
         is_compulsory: false,
@@ -91,10 +111,36 @@ export const createAdvertisement = async (req, res) => {
   }
 };
 
+// required_qualifications from the form: keep the requirement mode and the
+// optional instruction, and keep is_compulsory in step for older readers.
+const sanitizeRequiredQualifications = (list) =>
+  (Array.isArray(list) ? list : [])
+    .filter((rq) => rq && mongoose.Types.ObjectId.isValid(rq.qualification?._id || rq.qualification))
+    .map((rq) => {
+      const requirement = ["compulsory", "optional", "declaration"].includes(rq.requirement)
+        ? rq.requirement
+        : rq.is_compulsory === false ? "optional" : "compulsory";
+      return {
+        qualification: rq.qualification?._id || rq.qualification,
+        requirement,
+        is_compulsory: requirement === "compulsory",
+        instruction: typeof rq.instruction === "string" ? rq.instruction.replace(/[<>]/g, "").trim().slice(0, 300) || undefined : undefined,
+      };
+    });
+
+// Publishing needs a minimum education that is an education entry with a level.
+const minEducationProblem = async (minEducation) => {
+  if (!minEducation) return "Minimum education is required before publishing";
+  const q = await Qualification.findById(minEducation).select("type level name").lean();
+  if (!q || q.type !== "education") return "Minimum education must be an Education entry from the Qualification master";
+  if (typeof q.level !== "number") return `Set a level for "${q.name}" in the Qualification master before publishing`;
+  return null;
+};
+
 // Fields safe to expose to the public (no audit/internal/export data)
 const PUBLIC_ADVT_PROJECTION =
   "advt_no slug post_title department class pay_scale vacancies age_limit " +
-  "qualification required_qualifications caste_certificate ph_description experience_required application_fee application_fee_concessional " +
+  "qualification min_education age_relaxation required_qualifications caste_certificate ph_description experience_required application_fee application_fee_concessional " +
   "start_date end_date probation_period other_conditions note enforce_reservation_rules status pdf_path";
 
 const LIST_ADVT_PROJECTION =
@@ -284,7 +330,8 @@ export const getAdvertisementById = async (req, res) => {
 
     let find = Advertisement.findOne(query)
       .populate("department", "departmentName departmentCode")
-      .populate("required_qualifications.qualification", "name");
+      .populate("required_qualifications.qualification", "name type")
+      .populate("min_education", "name level");
     if (!isAuthenticated) find = find.select(PUBLIC_ADVT_PROJECTION);
 
     const adv = await find;
@@ -308,13 +355,10 @@ export const patchAdvertisement = async (req, res) => {
       return res
         .status(404)
         .json({ isOk: false, status: 404, message: "Not found" });
-    if (
-      req.scopedDepartmentId &&
-      String(adv.department) !== String(req.scopedDepartmentId)
-    )
-      return res
-        .status(403)
-        .json({ isOk: false, status: 403, message: "Forbidden" });
+    if (outsideScope(req, adv.department)) return otherDepartment(res);
+    // Moving an advertisement to another department counts as acting there.
+    if ("department" in req.body && outsideScope(req, req.body.department))
+      return otherDepartment(res);
 
     const ALLOWED = [
       "post_title",
@@ -326,6 +370,8 @@ export const patchAdvertisement = async (req, res) => {
       "qualification",
       "required_qualifications",
       "caste_certificate",
+      "min_education",
+      "age_relaxation",
       "ph_description",
       "experience_required",
       "application_fee",
@@ -338,11 +384,18 @@ export const patchAdvertisement = async (req, res) => {
       "enforce_reservation_rules",
     ];
     for (const key of ALLOWED) {
-      if (req.body[key] !== undefined)
-        adv[key] =
-          key === "vacancies"
-            ? normalizeVacancies(req.body[key])
-            : req.body[key];
+      if (req.body[key] === undefined) continue;
+      if (key === "vacancies") adv[key] = normalizeVacancies(req.body[key]);
+      else if (key === "required_qualifications") adv[key] = sanitizeRequiredQualifications(req.body[key]);
+      else if (key === "age_relaxation") adv[key] = sanitizeAgeRelaxation(req.body[key]);
+      else if (key === "min_education")
+        adv[key] = mongoose.Types.ObjectId.isValid(req.body[key]) ? req.body[key] : undefined;
+      else adv[key] = req.body[key];
+    }
+    // A published advertisement must keep a valid minimum education.
+    if (adv.status === "Published" && ("min_education" in req.body)) {
+      const problem = await minEducationProblem(adv.min_education);
+      if (problem) return res.status(422).json({ isOk: false, status: 422, message: problem });
     }
     adv.markModified("vacancies");
     adv.updatedBy = req.user.id;
@@ -483,13 +536,7 @@ export const patchAdvertisementStatus = async (req, res) => {
       return res
         .status(404)
         .json({ isOk: false, status: 404, message: "Not found" });
-    if (
-      req.scopedDepartmentId &&
-      String(adv.department) !== String(req.scopedDepartmentId)
-    )
-      return res
-        .status(403)
-        .json({ isOk: false, status: 403, message: "Forbidden" });
+    if (outsideScope(req, adv.department)) return otherDepartment(res);
 
     const allowed = STATUS_TRANSITIONS[adv.status] ?? [];
     if (!allowed.includes(status))
@@ -505,6 +552,9 @@ export const patchAdvertisementStatus = async (req, res) => {
       if (!adv.department) missing.push("department");
       if (!adv.class) missing.push("class");
       if (!adv.qualification?.trim()) missing.push("qualification");
+      const eduProblem = await minEducationProblem(adv.min_education);
+      if (eduProblem)
+        return res.status(422).json({ isOk: false, status: 422, message: eduProblem, fields: ["min_education"] });
       if (!adv.start_date) missing.push("start_date");
       if (!adv.end_date) missing.push("end_date");
       if (!(vacancyCount(adv.vacancies) > 0)) missing.push("vacancies");
@@ -540,13 +590,7 @@ export const uploadAdvertisementPdf = async (req, res) => {
       return res
         .status(404)
         .json({ isOk: false, status: 404, message: "Not found" });
-    if (
-      req.scopedDepartmentId &&
-      String(adv.department) !== String(req.scopedDepartmentId)
-    )
-      return res
-        .status(403)
-        .json({ isOk: false, status: 403, message: "Forbidden" });
+    if (outsideScope(req, adv.department)) return otherDepartment(res);
     if (!req.file)
       return res
         .status(422)

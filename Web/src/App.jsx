@@ -20,7 +20,6 @@ import FeeFailure from './pages/Fee/FeeFailure'
 import RegistrationStep from './pages/Registration/RegistrationStep'
 import FindRegistration from './pages/Registration/FindRegistration'
 import ApplicationEntry from './pages/Application/ApplicationEntry'
-import ApplicationForm from './pages/Application/ApplicationForm'
 import PrintApplication from './pages/Application/PrintApplication'
 import ApplyDirect from './pages/Application/ApplyDirect'
 import AdvertisementDetail from './pages/AdvertisementDetail'
@@ -91,7 +90,8 @@ export default function App() {
             <Route path="/apply/:slug"                   element={<Layout><ApplyDirect /></Layout>} />
 
             <Route path="/application"                   element={<Layout><RequireAuth><ApplicationEntry /></RequireAuth></Layout>} />
-            <Route path="/application/apply"             element={<Layout><RequireAuth><ApplicationForm /></RequireAuth></Layout>} />
+            {/* Old second apply form retired: every application goes through /apply/:slug (eligibility + documents). */}
+            <Route path="/application/apply"             element={<Navigate to="/application" replace />} />
             <Route path="/application/print"             element={<Layout><RequireAuth><PrintApplication /></RequireAuth></Layout>} />
 
             <Route path="/profile"                       element={<Layout><RequireAuth><Profile /></RequireAuth></Layout>} />

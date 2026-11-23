@@ -103,8 +103,8 @@ const CandidateProfile = () => {
               </TabPane>
               <TabPane tabId="3">
                 <Row>
-                  <StoredFileViewer label="Photo" path={c.photo_path} url={c.photo_url} />
-                  <StoredFileViewer label="Signature" path={c.signature_path} url={c.signature_url} />
+                  <StoredFileViewer label="Photo" path={c.photo_path} url={c.photo_url} kind="photo" />
+                  <StoredFileViewer label="Signature" path={c.signature_path} url={c.signature_url} kind="signature" />
                   {c.caste_cert_path && <StoredFileViewer label="Caste Certificate" path={c.caste_cert_path} url={c.caste_cert_url} />}
                   {c.ph_status && <StoredFileViewer label="UDID Certificate" path={c.udid_cert_path} url={c.udid_cert_url} />}
                 </Row>

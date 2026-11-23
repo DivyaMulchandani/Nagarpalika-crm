@@ -98,7 +98,14 @@ export const initRegistration = async (req, res) => {
         message: "Aadhaar already registered",
       });
 
-    req.session.candidateStep = { step: 2, aadhaar_hash, mobile, data: {} };
+    // The email entered with the OTP in step 2 is the registration's email; it
+    // is not asked again later.
+    req.session.candidateStep = {
+      step: 2,
+      aadhaar_hash,
+      mobile,
+      data: req.session.otpEmail ? { email: req.session.otpEmail } : {},
+    };
 
     return res.status(200).json({
       isOk: true,
@@ -198,19 +205,18 @@ export const saveStep = async (req, res) => {
       "address_permanent",
       "address_current",
       "alternate_mobile",
-      "email",
       "ph_status",
       "ph_type",
       "ph_percentage",
       "ex_serviceman",
       "qualification",
+      "qualification_equivalent",
       "languages",
       "mother_tongue",
-      "photo_path",
-      "signature_path",
       "caste_cert_no",
-      "caste_cert_path",
-      "udid_cert_path",
+      // File paths (photo, signature, certificates) are set only by the upload
+      // endpoints. Accepting them here would let a request point its record at
+      // another candidate's file and then read it through the signed-URL route.
     ]);
 
     const unknownKeys = Object.keys(data).filter((k) => !ALLOWED_PROFILE_KEYS.has(k));
@@ -240,21 +246,11 @@ export const saveStep = async (req, res) => {
 
 
     if (sanitized.qualification) {
-      const qualName = String(sanitized.qualification).trim();
-      const exact = await Qualification.findOne({ name: qualName, isActive: true });
-      if (!exact) {
-        const othersEntry = await Qualification.findOne({
-          name: { $regex: /^others$/i },
-          isActive: true,
-        });
-        if (!othersEntry || !qualName) {
-          return res.status(422).json({
-            isOk: false,
-            status: 422,
-            message: "Invalid qualification selected",
-          });
-        }
-      }
+      const problem = await qualificationProblem(sanitized.qualification, sanitized.qualification_equivalent);
+      if (problem)
+        return res.status(422).json({ isOk: false, status: 422, message: problem });
+      // An exact master entry needs no equivalent.
+      if (await isEducationEntry(sanitized.qualification)) sanitized.qualification_equivalent = "";
     }
 
     req.session.candidateStep = {
@@ -323,6 +319,25 @@ export const uploadSignature = async (req, res) => {
       .status(500)
       .json({ isOk: false, status: 500, message: "An unexpected error occurred" });
   }
+};
+
+// Highest qualification must be an education entry from the master, or a
+// typed-in one ("Others") together with the education entry it equals.
+const EDUCATION = { $in: ["education", null] };
+// "Others" is a placeholder, not a qualification: it always needs an equivalent.
+export const isEducationEntry = async (name) =>
+  !!name &&
+  !/^others$/i.test(String(name).trim()) &&
+  !!(await Qualification.exists({ name: String(name).trim(), isActive: true, type: EDUCATION }));
+export const qualificationProblem = async (qualification, equivalent) => {
+  const qualName = String(qualification || "").trim();
+  if (!qualName) return "Highest qualification is required";
+  if (await isEducationEntry(qualName)) return null;
+  const othersEntry = await Qualification.exists({ name: { $regex: /^others$/i }, isActive: true });
+  if (!othersEntry) return "Invalid qualification selected";
+  if (!equivalent || /^others$/i.test(String(equivalent).trim()) || !(await isEducationEntry(equivalent)))
+    return "Please choose which qualification yours is equivalent to";
+  return null;
 };
 
 // Final submit — creates Candidate record, clears step session
@@ -560,9 +575,16 @@ export const resumeRegistration = async (req, res) => {
       });
 
     const { step, data } = req.session.candidateStep;
-    return res
-      .status(200)
-      .json({ isOk: true, status: 200, data: { step, data } });
+    // Short-lived links so the form can show the photo/signature already uploaded.
+    const [photo_url, signature_url] = await Promise.all([
+      data?.photo_path ? resolveFileUrl(data.photo_path) : null,
+      data?.signature_path ? resolveFileUrl(data.signature_path) : null,
+    ]);
+    return res.status(200).json({
+      isOk: true,
+      status: 200,
+      data: { step, data: { ...data, photo_url, signature_url } },
+    });
   } catch (error) {
     return res
       .status(500)

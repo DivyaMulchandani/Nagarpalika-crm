@@ -36,7 +36,12 @@ const AdvertisementSchema = new mongoose.Schema(
       min: { type: Number },
       max: { type: Number },
     },
+    // Shown to candidates as the qualification description (e.g. "B.E. Civil
+    // from a recognised university"). The enforced rule is min_education.
     qualification: { type: String, trim: true },
+    // Lowest education a candidate must hold (an education entry with a level).
+    // Candidates whose highest qualification ranks below it cannot apply.
+    min_education: { type: mongoose.Schema.Types.ObjectId, ref: "Qualification" },
     required_qualifications: [
       {
         qualification: {
@@ -45,8 +50,34 @@ const AdvertisementSchema = new mongoose.Schema(
           required: true,
         },
         is_compulsory: { type: Boolean, default: true },
+        // compulsory | optional upload; declaration = the candidate may instead
+        // declare they will obtain it (e.g. CCC within the probation period).
+        requirement: {
+          type: String,
+          enum: ["compulsory", "optional", "declaration"],
+        },
+        instruction: { type: String, trim: true, maxlength: 300 },
       },
     ],
+    // Age is counted in completed years as on the last date of application.
+    age_relaxation: {
+      enabled: { type: Boolean, default: false },
+      rules: [
+        {
+          group: {
+            type: String,
+            enum: ["SC", "ST", "OBC", "EWS", "Female", "PH", "ExServiceman"],
+          },
+          years: { type: Number, min: 0, max: 30 },
+        },
+      ],
+      // add: relaxations for every group the candidate is in are added up;
+      // highest: only the largest one applies.
+      combine: { type: String, enum: ["add", "highest"], default: "add" },
+      // Upper age after relaxation may not exceed this (blank = no cap).
+      max_age_cap: { type: Number, min: 0, max: 100 },
+      notes: { type: String, trim: true, maxlength: 1000 },
+    },
     caste_certificate: {
       required: { type: Boolean, default: false },
       is_compulsory: { type: Boolean, default: false },

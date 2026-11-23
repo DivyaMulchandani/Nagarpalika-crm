@@ -19,8 +19,9 @@ import {
   getCorsConfig,
   sanitizeErrors,
   publicApiLimiter,
+  apiLimiter,
 } from "./middlewares/securityHeaders.js";
-import { mongoSanitizer } from "./middlewares/inputValidator.js";
+import { mongoSanitizer, rejectOperatorKeys } from "./middlewares/inputValidator.js";
 import { startScheduler } from "./services/scheduler.service.js";
 
 // ES6 module equivalent of __dirname and __filename
@@ -98,6 +99,7 @@ app.use(bodyParser.json({ limit: "10mb" }));
 app.use(bodyParser.urlencoded({ extended: true, limit: "10mb" }));
 
 // 5. MongoDB NoSQL Injection Protection
+app.use(rejectOperatorKeys);
 app.use(mongoSanitizer);
 
 // 6. HTTP Parameter Pollution Prevention
@@ -213,7 +215,8 @@ import whatsappRoutes from "./routes/v1/whatsapp.routes.js";
 import documentsRoutes from "./routes/v1/documents.routes.js";
 import configRoutes from "./routes/v1/config.routes.js";
 
-// Rate limit all public API reads
+// Overall per-IP ceiling for every API route, then tighter ones on public reads
+app.use("/api", apiLimiter);
 app.use("/api/v1/advertisements", publicApiLimiter);
 app.use("/api/v1/notices", publicApiLimiter);
 app.use("/api/v1/companies/details", publicApiLimiter);

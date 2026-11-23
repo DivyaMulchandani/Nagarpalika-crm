@@ -23,10 +23,12 @@ export const createOtp = async (req, res) => {
       user = await CompanyMaster.findOne({ email });
     }
 
+    // Answer exactly as if an OTP was sent, so this can't be used to find out
+    // which email addresses have staff accounts.
     if (!user) {
-      return res.status(400).json({
-        isOk: false,
-        message: "User not found",
+      return res.status(200).json({
+        isOk: true,
+        message: "OTP sent successfully to your email",
       });
     }
 

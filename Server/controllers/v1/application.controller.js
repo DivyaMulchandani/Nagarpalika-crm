@@ -1,3 +1,4 @@
+import mongoose from "mongoose";
 import crypto from "crypto";
 import path from "path";
 import Application from "../../models/Application.js";
@@ -26,6 +27,7 @@ import {
 import { escapeRegex } from "../../utils/escapeRegex.js";
 import { deadlinePassed, feePaymentClosed } from "../../utils/deadline.js";
 import { resolveApplicationFee } from "../../services/feeCalculator.service.js";
+import { checkEligibility } from "../../services/eligibility.service.js";
 
 const EDITABLE_FIELDS = [
   "exam_centre",
@@ -61,6 +63,16 @@ const validateSubmissionInput = (body) => {
   )
     return "declaration_accepted must be a boolean";
   if (
+    body?.documents !== undefined &&
+    (!Array.isArray(body.documents) || body.documents.length > 20)
+  )
+    return "documents must be a list of at most 20 items";
+  if (
+    body?.declarations !== undefined &&
+    (!Array.isArray(body.declarations) || body.declarations.length > 20)
+  )
+    return "declarations must be a list of at most 20 items";
+  if (
     experience_years !== undefined &&
     (typeof experience_years !== "number" ||
       Number.isNaN(experience_years) ||
@@ -84,6 +96,99 @@ const validateSubmissionInput = (body) => {
 // Strip HTML/script characters from free-text values
 const sanitizeText = (v) =>
   typeof v === "string" ? v.trim().replace(/[<>]/g, "").slice(0, 500) : v;
+
+// ── Documents uploaded before submit ─────────────────────────────────────────
+// A document is uploaded the moment the candidate picks it, so pressing Submit
+// only attaches what is already stored. The upload hands back a signed token
+// naming the stored file and its owner; submit accepts only tokens it signed
+// for this candidate, so nobody can attach another person's file.
+const STAGED_DOC_MAX_AGE_MS = 12 * 60 * 60 * 1000;
+const stagedSecret = () => process.env.SESSION_SECRET || "staged-doc";
+export const signStaged = (payload) => {
+  const body = Buffer.from(JSON.stringify(payload)).toString("base64url");
+  const mac = crypto.createHmac("sha256", stagedSecret()).update(body).digest("base64url");
+  return `${body}.${mac}`;
+};
+const readStaged = (token, registration_id) => {
+  if (typeof token !== "string" || token.length > 2000) return null;
+  const [body, mac] = token.split(".");
+  if (!body || !mac) return null;
+  const expected = crypto.createHmac("sha256", stagedSecret()).update(body).digest("base64url");
+  const a = Buffer.from(mac);
+  const b = Buffer.from(expected);
+  if (a.length !== b.length || !crypto.timingSafeEqual(a, b)) return null;
+  let payload;
+  try {
+    payload = JSON.parse(Buffer.from(body, "base64url").toString("utf8"));
+  } catch {
+    return null;
+  }
+  if (payload?.r !== registration_id) return null;
+  if (!payload.t || Date.now() - payload.t > STAGED_DOC_MAX_AGE_MS) return null;
+  return payload;
+};
+
+// The documents an advertisement asks for — same list the apply page shows.
+// requirement: compulsory | optional | declaration (upload, or declare that
+// it will be obtained — e.g. CCC within the probation period).
+export const requirementOf = (rq) =>
+  rq.requirement || (rq.is_compulsory ? "compulsory" : "optional");
+const requiredDocumentsFor = (advt) => [
+  ...(advt.required_qualifications || []).map((rq) => ({
+    label: rq.qualification?.name || String(rq.qualification),
+    requirement: requirementOf(rq),
+    is_compulsory: requirementOf(rq) === "compulsory",
+  })),
+  ...(advt.caste_certificate?.required
+    ? [{
+        label: "Caste Certificate",
+        requirement: advt.caste_certificate.is_compulsory ? "compulsory" : "optional",
+        is_compulsory: !!advt.caste_certificate.is_compulsory,
+      }]
+    : []),
+];
+
+/**
+ * Turn the submitted [{ label, token }] list into application document rows,
+ * and [{ label }] declarations into declaration rows.
+ * Returns { documents, declarations } or { error }.
+ */
+export const resolveSubmittedDocuments = (advt, list, registration_id, declared = []) => {
+  const expected = requiredDocumentsFor(advt);
+  const byLabel = new Map();
+  for (const item of Array.isArray(list) ? list : []) {
+    const label = typeof item?.label === "string" ? item.label.trim() : "";
+    const want = expected.find((d) => d.label === label);
+    if (!want) continue; // not a document this advertisement asks for
+    const staged = readStaged(item.token, registration_id);
+    if (!staged) return { error: `${label}: upload expired or invalid. Please select the file again.` };
+    byLabel.set(label, {
+      label,
+      file_path: staged.k,
+      is_compulsory: want.is_compulsory,
+      uploaded_at: new Date(staged.t),
+    });
+  }
+  // A "declaration" item is met by an upload or by declaring it will be obtained.
+  const declarations = [];
+  for (const item of Array.isArray(declared) ? declared : []) {
+    const label = typeof item?.label === "string" ? item.label.trim() : "";
+    const want = expected.find((d) => d.label === label && d.requirement === "declaration");
+    if (want && !byLabel.has(label) && !declarations.some((x) => x.label === label))
+      declarations.push({ label, status: "will_obtain", declared_at: new Date() });
+  }
+  const missing = expected
+    .filter((d) =>
+      d.requirement === "compulsory"
+        ? !byLabel.has(d.label)
+        : d.requirement === "declaration"
+          ? !byLabel.has(d.label) && !declarations.some((x) => x.label === d.label)
+          : false,
+    )
+    .map((d) => d.label);
+  if (missing.length) return { error: `Please upload or declare: ${missing.join(", ")}` };
+  return { documents: [...byLabel.values()], declarations };
+};
 
 // The deadline is midnight at the END of end_date's day in India: an ad ending
 // 2026-06-06 accepts applications until 2026-06-06 23:59:59.999 IST.
@@ -352,7 +457,9 @@ export const submitApplication = async (req, res) => {
     const advt_no = req.body.advt_no.trim();
 
     const candidate = await Candidate.findOne({ registration_id }).lean();
-    const advt = await Advertisement.findOne({ advt_no });
+    const advt = await Advertisement.findOne({ advt_no })
+      .populate("required_qualifications.qualification", "name type")
+      .populate("min_education", "name level");
     if (!advt)
       return res
         .status(404)
@@ -386,11 +493,37 @@ export const submitApplication = async (req, res) => {
       }
     }
 
+    // Age and education: hard block, the same check the apply page shows.
+    const ageEdu = await checkEligibility(advt, candidate);
+    if (!ageEdu.eligible)
+      return res.status(403).json({
+        isOk: false,
+        status: 403,
+        message: ageEdu.reasons.join(" "),
+        reasons: ageEdu.reasons,
+      });
+
     // Idempotency: if an application already exists, return its reference
     // instead of failing — repeated submits never create duplicates.
     const existing = await Application.findOne({ registration_id, advt_no })
       .select(CANDIDATE_APP_PROJECTION)
       .lean();
+    // A repeat submit (e.g. the first one's response was lost) still attaches
+    // any documents sent with it, while the application can be edited.
+    if (existing && Array.isArray(req.body.documents) && req.body.documents.length && isEditableStatus(existing.status)) {
+      const { documents, error } = resolveSubmittedDocuments(advt, req.body.documents, registration_id, req.body.declarations);
+      if (!error && documents.length) {
+        const labels = documents.map((d) => d.label);
+        await Application.updateOne(
+          { _id: existing._id },
+          { $pull: { documents: { label: { $in: labels } } } },
+        );
+        await Application.updateOne(
+          { _id: existing._id },
+          { $push: { documents: { $each: documents } } },
+        );
+      }
+    }
     if (existing)
       return res.status(200).json({
         isOk: true,
@@ -412,6 +545,12 @@ export const submitApplication = async (req, res) => {
     // this can't disagree with what they would be charged.
     const requiresPayment = resolveApplicationFee(advt, candidate).amount > 0;
 
+    // Documents were uploaded while the form was being filled; here they are
+    // only attached. Compulsory ones must be present.
+    const docCheck = resolveSubmittedDocuments(advt, req.body.documents, registration_id, req.body.declarations);
+    if (docCheck.error)
+      return res.status(422).json({ isOk: false, status: 422, message: docCheck.error });
+
     const app = new Application({
       registration_id,
       advt_no,
@@ -421,6 +560,19 @@ export const submitApplication = async (req, res) => {
       additional_fields,
       status: requiresPayment ? "pending_payment" : "submitted",
       fee_exempt: !requiresPayment,
+      documents: docCheck.documents,
+      declarations: docCheck.declarations,
+      eligibility: {
+        cutoff_date: ageEdu.details.cutoff_date,
+        age_on_cutoff: ageEdu.details.age_on_cutoff,
+        min_age: ageEdu.details.min_age,
+        max_age_allowed: ageEdu.details.max_age_allowed,
+        relaxation_years: ageEdu.details.relaxation_years,
+        education: ageEdu.details.education ?? candidate?.qualification,
+        education_level: ageEdu.details.education_level,
+        required_education: ageEdu.details.required_education,
+        required_level: ageEdu.details.required_level,
+      },
     });
     try {
       await app.save();
@@ -1044,6 +1196,52 @@ export const searchApplications = async (req, res) => {
     return res
       .status(500)
       .json({ isOk: false, status: 500, message: "An unexpected error occurred" });
+  }
+};
+
+// What the apply page shows before the candidate starts: can they apply?
+export const getMyEligibility = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const query = mongoose.Types.ObjectId.isValid(id) ? { _id: id } : { $or: [{ slug: id }, { advt_no: id }] };
+    const advt = await Advertisement.findOne(query)
+      .select("advt_no age_limit end_date min_education age_relaxation")
+      .populate("min_education", "name level")
+      .lean();
+    if (!advt) return res.status(404).json({ isOk: false, message: "Advertisement not found" });
+    const candidate = await Candidate.findOne({ registration_id: req.user.registration_id })
+      .select("dob gender category ph_status ex_serviceman qualification qualification_equivalent")
+      .lean();
+    const result = await checkEligibility(advt, candidate);
+    return res.status(200).json({ isOk: true, data: result });
+  } catch (error) {
+    console.error("[application] getMyEligibility error:", error.message);
+    return res.status(500).json({ isOk: false, message: "An unexpected error occurred" });
+  }
+};
+
+// Upload one document as soon as it is picked (before the application exists).
+export const stageApplicationDocument = async (req, res) => {
+  try {
+    if (!req.file)
+      return res.status(422).json({ isOk: false, message: "File is required" });
+    const ext = path.extname(req.file.originalname).toLowerCase() || ".pdf";
+    const filename = `${Date.now()}-${crypto.randomBytes(6).toString("hex")}${ext}`;
+    const stored = await uploadBuffer({
+      module: "application-docs",
+      buffer: req.file.buffer,
+      filename,
+      contentType: req.file.mimetype,
+    });
+    const token = signStaged({ k: stored.key, r: req.user.registration_id, t: Date.now() });
+    return res.status(200).json({
+      isOk: true,
+      message: "Document uploaded",
+      data: { token, size: req.file.size },
+    });
+  } catch (error) {
+    console.error("[application] stageApplicationDocument error:", error.message);
+    return res.status(500).json({ isOk: false, message: "Upload failed. Please try again." });
   }
 };
 

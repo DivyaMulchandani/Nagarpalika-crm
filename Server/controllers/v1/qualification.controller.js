@@ -1,6 +1,18 @@
 import Qualification from "../../models/Qualification.js";
 import { escapeRegex } from "../../utils/escapeRegex.js";
 
+const TYPES = ["education", "certificate", "document"];
+// type + level from the form; level only means something for education.
+const typeAndLevel = (body) => {
+  const type = TYPES.includes(body.type) ? body.type : "education";
+  const n = Number(body.level);
+  const level =
+    type === "education" && body.level !== "" && body.level !== null && Number.isFinite(n) && n >= 0 && n <= 99
+      ? Math.floor(n)
+      : undefined;
+  return { type, level };
+};
+
 export const createQualification = async (req, res) => {
   try {
     const { name, isActive } = req.body;
@@ -15,6 +27,7 @@ export const createQualification = async (req, res) => {
 
     const doc = new Qualification({
       name: name.trim(),
+      ...typeAndLevel(req.body),
       isActive: isActive !== undefined ? isActive : true,
       createdBy: req.user?.id,
       updatedBy: req.user?.id,
@@ -38,9 +51,11 @@ export const searchQualifications = async (req, res) => {
       isActive,
       sorton,
       sortdir,
+      type,
     } = req.body;
 
     const filter = {};
+    if (TYPES.includes(type)) filter.type = type;
     if (isActive !== undefined && isActive !== "")
       filter.isActive = isActive === true || isActive === "true";
     if (match) filter.name = { $regex: escapeRegex(match), $options: "i" };
@@ -71,12 +86,16 @@ export const searchQualifications = async (req, res) => {
 };
 
 
-export const listPublicQualifications = async (_req, res) => {
+// OTR and profile "Highest Qualification": education entries only, lowest
+// level first. Entries saved before types existed count as education.
+export const listPublicQualifications = async (req, res) => {
   try {
-    const docs = await Qualification.find({ isActive: true })
-      .sort({ name: 1 })
-      .select("name isActive")
+    const type = TYPES.includes(req.query.type) ? req.query.type : "education";
+    const typeFilter = type === "education" ? { $in: ["education", null] } : type;
+    const docs = await Qualification.find({ isActive: true, type: typeFilter })
+      .select("name level type")
       .lean();
+    docs.sort((a, b) => (a.level ?? 999) - (b.level ?? 999) || a.name.localeCompare(b.name));
     return res.status(200).json({ isOk: true, data: docs });
   } catch (error) {
     console.error("[qualification] listPublicQualifications error:", error.message);
@@ -89,7 +108,7 @@ export const getAllQualifications = async (req, res) => {
     const filter = {};
     if (req.query.isActive !== undefined)
       filter.isActive = req.query.isActive === "true";
-    const docs = await Qualification.find(filter).sort({ name: 1 });
+    const docs = await Qualification.find(filter).sort({ type: 1, level: 1, name: 1 });
     return res.status(200).json({ isOk: true, data: docs });
   } catch (error) {
     console.error("[qualification] getAllQualifications error:", error.message);
@@ -126,7 +145,12 @@ export const updateQualification = async (req, res) => {
 
     const doc = await Qualification.findByIdAndUpdate(
       req.params.id,
-      { name: name.trim(), isActive, updatedBy: req.user?.id },
+      (() => {
+        const { type, level } = typeAndLevel(req.body);
+        const set = { name: name.trim(), isActive, type, updatedBy: req.user?.id };
+        // Changing to certificate/document (or clearing the level) removes it.
+        return level === undefined ? { $set: set, $unset: { level: 1 } } : { $set: { ...set, level } };
+      })(),
       { new: true, runValidators: true },
     );
     if (!doc)

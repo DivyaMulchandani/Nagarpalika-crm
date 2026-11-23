@@ -7,29 +7,44 @@ import { useAuth } from '../../context/AuthContext'
 import CandidateLogin from '../../components/CandidateLogin'
 import { IconWarn, IconCheck, IconCheckCircle } from '../../components/Icons'
 import { describeFee } from '../../utils/fee'
+import { uploadWithProgress } from '../../utils/uploadWithProgress'
+import UploadProgress from '../../components/UploadProgress'
+import { describeAgeLimit, describeRelaxation, requirementOf, REQUIREMENT_LABEL, TYPE_HEADING } from '../../utils/eligibility'
 
 
-const DEFAULT_DOC_LIMIT = { maxBytes: 10 * 1024 * 1024, maxLabel: '10 MB' }
+const DEFAULT_DOC_LIMIT = { maxBytes: 2 * 1024 * 1024, maxLabel: '2 MB' }
 
 
 const fmtDate = (d) =>
   d ? new Date(d).toLocaleDateString('en-IN', { day: '2-digit', month: '2-digit', year: 'numeric' }) : '—'
 
 // ─────────────────────────────────────────────────────────────
-// Document Upload Panel — files selected here, submitted together with the application
+// Document Upload Panel — each file uploads the moment it is picked, so Submit
+// only attaches what is already stored and returns at once.
 // ─────────────────────────────────────────────────────────────
 function DocumentUploadPanel({ advt, formData, onSuccess, onBack }) {
   const docs = [
     ...(advt.required_qualifications || []).map((rq) => ({
       label: rq.qualification?.name || String(rq.qualification),
-      is_compulsory: rq.is_compulsory,
+      type: rq.qualification?.type || 'education',
+      requirement: requirementOf(rq),
+      is_compulsory: requirementOf(rq) === 'compulsory',
+      instruction: rq.instruction,
     })),
     ...(advt.caste_certificate?.required
-      ? [{ label: 'Caste Certificate', is_compulsory: advt.caste_certificate.is_compulsory }]
+      ? [{
+          label: 'Caste Certificate',
+          type: 'document',
+          requirement: advt.caste_certificate.is_compulsory ? 'compulsory' : 'optional',
+          is_compulsory: !!advt.caste_certificate.is_compulsory,
+        }]
       : []),
   ]
+  // Certificates the candidate chose to declare ("will obtain") instead of uploading.
+  const [declared, setDeclared] = useState({})
 
-  const [files, setFiles]         = useState({})
+  // label -> { status, pct, message, name, token, file }
+  const [uploads, setUploads]     = useState({})
   const [submitting, setSubmitting] = useState(false)
   const [error, setError]         = useState(null)
   const [docLimit, setDocLimit]   = useState(DEFAULT_DOC_LIMIT)
@@ -48,33 +63,49 @@ function DocumentUploadPanel({ advt, formData, onSuccess, onBack }) {
       .catch(() => {})
   }, [])
 
-  const compulsoryReady = docs.filter((d) => d.is_compulsory).every((d) => !!files[d.label])
+  const setUpload = (label, patch) =>
+    setUploads((p) => ({ ...p, [label]: { ...(p[label] || {}), ...patch } }))
+
+  const startUpload = async (label, file) => {
+    setUpload(label, { status: 'uploading', pct: 0, message: null, name: file.name, token: null, file })
+    try {
+      const fd = new FormData()
+      fd.append('file', file)
+      const res = await uploadWithProgress('/api/v1/applications/documents/stage', fd, (pct) => setUpload(label, { pct }))
+      // Ignore a finished upload if the candidate has since picked another file.
+      setUploads((p) => (p[label]?.file === file ? { ...p, [label]: { ...p[label], status: 'done', pct: 100, token: res?.data?.token } } : p))
+    } catch (err) {
+      setUploads((p) => (p[label]?.file === file ? { ...p, [label]: { ...p[label], status: 'error', message: err.message } } : p))
+    }
+  }
+
+  const anyUploading = Object.values(uploads).some((u) => u?.status === 'uploading')
+  const compulsoryReady = docs.every((d) =>
+    d.requirement === 'compulsory'
+      ? uploads[d.label]?.status === 'done'
+      : d.requirement === 'declaration'
+        ? uploads[d.label]?.status === 'done' || !!declared[d.label]
+        : true)
+  const optionalFailed = docs.some((d) => !d.is_compulsory && uploads[d.label]?.status === 'error')
 
   const handleSubmit = async () => {
     setError(null)
     setSubmitting(true)
     try {
-      const res = await post('/api/v1/applications', { advt_no: advt.advt_no, declaration_accepted: true, additional_fields: formData || {} })
+      const documents = docs
+        .filter((d) => uploads[d.label]?.status === 'done' && uploads[d.label]?.token)
+        .map((d) => ({ label: d.label, token: uploads[d.label].token }))
+      const res = await post('/api/v1/applications', {
+        advt_no: advt.advt_no,
+        declaration_accepted: true,
+        additional_fields: formData || {},
+        documents,
+        declarations: docs
+          .filter((d) => d.requirement === 'declaration' && declared[d.label] && uploads[d.label]?.status !== 'done')
+          .map((d) => ({ label: d.label })),
+      })
       const ref = res?.data?.application_ref_no
       if (!ref) throw new Error('Could not get application reference number.')
-
-      for (const { label, is_compulsory } of docs) {
-        const file = files[label]
-        if (!file) continue
-        if (file.size > docLimit.maxBytes) {
-          throw new Error(`${label}: file must be under ${docLimit.maxLabel}`)
-        }
-        const fd = new FormData()
-        fd.append('file', file)
-        fd.append('label', label)
-        fd.append('is_compulsory', String(is_compulsory))
-        const uploadRes = await fetch(`${BASE}/api/v1/applications/${ref}/documents`, {
-          method: 'POST', body: fd, credentials: 'include',
-        })
-        const uploadData = await uploadRes.json()
-        if (!uploadData.isOk) toast.warn(`${label}: ${uploadData.message || 'Upload failed'}`)
-      }
-
       toast.success('Application submitted successfully.')
       onSuccess(ref)
     } catch (err) {
@@ -93,33 +124,54 @@ function DocumentUploadPanel({ advt, formData, onSuccess, onBack }) {
       </div>
       <div className="box-body">
         <div className="notice info" style={{ fontSize: 13, marginBottom: 16 }}>
-          Select the required documents below. They will be uploaded when you submit your application.
+          Select the required documents below. Each one uploads as soon as you select it — wait for the ✓ before submitting.
           Accepted: PDF, JPG, PNG — max {docLimit.maxLabel} each.
+          <div className="guj" style={{ marginTop: 4 }}>
+            દરેક દસ્તાવેજ પસંદ કરતાં જ અપલોડ થાય છે — સબમિટ કરતાં પહેલાં ✓ દેખાય તેની રાહ જુઓ. PDF, JPG, PNG — દરેક મહત્તમ {docLimit.maxLabel}.
+          </div>
         </div>
 
-        {docs.map(({ label, is_compulsory }) => (
-          <div key={label} style={{ marginBottom: 16, padding: '12px 14px', border: `1px solid ${files[label] ? '#c3e6cb' : is_compulsory ? '#f5c6cb' : 'var(--ojas-line)'}`, borderRadius: 4, background: files[label] ? '#f0fff4' : '#fff' }}>
+        {docs.map(({ label, is_compulsory, type, requirement, instruction }) => (
+          <div key={label} style={{ marginBottom: 16, padding: '12px 14px', border: `1px solid ${uploads[label]?.status === 'done' || declared[label] ? '#c3e6cb' : uploads[label]?.status === 'error' || is_compulsory ? '#f5c6cb' : 'var(--ojas-line)'}`, borderRadius: 4, background: uploads[label]?.status === 'done' || declared[label] ? '#f0fff4' : '#fff' }}>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 }}>
-              <span style={{ fontWeight: 600, fontSize: 13.5 }}>{label}</span>
-              <span style={{ fontSize: 11, fontWeight: 700, padding: '2px 8px', borderRadius: 3, background: is_compulsory ? '#f8d7da' : '#e2e8f0', color: is_compulsory ? '#721c24' : '#4a5568' }}>
-                {is_compulsory ? 'Compulsory' : 'Optional'}
+              <span style={{ fontWeight: 600, fontSize: 13.5 }}>
+                {label}
+                <span style={{ display: 'block', fontSize: 11, fontWeight: 400, color: 'var(--ojas-ink-3)' }}>{TYPE_HEADING[type]}</span>
+              </span>
+              <span style={{ fontSize: 11, fontWeight: 700, padding: '2px 8px', borderRadius: 3, background: requirement === 'compulsory' ? '#f8d7da' : requirement === 'declaration' ? '#fff3cd' : '#e2e8f0', color: requirement === 'compulsory' ? '#721c24' : requirement === 'declaration' ? '#856404' : '#4a5568' }}>
+                {REQUIREMENT_LABEL[requirement]}
               </span>
             </div>
-            <input type="file" accept=".pdf,.jpg,.jpeg,.png"
+            {instruction && <div style={{ fontSize: 12.5, color: 'var(--ojas-ink-2)', marginBottom: 8 }}>{instruction}</div>}
+            {requirement === 'declaration' && (
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 6, marginBottom: 8, fontSize: 13 }}>
+                <label style={{ display: 'flex', gap: 8, alignItems: 'center', cursor: 'pointer' }}>
+                  <input type="radio" name={`decl-${label}`} checked={!declared[label]} onChange={() => setDeclared((p) => ({ ...p, [label]: false }))} disabled={submitting} />
+                  I have this certificate — upload it below
+                </label>
+                <label style={{ display: 'flex', gap: 8, alignItems: 'center', cursor: 'pointer' }}>
+                  <input type="radio" name={`decl-${label}`} checked={!!declared[label]} onChange={() => setDeclared((p) => ({ ...p, [label]: true }))} disabled={submitting} />
+                  I do not have it yet — I declare I will obtain it within the time allowed (e.g. probation period)
+                </label>
+              </div>
+            )}
+            {!declared[label] && <input type="file" accept=".pdf,.jpg,.jpeg,.png"
+              disabled={submitting}
               onChange={(e) => {
                 const file = e.target.files[0] || undefined
-                if (file && file.size > docLimit.maxBytes) {
-                  toast.warn(`${label}: file must be under ${docLimit.maxLabel}`)
+                if (!file) return
+                if (file.size > docLimit.maxBytes) {
                   e.target.value = ''
-                  setFiles((p) => ({ ...p, [label]: undefined }))
+                  setUpload(label, { status: 'error', message: `File must be under ${docLimit.maxLabel} (yours is ${(file.size / (1024 * 1024)).toFixed(1)} MB).`, token: null, file: null, name: file.name })
                   return
                 }
-                setFiles((p) => ({ ...p, [label]: file }))
+                startUpload(label, file)
               }}
-              style={{ fontSize: 13, width: '100%' }} />
-            {files[label] && (
-              <div style={{ color: '#2a7a2a', fontSize: 12, marginTop: 4 }}>✓ {files[label].name}</div>
-            )}
+              style={{ fontSize: 13, width: '100%' }} />}
+            {!declared[label] && <UploadProgress
+              state={uploads[label]}
+              onRetry={uploads[label]?.file ? () => startUpload(label, uploads[label].file) : undefined}
+            />}
           </div>
         ))}
 
@@ -131,12 +183,20 @@ function DocumentUploadPanel({ advt, formData, onSuccess, onBack }) {
 
         <div className="form-actions" style={{ marginTop: 8 }}>
           <button className="btn" onClick={onBack} disabled={submitting}>← Back</button>
-          {!compulsoryReady && (
-            <span style={{ fontSize: 12, color: 'var(--ojas-red)', alignSelf: 'center' }}>
-              <IconWarn /> Select all compulsory documents to submit.
+          {anyUploading ? (
+            <span style={{ fontSize: 12, color: 'var(--ojas-ink-3)', alignSelf: 'center' }}>
+              Waiting for uploads to finish…
             </span>
-          )}
-          <button className="btn primary" disabled={!compulsoryReady || submitting} onClick={handleSubmit}>
+          ) : !compulsoryReady ? (
+            <span style={{ fontSize: 12, color: 'var(--ojas-red)', alignSelf: 'center' }}>
+              <IconWarn /> Upload all compulsory documents (or make the declaration) to submit.
+            </span>
+          ) : optionalFailed ? (
+            <span style={{ fontSize: 12, color: 'var(--ojas-red)', alignSelf: 'center' }}>
+              <IconWarn /> An optional document failed — try again, or submit without it.
+            </span>
+          ) : null}
+          <button className="btn primary" disabled={!compulsoryReady || anyUploading || submitting} onClick={handleSubmit}>
             {submitting ? 'Submitting…' : 'Submit Application ▶'}
           </button>
         </div>
@@ -252,6 +312,17 @@ function ApplicationFormPanel({ advt, onSuccess, onNext, onDeadline }) {
     gender
   )
 
+  // Age and education — checked by the server against the OTR profile.
+  const [ageEdu, setAgeEdu] = useState(null) // null = checking
+  useEffect(() => {
+    let active = true
+    get(`/api/v1/applications/eligibility/${advt._id}`)
+      .then((res) => { if (active) setAgeEdu(res?.data || { eligible: true, reasons: [], details: {} }) })
+      .catch((err) => { if (active) setAgeEdu({ eligible: false, reasons: [err.message || 'Could not check eligibility. Please refresh.'], details: {} }) })
+    return () => { active = false }
+  }, [advt._id])
+  const canApply = eligibility.eligible && ageEdu?.eligible === true
+
   useEffect(() => {
     if (!gender && user?.gender) {
       setGender(user.gender)
@@ -278,6 +349,7 @@ function ApplicationFormPanel({ advt, onSuccess, onNext, onDeadline }) {
   const handleNext = () => {
     if (!gender) { setError('Please select your gender.'); return }
     if (!eligibility.eligible) { setError(eligibility.reason); return }
+    if (!ageEdu?.eligible) { setError(ageEdu?.reasons?.join(' ') || 'Checking eligibility…'); return }
     if (!agreed) { setError('Accept the declaration to continue.'); return }
     setError(null)
     onNext({ gender })
@@ -286,6 +358,7 @@ function ApplicationFormPanel({ advt, onSuccess, onNext, onDeadline }) {
   const handleSubmitDirect = async () => {
     if (!gender) { setError('Please select your gender.'); return }
     if (!eligibility.eligible) { setError(eligibility.reason); return }
+    if (!ageEdu?.eligible) { setError(ageEdu?.reasons?.join(' ') || 'Checking eligibility…'); return }
     if (!agreed) { setError('Accept the declaration to continue.'); return }
     setError(null); setLoading(true)
     try {
@@ -311,6 +384,36 @@ function ApplicationFormPanel({ advt, onSuccess, onNext, onDeadline }) {
           </div>
         )}
 
+        {/* Age & education check against the OTR profile */}
+        {ageEdu === null ? (
+          <div className="notice info" style={{ fontSize: 13, marginBottom: 16 }}>Checking your eligibility…</div>
+        ) : !ageEdu.eligible ? (
+          <div style={{ color: '#721c24', background: '#f8d7da', border: '1px solid #f5c6cb', borderRadius: 4, padding: '12px 16px', marginBottom: 16, fontSize: 13.5 }}>
+            <strong><IconWarn /> You are not eligible for this post / આપ આ જગ્યા માટે પાત્ર નથી</strong>
+            <ul style={{ margin: '6px 0 0', paddingLeft: 20, lineHeight: 1.7 }}>
+              {ageEdu.reasons.map((r, i) => <li key={i}>{r}</li>)}
+            </ul>
+            <div style={{ marginTop: 6, fontSize: 12.5 }}>
+              If your OTR profile is wrong, correct it from <Link to="/profile" style={{ color: '#721c24', fontWeight: 700 }}>My Profile</Link>.
+            </div>
+          </div>
+        ) : (ageEdu.details?.age_on_cutoff != null || ageEdu.details?.required_education) ? (
+          <div style={{ color: '#155724', background: '#d4edda', border: '1px solid #c3e6cb', borderRadius: 4, padding: '10px 16px', marginBottom: 16, fontSize: 13.5 }}>
+            <strong><IconCheck /> You meet the age and education requirements</strong>
+            <ul style={{ margin: '6px 0 0', paddingLeft: 20, lineHeight: 1.7, fontSize: 13 }}>
+              {ageEdu.details.age_on_cutoff != null && (
+                <li>
+                  Your age on the last date: {ageEdu.details.age_on_cutoff} years
+                  {ageEdu.details.max_age_allowed != null && ` (allowed ${ageEdu.details.min_age ?? '—'}–${ageEdu.details.max_age_allowed}${ageEdu.details.relaxation_years ? `, incl. ${ageEdu.details.relaxation_years} years relaxation` : ''})`}
+                </li>
+              )}
+              {ageEdu.details.required_education && (
+                <li>Your highest qualification ({ageEdu.details.education}) meets the minimum: {ageEdu.details.required_education}</li>
+              )}
+            </ul>
+          </div>
+        ) : null}
+
         <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 13.5, marginBottom: 16 }}>
           <tbody>
             {[
@@ -322,6 +425,9 @@ function ApplicationFormPanel({ advt, onSuccess, onNext, onDeadline }) {
               ['Pay Scale', advt.pay_scale],
               ['Application Fee', describeFee(advt)],
               ['Last Date to Apply', fmtDate(advt.end_date)],
+              ['Age Limit', describeAgeLimit(advt)],
+              describeRelaxation(advt).length ? ['Age Relaxation', describeRelaxation(advt).join(' ')] : null,
+              ['Minimum Education', advt.min_education?.name ? `${advt.min_education.name} or higher` : null],
             ].filter(Boolean).map(([label, value]) => value != null ? (
               <tr key={label}>
                 <td style={{ width: '38%', color: 'var(--ojas-ink-3)', padding: '6px 12px', borderBottom: '1px solid var(--ojas-line)', fontWeight: 500, fontSize: 13 }}>{label}</td>
@@ -356,8 +462,8 @@ function ApplicationFormPanel({ advt, onSuccess, onNext, onDeadline }) {
               {(advt.required_qualifications || []).map((rq, i) => (
                 <li key={i}>
                   {rq.qualification?.name || rq.qualification}
-                  <span style={{ marginLeft: 6, fontSize: 11, fontWeight: rq.is_compulsory ? 700 : 400, color: rq.is_compulsory ? '#721c24' : '#856404' }}>
-                    ({rq.is_compulsory ? 'Compulsory' : 'Optional'})
+                  <span style={{ marginLeft: 6, fontSize: 11, fontWeight: requirementOf(rq) === 'compulsory' ? 700 : 400, color: requirementOf(rq) === 'compulsory' ? '#721c24' : '#856404' }}>
+                    ({REQUIREMENT_LABEL[requirementOf(rq)]})
                   </span>
                 </li>
               ))}
@@ -395,11 +501,11 @@ function ApplicationFormPanel({ advt, onSuccess, onNext, onDeadline }) {
         <div className="form-actions">
           <Link to="/careers" className="btn">← Cancel</Link>
           {hasDocs ? (
-            <button className="btn primary" disabled={!agreed || !eligibility.eligible} onClick={handleNext}>
+            <button className="btn primary" disabled={!agreed || !canApply} onClick={handleNext}>
               Next: Upload Documents →
             </button>
           ) : (
-            <button className="btn primary" disabled={loading || !agreed || !eligibility.eligible} onClick={handleSubmitDirect}>
+            <button className="btn primary" disabled={loading || !agreed || !canApply} onClick={handleSubmitDirect}>
               {loading ? 'Submitting…' : 'Submit Application ▶'}
             </button>
           )}

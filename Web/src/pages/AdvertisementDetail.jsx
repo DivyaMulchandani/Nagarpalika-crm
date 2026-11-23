@@ -3,6 +3,7 @@ import { useParams, useNavigate, Link } from 'react-router-dom'
 import { get } from '../api/index'
 import { IconPdf, IconWarn } from '../components/Icons'
 import { describeFee } from '../utils/fee'
+import { describeAgeLimit, describeRelaxation, requirementOf, REQUIREMENT_LABEL, TYPE_HEADING } from '../utils/eligibility'
 
 const fmtDate = (d) =>
   d ? new Date(d).toLocaleDateString('en-IN', { day: '2-digit', month: '2-digit', year: 'numeric' }) : '—'
@@ -141,11 +142,11 @@ export default function AdvertisementDetail() {
               <InfoRow label="Class" value={`Class ${advt.class}`} />
               <InfoRow label="Pay Scale" value={advt.pay_scale} />
               <InfoRow label="Total Vacancies" value={vacCount(advt.vacancies)} />
-              <InfoRow label="Age Limit" value={
-                advt.age_limit?.min || advt.age_limit?.max
-                  ? `${advt.age_limit.min ?? '—'} – ${advt.age_limit.max ?? '—'} years`
-                  : null
+              <InfoRow label="Age Limit" value={describeAgeLimit(advt)} />
+              <InfoRow label="Age Relaxation" value={
+                advt.age_limit?.max ? (describeRelaxation(advt).length ? 'Yes — see Eligibility below' : 'None') : null
               } />
+              <InfoRow label="Minimum Education" value={advt.min_education?.name ? `${advt.min_education.name} or higher` : null} />
               <InfoRow label="Application Fee" value={
                 describeFee(advt)
               } />
@@ -235,7 +236,7 @@ export default function AdvertisementDetail() {
       )}
 
       {/* ── Qualifications & Conditions ── */}
-      {(advt.qualification || advt.required_qualifications?.length > 0 || advt.caste_certificate?.required || advt.experience_required || advt.ph_description || advt.other_conditions || advt.note) && (
+      {(advt.qualification || advt.min_education || describeRelaxation(advt).length > 0 || advt.required_qualifications?.length > 0 || advt.caste_certificate?.required || advt.experience_required || advt.ph_description || advt.other_conditions || advt.note) && (
         <div className="box" style={{ marginTop: 16 }}>
           <div className="box-title">
             <span>Eligibility &amp; Conditions</span>
@@ -243,27 +244,61 @@ export default function AdvertisementDetail() {
           </div>
           <div style={{ padding: '12px 16px', display: 'flex', flexDirection: 'column', gap: 14 }}>
 
-            {advt.qualification && (
+            {(advt.age_limit?.min || advt.age_limit?.max) && (
               <div>
-                <div style={{ fontWeight: 700, fontSize: 13, color: 'var(--ojas-navy)', marginBottom: 4 }}>Educational Qualification</div>
-                <p style={{ margin: 0, fontSize: 13.5, lineHeight: 1.7, whiteSpace: 'pre-wrap' }}>{advt.qualification}</p>
+                <div style={{ fontWeight: 700, fontSize: 13, color: 'var(--ojas-navy)', marginBottom: 4 }}>Age Limit / વયમર્યાદા</div>
+                <p style={{ margin: 0, fontSize: 13.5 }}>{describeAgeLimit(advt)}</p>
+                {describeRelaxation(advt).length > 0 ? (
+                  <>
+                    <div style={{ fontWeight: 600, fontSize: 13, marginTop: 8 }}>Age relaxation (upper age) / ઉપલી વયમર્યાદામાં છૂટછાટ</div>
+                    <ul style={{ margin: '4px 0 0', paddingLeft: 20, fontSize: 13.5, lineHeight: 1.8 }}>
+                      {describeRelaxation(advt).map((line, i) => <li key={i}>{line}</li>)}
+                    </ul>
+                  </>
+                ) : advt.age_limit?.max ? (
+                  <p style={{ margin: '4px 0 0', fontSize: 12.5, color: 'var(--ojas-ink-3)' }}>No age relaxation for this post.</p>
+                ) : null}
+              </div>
+            )}
+
+            {(advt.min_education || advt.qualification) && (
+              <div>
+                <div style={{ fontWeight: 700, fontSize: 13, color: 'var(--ojas-navy)', marginBottom: 4 }}>Educational Qualification / શૈક્ષણિક લાયકાત</div>
+                {advt.min_education?.name && (
+                  <p style={{ margin: '0 0 4px', fontSize: 13.5 }}>
+                    Minimum: <strong>{advt.min_education.name}</strong> or higher. Candidates whose highest qualification is lower cannot apply.
+                  </p>
+                )}
+                {advt.qualification && <p style={{ margin: 0, fontSize: 13.5, lineHeight: 1.7, whiteSpace: 'pre-wrap' }}>{advt.qualification}</p>}
               </div>
             )}
 
             {advt.required_qualifications?.length > 0 && (
               <div>
-                <div style={{ fontWeight: 700, fontSize: 13, color: 'var(--ojas-navy)', marginBottom: 6 }}>Required Qualifications</div>
-                <ul style={{ margin: 0, paddingLeft: 20, fontSize: 13.5, lineHeight: 1.9 }}>
-                  {advt.required_qualifications.map((rq, i) => (
-                    <li key={i}>
-                      {rq.qualification?.name || rq.qualification}
-                      {rq.is_compulsory
-                        ? <span style={{ marginLeft: 8, fontSize: 11, fontWeight: 700, color: '#c0392b', background: '#fde8e8', padding: '1px 7px', borderRadius: 3 }}>Compulsory</span>
-                        : <span style={{ marginLeft: 8, fontSize: 11, color: '#6c757d', background: '#f0f0f0', padding: '1px 7px', borderRadius: 3 }}>Optional</span>
-                      }
-                    </li>
-                  ))}
-                </ul>
+                <div style={{ fontWeight: 700, fontSize: 13, color: 'var(--ojas-navy)', marginBottom: 6 }}>Documents to Upload While Applying</div>
+                {['education', 'certificate', 'document'].map((type) => {
+                  const items = advt.required_qualifications.filter((rq) => (rq.qualification?.type || 'education') === type)
+                  if (!items.length) return null
+                  return (
+                    <div key={type} style={{ marginBottom: 6 }}>
+                      <div style={{ fontSize: 12.5, fontWeight: 600, color: 'var(--ojas-ink-2)' }}>{TYPE_HEADING[type]}</div>
+                      <ul style={{ margin: 0, paddingLeft: 20, fontSize: 13.5, lineHeight: 1.9 }}>
+                        {items.map((rq, i) => {
+                          const req = requirementOf(rq)
+                          return (
+                            <li key={i}>
+                              {rq.qualification?.name || rq.qualification}
+                              <span style={{ marginLeft: 8, fontSize: 11, fontWeight: req === 'compulsory' ? 700 : 400, color: req === 'compulsory' ? '#c0392b' : req === 'declaration' ? '#856404' : '#6c757d', background: req === 'compulsory' ? '#fde8e8' : req === 'declaration' ? '#fff3cd' : '#f0f0f0', padding: '1px 7px', borderRadius: 3 }}>
+                                {REQUIREMENT_LABEL[req]}
+                              </span>
+                              {rq.instruction && <div style={{ fontSize: 12.5, color: 'var(--ojas-ink-3)', lineHeight: 1.5 }}>{rq.instruction}</div>}
+                            </li>
+                          )
+                        })}
+                      </ul>
+                    </div>
+                  )
+                })}
               </div>
             )}
 

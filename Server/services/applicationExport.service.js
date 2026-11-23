@@ -91,6 +91,12 @@ const SUMMARY_HEADER = [
   "Documents Attached",
   "Documents Missing",
   "Missing Documents",
+  "Highest Qualification",
+  "Required Education",
+  "Age on Last Date",
+  "Max Age Allowed",
+  "Age Relaxation (yrs)",
+  "Will Obtain (declared)",
 ];
 
 /**
@@ -123,6 +129,12 @@ const buildSummaryCsv = (results) => {
       attached,
       missing.length,
       missing.join("; "),
+      app.eligibility?.education || item.candidate?.qualification || "",
+      app.eligibility?.required_education || "",
+      app.eligibility?.age_on_cutoff ?? "",
+      app.eligibility?.max_age_allowed ?? "",
+      app.eligibility?.relaxation_years ?? "",
+      (app.declarations || []).map((d) => d.label).join("; "),
     ];
   });
   const csv = [SUMMARY_HEADER, ...rows]

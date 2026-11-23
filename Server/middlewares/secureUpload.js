@@ -102,6 +102,13 @@ export const FILE_SIZE_LIMITS = {
 
 // ============ HELPER FUNCTIONS ============
 
+const fieldLabel = (name) => (name ? name.charAt(0).toUpperCase() + name.slice(1) : 'Image');
+
+const formatLimit = (bytes) =>
+    bytes >= 1024 * 1024
+        ? `${+(bytes / (1024 * 1024)).toFixed(1)} MB`
+        : `${Math.round(bytes / 1024)} KB`;
+
 /**
  * Ensure upload directory exists with proper permissions
  * @param {string} directory - Directory path
@@ -254,6 +261,42 @@ async function compressToTargetSize(buffer, targetSize, minQuality = 20) {
     return compressed;
 }
 
+/**
+ * Check a candidate photo/signature against fixed rules without changing it.
+ * Returns null when it passes, or a message telling the candidate what to fix.
+ */
+export async function checkImageRules(buffer, rules, label) {
+    const kb = (b) => `${Math.round(b / 1024)} KB`;
+    if (buffer.length < rules.minBytes || buffer.length > rules.maxBytes) {
+        return `${label} file size must be between ${kb(rules.minBytes)} and ${kb(rules.maxBytes)} (yours is ${kb(buffer.length)}). Please resize it and upload again.`;
+    }
+    if (!sharpAvailable || !sharp) {
+        console.warn('[UPLOAD] Dimension check skipped - sharp not available');
+        return null;
+    }
+    let meta;
+    try {
+        meta = await sharp(buffer).metadata();
+    } catch {
+        return `${label} could not be read. Please upload a valid JPG or PNG image.`;
+    }
+    // A phone photo can be stored sideways with an EXIF rotation flag; judge it
+    // the way it is displayed.
+    const turned = (meta.orientation || 1) >= 5;
+    const width = turned ? meta.height : meta.width;
+    const height = turned ? meta.width : meta.height;
+    const ratio = width / height;
+    if (
+        width < rules.minWidth || width > rules.maxWidth ||
+        height < rules.minHeight || height > rules.maxHeight ||
+        ratio < rules.minRatio || ratio > rules.maxRatio
+    ) {
+        return `${label} must be ${rules.minWidth}–${rules.maxWidth} px wide and ${rules.minHeight}–${rules.maxHeight} px high` +
+            ` (width ÷ height between ${rules.minRatio} and ${rules.maxRatio}). Yours is ${width} × ${height} px. Please resize it and upload again.`;
+    }
+    return null;
+}
+
 // ============ MULTER STORAGE CONFIGURATION ============
 
 /**
@@ -336,6 +379,7 @@ export function createSecureImageUpload(options = {}) {
         convertToWebP = true,
         targetSize = null, // Target file size in bytes
         quality = 85,
+        rules = null, // { minBytes, maxBytes, minWidth, maxWidth, minHeight, maxHeight, minRatio, maxRatio }
     } = options;
 
     const upload = multer({
@@ -354,7 +398,7 @@ export function createSecureImageUpload(options = {}) {
                         isOk: false,
                         status: 400,
                         error: 'File Too Large',
-                        message: `File size exceeds ${maxSize / (1024 * 1024)}MB limit`,
+                        message: `File size exceeds ${formatLimit(maxSize)} limit${rules ? '. Please resize it and upload again.' : ''}`,
                     });
                 }
                 return res.status(400).json({
@@ -389,9 +433,31 @@ export function createSecureImageUpload(options = {}) {
                 // 2. Process image (compress and/or convert)
                 let processedBuffer = req.file.buffer;
                 let finalExt = path.extname(req.file.originalname).toLowerCase();
+                let finalMime = 'image/webp';
                 let compressionApplied = false;
 
-                if ((compress || convertToWebP) && sharpAvailable) {
+                if (rules) {
+                    // Candidate photo/signature: checked, then stored exactly as uploaded.
+                    if (!['image/jpeg', 'image/png'].includes(validation.detected)) {
+                        return res.status(400).json({
+                            isOk: false,
+                            status: 400,
+                            error: 'Image Requirements Not Met',
+                            message: `${fieldLabel(fieldName)} must be a JPG or PNG image.`,
+                        });
+                    }
+                    const problem = await checkImageRules(req.file.buffer, rules, fieldLabel(fieldName));
+                    if (problem) {
+                        return res.status(400).json({
+                            isOk: false,
+                            status: 400,
+                            error: 'Image Requirements Not Met',
+                            message: problem,
+                        });
+                    }
+                    finalMime = validation.detected;
+                    finalExt = validation.detected === 'image/png' ? '.png' : '.jpg';
+                } else if ((compress || convertToWebP) && sharpAvailable) {
                     if (targetSize) {
                         // Compress to target size
                         processedBuffer = await compressToTargetSize(
@@ -415,7 +481,7 @@ export function createSecureImageUpload(options = {}) {
                   module,
                   buffer: processedBuffer,
                   filename: secureFilename,
-                  contentType: "image/webp",
+                  contentType: finalMime,
                 });
 
                 // 4. Update req.file with processed file info
@@ -423,7 +489,7 @@ export function createSecureImageUpload(options = {}) {
                 req.file.path = stored.key;
                 req.file.storageKey = stored.key;
                 req.file.size = processedBuffer.length;
-                req.file.mimetype = 'image/webp';
+                req.file.mimetype = finalMime;
                 req.file.originalSize = req.file.buffer.length;
                 req.file.compressionRatio = (
                     ((req.file.buffer.length - processedBuffer.length) / req.file.buffer.length) * 100
@@ -476,7 +542,7 @@ export function createSecureDocumentUpload(options = {}) {
                         isOk: false,
                         status: 400,
                         error: 'File Too Large',
-                        message: `File size exceeds ${maxSize / (1024 * 1024)}MB limit`,
+                        message: `File size exceeds ${formatLimit(maxSize)} limit`,
                     });
                 }
                 return res.status(400).json({
@@ -555,7 +621,7 @@ export function createSecureUpload(options = {}) {
                         isOk: false,
                         status: 400,
                         error: 'File Too Large',
-                        message: `File size exceeds ${maxSize / (1024 * 1024)}MB limit`,
+                        message: `File size exceeds ${formatLimit(maxSize)} limit`,
                     });
                 }
                 return res.status(400).json({
@@ -636,7 +702,7 @@ export function createSecureMultiUpload(options = {}) {
                         isOk: false,
                         status: 400,
                         error: 'File Too Large',
-                        message: `File size exceeds ${maxSize / (1024 * 1024)}MB limit`,
+                        message: `File size exceeds ${formatLimit(maxSize)} limit`,
                     });
                 }
                 return res.status(400).json({

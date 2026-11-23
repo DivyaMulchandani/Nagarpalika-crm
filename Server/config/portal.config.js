@@ -14,18 +14,34 @@ export const formatFileSize = (bytes) => {
   return `${Math.round(bytes / 1024)} KB`;
 };
 
-const imageDefault = 5 * 1024 * 1024;
-const documentDefault = 10 * 1024 * 1024;
+// Candidate photo and signature must already be the right size when uploaded:
+// the portal never resizes or crops them (the candidate prepares the file, so
+// nothing they framed is cut off). Anything outside these rules is refused with
+// a message saying what to fix. Keep in step with Web/src/utils/candidateImage.js.
+// ratio = width / height.
+export const candidateImageSpecs = {
+  photo: {
+    minBytes: 10 * 1024,
+    maxBytes: parsePositiveInt(process.env.MAX_PHOTO_SIZE, 250 * 1024),
+    minWidth: 200, maxWidth: 600,
+    minHeight: 250, maxHeight: 800,
+    minRatio: 0.65, maxRatio: 0.9,      // portrait, passport 3.5 x 4.5 cm = 0.78
+  },
+  signature: {
+    minBytes: 5 * 1024,
+    maxBytes: parsePositiveInt(process.env.MAX_SIGNATURE_SIZE, 150 * 1024),
+    minWidth: 200, maxWidth: 800,
+    minHeight: 60, maxHeight: 300,
+    minRatio: 2, maxRatio: 5,           // landscape, about 3 : 1
+  },
+};
+
+// A scanned certificate (caste / UDID / application document) fits in 2 MB.
+const documentDefault = 2 * 1024 * 1024;
 
 export const uploadLimits = {
-  photoMaxBytes: parsePositiveInt(
-    process.env.MAX_PHOTO_SIZE || process.env.MAX_IMAGE_SIZE,
-    imageDefault,
-  ),
-  signatureMaxBytes: parsePositiveInt(
-    process.env.MAX_SIGNATURE_SIZE || process.env.MAX_IMAGE_SIZE,
-    imageDefault,
-  ),
+  photoMaxBytes: candidateImageSpecs.photo.maxBytes,
+  signatureMaxBytes: candidateImageSpecs.signature.maxBytes,
   documentMaxBytes: parsePositiveInt(
     process.env.MAX_DOCUMENT_SIZE,
     documentDefault,
@@ -69,6 +85,7 @@ export const getPortalConfigPayload = () => ({
     documentMaxBytes: uploadLimits.documentMaxBytes,
     documentMaxLabel: formatFileSize(uploadLimits.documentMaxBytes),
   },
+  imageSpecs: candidateImageSpecs,
   otp: {
     maxVerifyAttempts: otpSettings.maxVerifyAttempts,
     primaryChannel: otpSettings.primaryChannel,
