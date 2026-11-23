@@ -14,25 +14,16 @@ export const formatFileSize = (bytes) => {
   return `${Math.round(bytes / 1024)} KB`;
 };
 
-// Candidate photo and signature must already be the right size when uploaded:
-// the portal never resizes or crops them (the candidate prepares the file, so
-// nothing they framed is cut off). Anything outside these rules is refused with
-// a message saying what to fix. Keep in step with Web/src/utils/candidateImage.js.
-// ratio = width / height.
+// Candidate photo and signature: JPG/PNG within these file sizes. The portal
+// never resizes or crops them. Keep in step with Web/src/utils/candidateImage.js.
 export const candidateImageSpecs = {
   photo: {
     minBytes: 10 * 1024,
     maxBytes: parsePositiveInt(process.env.MAX_PHOTO_SIZE, 250 * 1024),
-    minWidth: 200, maxWidth: 600,
-    minHeight: 250, maxHeight: 800,
-    minRatio: 0.65, maxRatio: 0.9,      // portrait, passport 3.5 x 4.5 cm = 0.78
   },
   signature: {
     minBytes: 5 * 1024,
     maxBytes: parsePositiveInt(process.env.MAX_SIGNATURE_SIZE, 150 * 1024),
-    minWidth: 200, maxWidth: 800,
-    minHeight: 60, maxHeight: 300,
-    minRatio: 2, maxRatio: 5,           // landscape, about 3 : 1
   },
 };
 

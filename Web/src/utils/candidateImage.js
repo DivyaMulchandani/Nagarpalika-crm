@@ -1,34 +1,27 @@
-// Rules for the candidate photo and signature. The portal never resizes or
-// crops these images: the candidate prepares the file to these rules, and a
-// file outside them is refused with a message saying what to fix. The server
-// checks the same rules (Server/config/portal.config.js — keep in step).
-// ratio = width / height.
+// Rules for the candidate photo and signature: file type and file size only.
+// The portal never resizes or crops these images. The server checks the same
+// rules (Server/config/portal.config.js — keep in step).
 export const PHOTO_SPEC = {
   minBytes: 10 * 1024, maxBytes: 250 * 1024,
-  minWidth: 200, maxWidth: 600,
-  minHeight: 250, maxHeight: 800,
-  minRatio: 0.65, maxRatio: 0.9,
   boxWidth: 105, boxHeight: 135,           // on-screen frame (passport shape)
-  hint: "Passport-size, portrait (e.g. 350 × 450 px) · 10–250 KB · JPG/PNG · white background · face clearly visible",
+  hint: "JPG/PNG · 10–250 KB · recent passport-size colour photo · white background · face clearly visible",
   example: "350 × 450 px",
-  shapeEn: "Portrait (passport size)", shapeGu: "ઊભો (પાસપોર્ટ સાઇઝ)",
+  shapeEn: "Passport size (portrait)", shapeGu: "પાસપોર્ટ સાઇઝ (ઊભો)",
   noteEn: "Recent colour photo, white background, face clearly visible",
   noteGu: "તાજેતરનો રંગીન ફોટો, સફેદ પૃષ્ઠભૂમિ, ચહેરો સ્પષ્ટ દેખાવો જોઈએ",
 };
 export const SIGNATURE_SPEC = {
   minBytes: 5 * 1024, maxBytes: 150 * 1024,
-  minWidth: 200, maxWidth: 800,
-  minHeight: 60, maxHeight: 300,
-  minRatio: 2, maxRatio: 5,
   boxWidth: 180, boxHeight: 60,
-  hint: "Landscape, about 3 : 1 (e.g. 450 × 150 px) · 5–150 KB · JPG/PNG · black/blue ink on white paper",
+  hint: "JPG/PNG · 5–150 KB · black/blue ink on white paper",
   example: "450 × 150 px",
-  shapeEn: "Landscape, about 3 : 1", shapeGu: "આડી, આશરે 3 : 1",
+  shapeEn: "Landscape (wider than tall)", shapeGu: "આડી",
   noteEn: "Black/blue ink on white paper, cropped close to the signature",
   noteGu: "સફેદ કાગળ પર કાળી/વાદળી શાહીથી સહી, સહીની નજીકથી કાપેલી",
 };
 
-const ACCEPTED = ["image/jpeg", "image/jpg", "image/png"];
+const ACCEPTED = ["image/jpeg", "image/jpg", "image/pjpeg", "image/png"];
+const ACCEPTED_EXT = /\.(jpe?g|jfif|png)$/i;
 const kb = (b) => `${Math.round(b / 1024)} KB`;
 
 // Previews use a data: URL, not blob: — the live site's Content-Security-Policy
@@ -41,46 +34,24 @@ export const fileToDataUrl = (file) =>
     reader.readAsDataURL(file);
   });
 
-const readSize = (url) =>
-  new Promise((resolve, reject) => {
-    const img = new Image();
-    // naturalWidth/Height already follow the phone's EXIF rotation.
-    img.onload = () => resolve({ width: img.naturalWidth, height: img.naturalHeight });
-    img.onerror = () => reject(new Error("bad image"));
-    img.src = url;
-  });
-
 /**
- * Check a picked photo/signature against the rules without changing it.
+ * Check a picked photo/signature (type and size only) without changing it.
  * Returns { previewUrl } of the original file, or throws an Error whose message
  * tells the candidate exactly what to fix.
  */
 export async function checkCandidateImage(file, spec, label = "Image") {
   if (!file) throw new Error("Please select a file.");
-  if (!ACCEPTED.includes(file.type)) throw new Error(`${label} must be a JPG or PNG image.`);
+  // Some systems leave the type blank; fall back to the file name.
+  const typeOk = ACCEPTED.includes(file.type) || (!file.type && ACCEPTED_EXT.test(file.name || ""));
+  if (!typeOk) throw new Error(`${label} must be a JPG or PNG image.`);
   if (file.size < spec.minBytes || file.size > spec.maxBytes)
-    throw new Error(`${label} file size must be between ${kb(spec.minBytes)} and ${kb(spec.maxBytes)} — yours is ${kb(file.size)}. Please resize it and upload again.`);
+    throw new Error(`${label} file size must be between ${kb(spec.minBytes)} and ${kb(spec.maxBytes)} — yours is ${kb(file.size)}. Please reduce the size and upload again.`);
 
-  let previewUrl;
-  let size;
+  let previewUrl = null;
   try {
     previewUrl = await fileToDataUrl(file);
-    size = await readSize(previewUrl);
   } catch {
-    throw new Error(`This ${label.toLowerCase()} could not be read. Please choose a valid JPG or PNG.`);
-  }
-  const { width, height } = size;
-  const ratio = width / height;
-  if (
-    width < spec.minWidth || width > spec.maxWidth ||
-    height < spec.minHeight || height > spec.maxHeight ||
-    ratio < spec.minRatio || ratio > spec.maxRatio
-  ) {
-    throw new Error(
-      `${label} must be ${spec.minWidth}–${spec.maxWidth} px wide and ${spec.minHeight}–${spec.maxHeight} px high ` +
-      `(${spec === PHOTO_SPEC ? "portrait, passport shape" : "landscape, about 3 : 1"}). ` +
-      `Yours is ${width} × ${height} px. Please resize it and upload again.`,
-    );
+    throw new Error(`This ${label.toLowerCase()} could not be opened. Please choose the file again.`);
   }
   return { previewUrl };
 }

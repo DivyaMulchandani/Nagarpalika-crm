@@ -390,29 +390,29 @@ export default function RegistrationStep() {
                 </li>
                 <li style={{ marginBottom: 6 }}>
                   <span style={{ fontFamily: "var(--font-guj)", fontSize: 14 }}>
-                    ફોટો: JPG/PNG, {kbRange(PHOTO_SPEC)}, {PHOTO_SPEC.minWidth}–{PHOTO_SPEC.maxWidth} px પહોળો × {PHOTO_SPEC.minHeight}–{PHOTO_SPEC.maxHeight} px ઊંચો (ઊભો, પાસપોર્ટ સાઇઝ), સફેદ પૃષ્ઠભૂમિ, સ્પષ્ટ ચહેરો.
+                    ફોટો: JPG/PNG, {kbRange(PHOTO_SPEC)}, પાસપોર્ટ સાઇઝ, સફેદ પૃષ્ઠભૂમિ, સ્પષ્ટ ચહેરો.
                   </span>
                   <br />
                   <span style={{ fontSize: 12 }}>
-                    (Photo: JPG/PNG, {kbRange(PHOTO_SPEC)}, {PHOTO_SPEC.minWidth}–{PHOTO_SPEC.maxWidth} px wide × {PHOTO_SPEC.minHeight}–{PHOTO_SPEC.maxHeight} px high, portrait passport size e.g. {PHOTO_SPEC.example}, white background, clear face.)
+                    (Photo: JPG/PNG, {kbRange(PHOTO_SPEC)}, passport size, white background, clear face.)
                   </span>
                 </li>
                 <li style={{ marginBottom: 6 }}>
                   <span style={{ fontFamily: "var(--font-guj)", fontSize: 14 }}>
-                    સહી: JPG/PNG, {kbRange(SIGNATURE_SPEC)}, {SIGNATURE_SPEC.minWidth}–{SIGNATURE_SPEC.maxWidth} px પહોળી × {SIGNATURE_SPEC.minHeight}–{SIGNATURE_SPEC.maxHeight} px ઊંચી (આડી, આશરે 3 : 1), સફેદ કાગળ પર કાળી/વાદળી શાહી.
+                    સહી: JPG/PNG, {kbRange(SIGNATURE_SPEC)}, સફેદ કાગળ પર કાળી/વાદળી શાહી.
                   </span>
                   <br />
                   <span style={{ fontSize: 12 }}>
-                    (Signature: JPG/PNG, {kbRange(SIGNATURE_SPEC)}, {SIGNATURE_SPEC.minWidth}–{SIGNATURE_SPEC.maxWidth} px wide × {SIGNATURE_SPEC.minHeight}–{SIGNATURE_SPEC.maxHeight} px high, landscape about 3 : 1 e.g. {SIGNATURE_SPEC.example}, black/blue ink on white paper.)
+                    (Signature: JPG/PNG, {kbRange(SIGNATURE_SPEC)}, black/blue ink on white paper.)
                   </span>
                 </li>
                 <li style={{ marginBottom: 6 }}>
                   <span style={{ fontFamily: "var(--font-guj)", fontSize: 14 }}>
-                    ફોટો અને સહી જેમ અપલોડ કરશો તેમ જ વપરાશે — અપલોડ કરતાં પહેલાં જાતે સાઇઝ ગોઠવી રાખો.
+                    ફોટો અને સહી જેમ અપલોડ કરશો તેમ જ વપરાશે — ફાઇલ સાઇઝ મર્યાદામાં હોય તે રીતે તૈયાર રાખો.
                   </span>
                   <br />
                   <span style={{ fontSize: 12 }}>
-                    (Photo and signature are used exactly as uploaded — resize them yourself and keep them ready before you start.)
+                    (Photo and signature are used exactly as uploaded — keep them ready within the file-size limits before you start.)
                   </span>
                 </li>
                 <li style={{ marginBottom: 6 }}>

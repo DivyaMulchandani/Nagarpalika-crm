@@ -268,8 +268,10 @@ async function compressToTargetSize(buffer, targetSize, minQuality = 20) {
 export async function checkImageRules(buffer, rules, label) {
     const kb = (b) => `${Math.round(b / 1024)} KB`;
     if (buffer.length < rules.minBytes || buffer.length > rules.maxBytes) {
-        return `${label} file size must be between ${kb(rules.minBytes)} and ${kb(rules.maxBytes)} (yours is ${kb(buffer.length)}). Please resize it and upload again.`;
+        return `${label} file size must be between ${kb(rules.minBytes)} and ${kb(rules.maxBytes)} (yours is ${kb(buffer.length)}). Please reduce the size and upload again.`;
     }
+    // Only file size is enforced unless the rules also set pixel limits.
+    if (rules.minWidth === undefined && rules.maxWidth === undefined) return null;
     if (!sharpAvailable || !sharp) {
         console.warn('[UPLOAD] Dimension check skipped - sharp not available');
         return null;
